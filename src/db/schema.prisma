@@ -1,0 +1,22 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./data.db"
+}
+
+model instrument {
+  id            String @id
+  exchange      String
+  token         String
+  lotSize       Float
+  symbol        String
+  tradingSymbol String
+  expiry        String
+  instrument    String
+  optionType    String
+  strikePrice   Float
+  tickSize      String
+}

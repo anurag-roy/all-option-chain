@@ -70,7 +70,24 @@
   * {
     @apply border-border;
   }
-  body {
-    @apply bg-background text-foreground;
+  html {
+    overflow: hidden;
+    height: 100%;
   }
+  body {
+    height: 100%;
+    @apply bg-background text-foreground;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+  div#__next {
+    height: 100%;
+  }
+}
+
+.hide-arrows::-webkit-outer-spin-button,
+.hide-arrows::-webkit-inner-spin-button,
+.hide-arrows {
+  -webkit-appearance: none;
+  margin: 0;
+  -moz-appearance: textfield !important;
 }

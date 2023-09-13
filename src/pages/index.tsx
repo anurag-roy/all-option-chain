@@ -1,5 +1,5 @@
 import { ModeToggle } from '@/components/mode-toggle';
-import { Button } from '@/components/ui/button';
+import { SubscriptionForm } from '@/components/subscription-form';
 import { injectTokenIntoEnv } from '@/lib/api/utils';
 
 export async function getServerSideProps() {
@@ -22,8 +22,12 @@ export async function getServerSideProps() {
 export default function Home() {
   return (
     <>
-      <ModeToggle />
-      <Button>Hello</Button>
+      <header>
+        <ModeToggle />
+      </header>
+      <main>
+        <SubscriptionForm />
+      </main>
     </>
   );
 }

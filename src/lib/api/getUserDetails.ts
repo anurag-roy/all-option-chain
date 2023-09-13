@@ -1,4 +1,4 @@
-import { env } from 'process';
+import env from '@/env.json';
 
 export const getUserDetails = async () => {
   const res = await fetch(

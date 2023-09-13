@@ -1,7 +1,7 @@
 import env from '@/env.json';
 import { getHash, injectTokenIntoEnv } from '@/lib/api/utils';
+import { writeFileSync } from 'fs';
 import { NextApiHandler } from 'next';
-import { writeFileSync } from 'node:fs';
 
 const handler: NextApiHandler = async (req, res) => {
   const { totp } = req.query;

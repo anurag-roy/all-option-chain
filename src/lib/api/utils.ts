@@ -17,7 +17,7 @@ export const injectTokenIntoEnv = async (token?: string) => {
         await getUserDetails();
       } catch (error) {
         console.log('Token expired');
-        process.env.token = undefined;
+        delete process.env.token;
       }
     } catch (error) {
       console.log('Token file not found. Skipping token setting...');

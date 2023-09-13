@@ -49,7 +49,7 @@ export function TotpForm({ className, ...props }: TotpFormProps) {
     ky('/api/login?totp=' + finalOtp)
       .json()
       .then((_res) => {
-        router.push('/');
+        router.push('/', { pathname: '/' });
       })
       .catch((err) => {
         console.error('Error while logging in', err);

@@ -15,7 +15,9 @@ export async function getServerSideProps() {
   }
 
   return {
-    props: {},
+    props: {
+      token: process.env.token,
+    },
   };
 }
 

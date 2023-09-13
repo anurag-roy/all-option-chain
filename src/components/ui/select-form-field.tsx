@@ -31,7 +31,7 @@ export function SelectFormField({ form, name, options }: SelectFormFieldProps) {
           <FormLabel>{startCase(field.name)}</FormLabel>
           <Select onValueChange={field.onChange} defaultValue={field.value}>
             <FormControl>
-              <SelectTrigger className="w-60">
+              <SelectTrigger className="w-48">
                 <SelectValue />
               </SelectTrigger>
             </FormControl>

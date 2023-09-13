@@ -11,9 +11,9 @@ import { SelectFormField } from './ui/select-form-field';
 const expiryOptions = getExpiryOptions(EXPIRY_OPTION_LENGTH);
 const formSchema = z.object({
   expiry: z.string(),
-  percent: z.number().min(0).max(100),
-  value: z.number().min(0),
-  orderPercent: z.number().min(0).max(100),
+  entryPercent: z.number(),
+  entryValue: z.number(),
+  orderPercent: z.number(),
 });
 
 export function SubscriptionForm() {
@@ -21,9 +21,9 @@ export function SubscriptionForm() {
     resolver: zodResolver(formSchema),
     values: {
       expiry: expiryOptions[0],
-      percent: 30,
-      value: 500,
-      orderPercent: 5,
+      entryPercent: 30,
+      entryValue: 99,
+      orderPercent: 0.5,
     },
   });
 
@@ -35,13 +35,33 @@ export function SubscriptionForm() {
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className="max-w-7xl mx-auto p-4 flex gap-4 justify-between items-end"
+        className="max-w-6xl mx-auto p-4 flex gap-4 justify-between"
       >
         <SelectFormField form={form} name="expiry" options={expiryOptions} />
-        <NumberInputFormField form={form} name="percent" />
-        <NumberInputFormField form={form} name="value" />
-        <NumberInputFormField form={form} name="orderPercent" />
-        <Button type="submit">Subscribe</Button>
+        <NumberInputFormField
+          form={form}
+          name="entryPercent"
+          min={0}
+          max={100}
+          step={1}
+        />
+        <NumberInputFormField
+          form={form}
+          name="entryValue"
+          min={0}
+          max={10000}
+          step={0.05}
+        />
+        <NumberInputFormField
+          form={form}
+          name="orderPercent"
+          min={0}
+          max={100}
+          step={0.01}
+        />
+        <Button type="submit" className="mt-[30px]">
+          Subscribe
+        </Button>
       </form>
     </Form>
   );

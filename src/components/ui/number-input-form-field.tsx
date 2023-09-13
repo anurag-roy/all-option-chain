@@ -12,11 +12,17 @@ import { Input } from './input';
 type NumberInputFormFieldProps = {
   form: UseFormReturn<any>;
   name: string;
+  min: number;
+  max: number;
+  step: number;
 };
 
 export function NumberInputFormField({
   form,
   name,
+  min,
+  max,
+  step,
 }: NumberInputFormFieldProps) {
   return (
     <FormField
@@ -28,6 +34,10 @@ export function NumberInputFormField({
           <FormControl>
             <Input
               type="number"
+              min={min}
+              max={max}
+              step={step}
+              className="w-48"
               {...form.register(name, { valueAsNumber: true })}
             />
           </FormControl>

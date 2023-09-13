@@ -186,7 +186,7 @@ export const STOCKS_TO_INCLUDE = [
   'ZYDUSLIFE',
 ];
 
-export const CUSTOM_PERCENT = {
+export const CUSTOM_PERCENT: Record<string, number> = {
   ADANIENT: 44,
   ADANIPORTS: 44,
   BOSCHLTD: 28,

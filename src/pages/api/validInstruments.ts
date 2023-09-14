@@ -7,7 +7,7 @@ import { NextApiHandler } from 'next';
 const handler: NextApiHandler = async (req, res) => {
   const stock = String(req.query.stock);
   const expiry = String(req.query.expiry);
-  const percent = Number(req.query.percent);
+  const entryPercent = Number(req.query.entryPercent);
 
   const tempWs = await getNewTicker();
 
@@ -22,7 +22,7 @@ const handler: NextApiHandler = async (req, res) => {
     const response = await getQuotes('NSE', equityStock.token);
     const ltp = Number(response.lp);
 
-    const effectivePercent = CUSTOM_PERCENT[stock] ?? percent;
+    const effectivePercent = CUSTOM_PERCENT[stock] ?? entryPercent;
     const lowerBound = ((100 - effectivePercent) * ltp) / 100;
     const upperBound = ((100 + effectivePercent) * ltp) / 100;
 

@@ -1,5 +1,6 @@
 import { EXPIRY_OPTION_LENGTH } from '@/config';
 import { getExpiryOptions } from '@/lib/utils';
+import { useInstrumentStore } from '@/stores/instruments';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -17,6 +18,7 @@ const formSchema = z.object({
 });
 
 export function SubscriptionForm() {
+  const initInstruments = useInstrumentStore((state) => state.initInstruments);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     values: {
@@ -27,8 +29,8 @@ export function SubscriptionForm() {
     },
   });
 
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
-    console.log(values);
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    await initInstruments(values.expiry, values.entryPercent);
   };
 
   return (

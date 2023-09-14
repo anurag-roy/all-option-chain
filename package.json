@@ -44,7 +44,8 @@
     "tailwindcss-animate": "^1.0.7",
     "typescript": "5.2.2",
     "ws": "^8.14.1",
-    "zod": "^3.22.2"
+    "zod": "^3.22.2",
+    "zustand": "^4.4.1"
   },
   "prisma": {
     "schema": "src/data/schema.prisma"

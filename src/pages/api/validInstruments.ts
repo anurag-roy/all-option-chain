@@ -30,6 +30,7 @@ const handler: NextApiHandler = async (req, res) => {
     const validInstruments = await getValidInstruments(
       tempWs,
       optionsStocks,
+      ltp,
       lowerBound,
       upperBound
     );

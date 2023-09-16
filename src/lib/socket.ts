@@ -37,6 +37,7 @@ export const getNewTicker = async () =>
 export const getValidInstruments = async (
   ws: WebSocket,
   instruments: instrument[],
+  ltp: number,
   lowerBound: number,
   upperBound: number
 ) =>
@@ -77,6 +78,7 @@ export const getValidInstruments = async (
           (Number(messageData.bp1) - 0.05) * foundInstrument.lotSize;
         validInstruments.push({
           ...foundInstrument,
+          ltp: ltp,
           bid: Number(messageData.bp1),
           value,
           return: 0,

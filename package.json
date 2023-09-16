@@ -19,6 +19,7 @@
     "@radix-ui/react-select": "^1.2.2",
     "@radix-ui/react-slot": "^1.0.2",
     "@radix-ui/react-toast": "^1.1.4",
+    "@tanstack/react-table": "^8.9.9",
     "@types/better-sqlite3": "^7.6.4",
     "@types/lodash-es": "^4.17.9",
     "@types/node": "20.6.0",

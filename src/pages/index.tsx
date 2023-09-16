@@ -1,4 +1,5 @@
 import { ModeToggle } from '@/components/mode-toggle';
+import { OptionsTable } from '@/components/options-table';
 import { SubscriptionForm } from '@/components/subscription-form';
 import { injectTokenIntoEnv } from '@/lib/api/utils';
 
@@ -29,6 +30,7 @@ export default function Home() {
       </header>
       <main>
         <SubscriptionForm />
+        <OptionsTable />
       </main>
     </>
   );

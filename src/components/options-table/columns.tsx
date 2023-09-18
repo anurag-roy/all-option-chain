@@ -1,11 +1,14 @@
+import { cn } from '@/lib/utils';
 import { UiInstrument } from '@/types';
 import { ColumnDef } from '@tanstack/react-table';
 import { DataTableColumnHeader } from './column-header';
 
 export const columns: ColumnDef<UiInstrument>[] = [
   {
-    accessorKey: 'tradingSymbol',
+    id: 'optionStrike',
     header: 'Option Strike',
+    cell: ({ row }) =>
+      `${row.original.symbol} ${row.original.strikePrice}${row.original.optionType}`,
   },
   {
     accessorKey: 'strikePrice',
@@ -52,7 +55,16 @@ export const columns: ColumnDef<UiInstrument>[] = [
       <DataTableColumnHeader column={column} title="Strike Position" />
     ),
     cell: ({ row }) => (
-      <span className="pr-4">{row.original.strikePosition.toFixed(2)}</span>
+      <span
+        className={cn(
+          'pr-4 font-semibold',
+          row.original.strikePosition > 30
+            ? 'text-red-800 dark:text-red-400'
+            : 'text-emerald-800 dark:text-emerald-400'
+        )}
+      >
+        {row.original.strikePosition.toFixed(2)}
+      </span>
     ),
     sortingFn: (rowA, rowsB) =>
       rowA.original.strikePosition - rowsB.original.strikePosition,

@@ -38,7 +38,8 @@ next-env.d.ts
 *.db
 
 # env
-src/env.json
+src/*env.json
+!src/example.env.json
 
 # token
 src/data/token.txt

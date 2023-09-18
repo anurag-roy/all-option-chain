@@ -74,14 +74,17 @@ export const getValidInstruments = async (
         const foundInstrument = instruments.find(
           (i) => i.token === messageData.tk
         )!;
-        const value =
+        const sellValue =
           (Number(messageData.bp1) - 0.05) * foundInstrument.lotSize;
+        const strikePosition =
+          (Math.abs(foundInstrument.strikePrice - ltp) * 100) / ltp;
         validInstruments.push({
           ...foundInstrument,
           ltp: ltp,
           bid: Number(messageData.bp1),
-          value,
-          return: 0,
+          sellValue,
+          strikePosition,
+          returnValue: 0,
         });
       }
 

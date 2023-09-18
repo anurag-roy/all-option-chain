@@ -1,7 +1,9 @@
-import { ModeToggle } from '@/components/mode-toggle';
+import { Header } from '@/components/header';
 import { OptionsTable } from '@/components/options-table';
 import { SubscriptionForm } from '@/components/subscription-form';
 import { injectTokenIntoEnv } from '@/lib/api/utils';
+import { useInstrumentStore } from '@/stores/instruments';
+import * as React from 'react';
 
 export async function getServerSideProps() {
   await injectTokenIntoEnv();
@@ -22,13 +24,23 @@ export async function getServerSideProps() {
   };
 }
 
-export default function Home() {
+type HomeProps = {
+  token: string;
+};
+
+export default function Home({ token }: HomeProps) {
+  const setToken = useInstrumentStore((state) => state.setToken);
+  const initSocket = useInstrumentStore((state) => state.initSocket);
+
+  React.useEffect(() => {
+    setToken(token);
+    initSocket();
+  }, []);
+
   return (
     <>
-      <header>
-        <ModeToggle />
-      </header>
-      <main>
+      <Header />
+      <main className="py-6">
         <SubscriptionForm />
         <OptionsTable />
       </main>

@@ -82,7 +82,7 @@ export function DataTable<TData, TValue>({
                     key={cell.id}
                     className={
                       numericCols.includes(cell.getContext().column.id)
-                        ? ' pl-0 text-right tabular-nums'
+                        ? 'text-right tabular-nums'
                         : ''
                     }
                   >

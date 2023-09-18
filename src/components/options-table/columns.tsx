@@ -16,7 +16,7 @@ export const columns: ColumnDef<UiInstrument>[] = [
     header: 'Stock',
   },
   {
-    id: 'ltp',
+    accessorKey: 'ltp',
     header: 'LTP',
     cell: ({ row }) => row.original.ltp.toFixed(2),
   },
@@ -36,46 +36,40 @@ export const columns: ColumnDef<UiInstrument>[] = [
     cell: ({ row }) => row.original.bid.toFixed(2),
   },
   {
-    accessorKey: 'return',
+    accessorKey: 'returnValue',
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Return Value" />
     ),
-    cell: ({ row }) => row.original.return.toFixed(2),
+    cell: ({ row }) => (
+      <span className="pr-4">{row.original.returnValue.toFixed(2)}</span>
+    ),
     sortingFn: (rowA, rowsB) =>
-      rowA.getValue<number>('return') - rowsB.getValue<number>('return'),
+      rowA.original.returnValue - rowsB.original.returnValue,
   },
   {
-    id: 'strikePosition',
+    accessorKey: 'strikePosition',
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Strike Position" />
     ),
-    cell: ({ row }) => {
-      const { strikePrice, ltp } = row.original;
-      const position = Math.abs(strikePrice - ltp).toFixed(2);
-      return position;
-    },
-    sortingFn: (rowA, rowsB) => {
-      const { strikePrice: strikePriceA, ltp: ltpA } = rowA.original;
-      const { strikePrice: strikePriceB, ltp: ltpB } = rowsB.original;
-      const positionA = Math.abs(strikePriceA - ltpA);
-      const positionB = Math.abs(strikePriceB - ltpB);
-      return positionA - positionB;
-    },
+    cell: ({ row }) => (
+      <span className="pr-4">{row.original.strikePosition.toFixed(2)}</span>
+    ),
+    sortingFn: (rowA, rowsB) =>
+      rowA.original.strikePosition - rowsB.original.strikePosition,
   },
   {
-    accessorKey: 'value',
+    accessorKey: 'sellValue',
     header: 'Sell Value',
-    cell: ({ row }) => row.original.value.toFixed(2),
+    cell: ({ row }) => row.original.sellValue.toFixed(2),
   },
 ];
 
 export const numericCols = [
-  'strikePrice',
   'ltp',
   'peLimit',
   'ceLimit',
   'bid',
-  'return',
+  'returnValue',
   'strikePosition',
-  'value',
+  'sellValue',
 ];

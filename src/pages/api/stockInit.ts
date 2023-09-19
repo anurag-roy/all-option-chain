@@ -2,6 +2,7 @@ import { CUSTOM_PERCENT } from '@/config';
 import { getQuotes } from '@/lib/api/getQuotes';
 import { getInstrumentsToSubscribe } from '@/lib/db';
 import { getNewTicker, getValidInstruments } from '@/lib/socket';
+import type { StockInitResponse } from '@/types';
 import { NextApiHandler } from 'next';
 
 const handler: NextApiHandler = async (req, res) => {
@@ -21,6 +22,7 @@ const handler: NextApiHandler = async (req, res) => {
     // Get LTP to calculate lower bound and upper bound
     const response = await getQuotes('NSE', equityStock.token);
     const ltp = Number(response.lp);
+    const prevClose = Number(response.c);
 
     const effectivePercent = CUSTOM_PERCENT[stock] ?? entryPercent;
     const lowerBound = ((100 - effectivePercent) * ltp) / 100;
@@ -35,7 +37,18 @@ const handler: NextApiHandler = async (req, res) => {
       upperBound
     );
     tempWs.close();
-    res.json(validInstruments);
+
+    const initResponse: StockInitResponse = {
+      equity: {
+        token: equityStock.token,
+        symbol: equityStock.symbol,
+        ltp: ltp,
+        prevClose: prevClose,
+        gainLossPercent: ((ltp - prevClose) * 100) / prevClose,
+      },
+      instruments: validInstruments,
+    };
+    res.json(initResponse);
   } catch (error: any) {
     tempWs.close();
     res.status(500).json({ error: error.message });

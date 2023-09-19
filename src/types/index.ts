@@ -7,3 +7,16 @@ export interface UiInstrument extends instrument {
   strikePosition: number;
   sellValue: number;
 }
+
+export type UiEquity = {
+  token: string;
+  symbol: string;
+  ltp: number;
+  prevClose: number;
+  gainLossPercent: number;
+};
+
+export type StockInitResponse = {
+  equity: UiEquity;
+  instruments: UiInstrument[];
+};

@@ -1,7 +1,7 @@
 import { EXPIRY_OPTION_LENGTH, STOCKS_TO_INCLUDE } from '@/config';
 import { getExpiryOptions } from '@/lib/utils';
 import { useInstrumentStore } from '@/stores/instruments';
-import { UiInstrument } from '@/types';
+import type { StockInitResponse } from '@/types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import ky from 'ky';
 import { useForm } from 'react-hook-form';
@@ -37,16 +37,16 @@ export function SubscriptionForm() {
     const { expiry, entryPercent } = values;
     for (const stock of STOCKS_TO_INCLUDE) {
       console.log('Fetching valid instruments for', stock);
-      const i = await ky
-        .get('/api/validInstruments', {
+      const { equity, instruments } = await ky
+        .get('/api/stockInit', {
           searchParams: {
             stock,
             expiry,
             entryPercent,
           },
         })
-        .json<UiInstrument[]>();
-      addInstrument(i);
+        .json<StockInitResponse>();
+      addInstrument(instruments);
     }
     toast({
       title: 'All set!',

@@ -44,3 +44,6 @@ export const displayInr = (amount: number) =>
 
 export const getRandomIndex = (min: number, max: number) =>
   Math.random() * (max - min) + min;
+
+export const getTodayAsParam = () =>
+  new Date().toISOString().slice(0, 10).split('-').reverse().join('');

@@ -1,13 +1,16 @@
-import { EXPIRY_OPTION_LENGTH } from '@/config';
+import { EXPIRY_OPTION_LENGTH, STOCKS_TO_INCLUDE } from '@/config';
 import { getExpiryOptions } from '@/lib/utils';
 import { useInstrumentStore } from '@/stores/instruments';
+import { UiInstrument } from '@/types';
 import { zodResolver } from '@hookform/resolvers/zod';
+import ky from 'ky';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { Button } from './ui/button';
 import { Form } from './ui/form';
 import { NumberInputFormField } from './ui/number-input-form-field';
 import { SelectFormField } from './ui/select-form-field';
+import { useToast } from './ui/use-toast';
 
 const expiryOptions = getExpiryOptions(EXPIRY_OPTION_LENGTH);
 const formSchema = z.object({
@@ -18,7 +21,7 @@ const formSchema = z.object({
 });
 
 export function SubscriptionForm() {
-  const initInstruments = useInstrumentStore((state) => state.initInstruments);
+  const addInstrument = useInstrumentStore((state) => state.addInstruments);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     values: {
@@ -28,9 +31,27 @@ export function SubscriptionForm() {
       orderPercent: 0.5,
     },
   });
+  const { toast } = useToast();
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    await initInstruments(values.expiry, values.entryPercent);
+    const { expiry, entryPercent } = values;
+    for (const stock of STOCKS_TO_INCLUDE) {
+      console.log('Fetching valid instruments for', stock);
+      const i = await ky
+        .get('/api/validInstruments', {
+          searchParams: {
+            stock,
+            expiry,
+            entryPercent,
+          },
+        })
+        .json<UiInstrument[]>();
+      addInstrument(i);
+    }
+    toast({
+      title: 'All set!',
+      description: 'Instruments fetched for all stocks',
+    });
   };
 
   return (

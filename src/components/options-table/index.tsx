@@ -1,9 +1,9 @@
-import { useInstrumentStore } from '@/stores/instruments';
+import { useStockStore } from '@/stores/stocks';
 import { columns } from './columns';
 import { DataTable } from './data-table';
 
 export function OptionsTable() {
-  const instruments = useInstrumentStore((state) => state.instruments);
+  const instruments = useStockStore((state) => state.instruments);
 
   return <DataTable columns={columns} data={instruments} />;
 }

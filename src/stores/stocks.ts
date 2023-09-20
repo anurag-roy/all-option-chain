@@ -1,24 +1,74 @@
 import env from '@/env.json';
-import type { UiInstrument } from '@/types';
+import type { UiEquity, UiInstrument } from '@/types';
 import type { Margin, TouchlineResponse } from '@/types/shoonya';
 import { create } from 'zustand';
 
-interface InstrumentState {
+interface StockState {
   token: string | null;
   setToken: (token: string) => void;
+  equities: UiEquity[];
+  addEquity: (equities: UiEquity) => void;
+  updateLtp: (socketResponse: TouchlineResponse) => void;
+  resetEquities: () => void;
   instruments: UiInstrument[];
   addInstruments: (instruments: UiInstrument[]) => void;
   updateBid: (socketResponse: TouchlineResponse) => void;
-  updateLtp: (stockName: string, ltp: number) => void;
   updateReturn: (token: string, margin: Margin) => void;
   resetInstruments: () => void;
   socket: WebSocket | null;
   initSocket: () => void;
 }
 
-export const useInstrumentStore = create<InstrumentState>()((set) => ({
+export const useStockStore = create<StockState>()((set) => ({
   token: null,
   setToken: (token) => set({ token }),
+  equities: [],
+  addEquity: (equityToAdd) =>
+    set((state) => {
+      const equities = [...state.equities, equityToAdd];
+      return { equities };
+    }),
+  resetEquities: () => set({ equities: [] }),
+  updateLtp: (data) =>
+    set((state) => {
+      let foundEquity = state.equities.find(
+        (equity) => equity.token === data.tk
+      )!;
+      if (!foundEquity) return {};
+
+      const ltp = Number(data.lp);
+
+      // Update equity LTP
+      const equities = state.equities.map((equity) => {
+        if (equity.token === data.tk) {
+          foundEquity = equity;
+          const newGainLossPercent =
+            ((ltp - equity.prevClose) * 100) / equity.prevClose;
+          return {
+            ...equity,
+            ltp,
+            gainLossPercent: newGainLossPercent,
+          };
+        }
+        return equity;
+      });
+
+      // Update instruments LTP
+      const instruments = state.instruments.map((instrument) => {
+        if (instrument.symbol === foundEquity.symbol) {
+          const newStrikePosition =
+            (Math.abs(instrument.strikePrice - ltp) * 100) / ltp;
+          return {
+            ...instrument,
+            ltp,
+            strikePosition: newStrikePosition,
+          };
+        }
+        return instrument;
+      });
+
+      return { equities, instruments };
+    }),
   instruments: [],
   addInstruments: (instrumentsToAdd) =>
     set((state) => {
@@ -26,32 +76,16 @@ export const useInstrumentStore = create<InstrumentState>()((set) => ({
       return { instruments };
     }),
   resetInstruments: () => set({ instruments: [] }),
-  updateBid: (response) =>
+  updateBid: (data) =>
     set((state) => {
       const instruments = state.instruments.map((instrument) => {
-        if (instrument.token === response.tk) {
-          const newBid = Number(response.bp1);
+        if (instrument.token === data.tk) {
+          const newBid = Number(data.bp1);
           const newSellValue = (newBid - 0.05) * instrument.lotSize;
           return {
             ...instrument,
             bid: newBid,
             sellValue: newSellValue,
-          };
-        }
-        return instrument;
-      });
-      return { instruments };
-    }),
-  updateLtp: (stockName: string, ltp: number) =>
-    set((state) => {
-      const instruments = state.instruments.map((instrument) => {
-        if (instrument.symbol === stockName) {
-          const newStrikePosition =
-            (Math.abs(instrument.strikePrice - ltp) * 100) / ltp;
-          return {
-            ...instrument,
-            ltp,
-            strikePosition: newStrikePosition,
           };
         }
         return instrument;

@@ -1,7 +1,9 @@
 import { EXPIRY_OPTION_LENGTH, STOCKS_TO_INCLUDE } from '@/config';
 import { getExpiryOptions } from '@/lib/utils';
-import { useInstrumentStore } from '@/stores/instruments';
+import { useBansStore } from '@/stores/bans';
+import { useStockStore } from '@/stores/stocks';
 import type { StockInitResponse } from '@/types';
+import { TouchlineResponse } from '@/types/shoonya';
 import { zodResolver } from '@hookform/resolvers/zod';
 import ky from 'ky';
 import { useForm } from 'react-hook-form';
@@ -21,7 +23,12 @@ const formSchema = z.object({
 });
 
 export function SubscriptionForm() {
-  const addInstrument = useInstrumentStore((state) => state.addInstruments);
+  const addEquity = useStockStore((state) => state.addEquity);
+  const updateLtp = useStockStore((state) => state.updateLtp);
+  const addInstrument = useStockStore((state) => state.addInstruments);
+  const updateInstrumentBid = useStockStore((state) => state.updateBid);
+  const bannedStocks = useBansStore((state) => state.bannedStocks);
+  const ws = useStockStore((state) => state.socket);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     values: {
@@ -36,7 +43,12 @@ export function SubscriptionForm() {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     const { expiry, entryPercent } = values;
     for (const stock of STOCKS_TO_INCLUDE) {
-      console.log('Fetching valid instruments for', stock);
+      if (bannedStocks.includes(stock)) {
+        console.log('Skipping banned stock', stock);
+        continue;
+      }
+
+      console.log('Fetching init data for', stock);
       const { equity, instruments } = await ky
         .get('/api/stockInit', {
           searchParams: {
@@ -46,12 +58,42 @@ export function SubscriptionForm() {
           },
         })
         .json<StockInitResponse>();
+
+      addEquity(equity);
+      ws?.send(
+        JSON.stringify({
+          t: 't',
+          k: `NSE|${equity.token}`,
+        })
+      );
+
       addInstrument(instruments);
+      ws?.send(
+        JSON.stringify({
+          t: 't',
+          k: instruments.map((i) => `NFO|${i.token}`).join('#'),
+        })
+      );
     }
+
     toast({
       title: 'All set!',
       description: 'Instruments fetched for all stocks',
     });
+
+    if (ws) {
+      ws.onmessage = (event) => {
+        const messageData = JSON.parse(event.data as string);
+        if (messageData.t !== 'tf') return;
+
+        const data = messageData as TouchlineResponse;
+        if (data.e === 'NSE' && 'lp' in data) {
+          updateLtp(data);
+        } else if (data.e === 'NFO' && 'bp1' in data) {
+          updateInstrumentBid(data);
+        }
+      };
+    }
   };
 
   return (

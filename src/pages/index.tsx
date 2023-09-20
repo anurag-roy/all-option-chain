@@ -2,7 +2,7 @@ import { Header } from '@/components/header';
 import { OptionsTable } from '@/components/options-table';
 import { SubscriptionForm } from '@/components/subscription-form';
 import { injectTokenIntoEnv } from '@/lib/api/utils';
-import { useInstrumentStore } from '@/stores/instruments';
+import { useStockStore } from '@/stores/stocks';
 import * as React from 'react';
 
 export async function getServerSideProps() {
@@ -29,8 +29,8 @@ type HomeProps = {
 };
 
 export default function Home({ token }: HomeProps) {
-  const setToken = useInstrumentStore((state) => state.setToken);
-  const initSocket = useInstrumentStore((state) => state.initSocket);
+  const setToken = useStockStore((state) => state.setToken);
+  const initSocket = useStockStore((state) => state.initSocket);
 
   React.useEffect(() => {
     setToken(token);

@@ -1,4 +1,4 @@
-import { useEquityStore } from '@/stores/equities';
+import { useStockStore } from '@/stores/stocks';
 import {
   Table,
   TableBody,
@@ -9,7 +9,7 @@ import {
 } from './ui/table';
 
 function Gainers() {
-  const equities = useEquityStore((state) => state.equities);
+  const equities = useStockStore((state) => state.equities);
   const sortedEquities = equities.toSorted(
     (a, b) => b.gainLossPercent - a.gainLossPercent
   );
@@ -46,7 +46,7 @@ function Gainers() {
 }
 
 function Losers() {
-  const equities = useEquityStore((state) => state.equities);
+  const equities = useStockStore((state) => state.equities);
   const sortedEquities = equities.toSorted(
     (a, b) => b.gainLossPercent - a.gainLossPercent
   );

@@ -11,6 +11,60 @@ import {
   TableRow,
 } from './ui/table';
 
+function NseBans({ stocks }: { stocks: string[] }) {
+  return (
+    <div className="ml-auto h-56 w-full overflow-y-auto border rounded-md">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>NSE Bans ({stocks.length})</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {stocks.length === 0 ? (
+            <TableRow>
+              <TableCell>No bans for today</TableCell>
+            </TableRow>
+          ) : (
+            stocks.map((stock) => (
+              <TableRow key={stock}>
+                <TableCell>{stock}</TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function CustomBans({ stocks }: { stocks: string[] }) {
+  return (
+    <div className="ml-auto h-56 w-full overflow-y-auto border rounded-md">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Custom Bans ({stocks.length})</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {stocks.length === 0 ? (
+            <TableRow>
+              <TableCell>No custom bans</TableCell>
+            </TableRow>
+          ) : (
+            stocks.map((stock) => (
+              <TableRow key={stock}>
+                <TableCell>{stock}</TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
 export function Bans() {
   const bansStore = useBansStore();
 
@@ -43,25 +97,12 @@ export function Bans() {
   }, []);
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Bans</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {bansStore.bannedStocks.length === 0 ? (
-          <TableRow>
-            <TableCell>No bans for today</TableCell>
-          </TableRow>
-        ) : (
-          bansStore.bannedStocks.map((stock) => (
-            <TableRow key={stock}>
-              <TableCell>{stock}</TableCell>
-            </TableRow>
-          ))
-        )}
-      </TableBody>
-    </Table>
+    <section>
+      <h2 className="text-xl font-bold mb-2 ml-1">Bans</h2>
+      <div className="grid grid-cols-2 gap-4 p-4 border rounded-md">
+        <NseBans stocks={bansStore.bannedStocks} />
+        <CustomBans stocks={['IDEA']} />
+      </div>
+    </section>
   );
 }

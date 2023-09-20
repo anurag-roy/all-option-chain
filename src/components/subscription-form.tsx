@@ -71,7 +71,7 @@ export function SubscriptionForm() {
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className="max-w-6xl mx-auto p-4 flex gap-4 justify-between"
+        className="p-4 flex gap-4 justify-between"
       >
         <SelectFormField form={form} name="expiry" options={expiryOptions} />
         <NumberInputFormField

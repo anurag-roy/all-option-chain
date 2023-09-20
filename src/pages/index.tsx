@@ -42,13 +42,15 @@ export default function Home({ token }: HomeProps) {
   return (
     <>
       <Header />
-      <main className="py-6">
-        <div className="flex">
+      <main className="max-w-7xl mx-auto py-6 space-y-8">
+        <div className="grid grid-cols-[6fr_4fr] gap-8">
           <Movers />
           <Bans />
         </div>
-        <SubscriptionForm />
-        <OptionsTable />
+        <div className="border rounded-md">
+          <SubscriptionForm />
+          <OptionsTable />
+        </div>
       </main>
     </>
   );

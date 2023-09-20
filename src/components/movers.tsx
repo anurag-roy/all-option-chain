@@ -10,12 +10,10 @@ import {
 
 function Gainers() {
   const equities = useStockStore((state) => state.equities);
-  const sortedEquities = equities.toSorted(
-    (a, b) => b.gainLossPercent - a.gainLossPercent
-  );
-  const gainers = sortedEquities
-    .slice(0, 5)
-    .filter((equity) => equity.gainLossPercent > 5);
+  const gainers = [...equities]
+    .sort((a, b) => b.gainLossPercent - a.gainLossPercent)
+    .slice(0, 5);
+  // .filter((equity) => equity.gainLossPercent > 5);
 
   return (
     <Table>
@@ -27,19 +25,17 @@ function Gainers() {
         </TableRow>
       </TableHeader>
       <TableBody>
-        <TableRow>
-          {gainers.map((equity) => (
-            <>
-              <TableCell>{equity.symbol}</TableCell>
-              <TableCell className="text-right tabular-nums">
-                {equity.ltp.toFixed(2)}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">
-                {equity.gainLossPercent.toFixed(2)}
-              </TableCell>
-            </>
-          ))}
-        </TableRow>
+        {gainers.map((equity) => (
+          <TableRow key={equity.symbol}>
+            <TableCell>{equity.symbol}</TableCell>
+            <TableCell className="text-right tabular-nums">
+              {equity.ltp.toFixed(2)}
+            </TableCell>
+            <TableCell className="text-right tabular-nums">
+              {equity.gainLossPercent.toFixed(2)}
+            </TableCell>
+          </TableRow>
+        ))}
       </TableBody>
     </Table>
   );
@@ -47,12 +43,10 @@ function Gainers() {
 
 function Losers() {
   const equities = useStockStore((state) => state.equities);
-  const sortedEquities = equities.toSorted(
-    (a, b) => b.gainLossPercent - a.gainLossPercent
-  );
-  const losers = sortedEquities
-    .slice(-5)
-    .filter((equity) => equity.gainLossPercent < -5);
+  const losers = [...equities]
+    .sort((a, b) => a.gainLossPercent - b.gainLossPercent)
+    .slice(0, 5);
+  // .filter((equity) => equity.gainLossPercent < -5);
 
   return (
     <Table>
@@ -64,19 +58,17 @@ function Losers() {
         </TableRow>
       </TableHeader>
       <TableBody>
-        <TableRow>
-          {losers.map((equity) => (
-            <>
-              <TableCell>{equity.symbol}</TableCell>
-              <TableCell className="text-right tabular-nums">
-                {equity.ltp.toFixed(2)}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">
-                {equity.gainLossPercent.toFixed(2)}
-              </TableCell>
-            </>
-          ))}
-        </TableRow>
+        {losers.map((equity) => (
+          <TableRow key={equity.symbol}>
+            <TableCell>{equity.symbol}</TableCell>
+            <TableCell className="text-right tabular-nums">
+              {equity.ltp.toFixed(2)}
+            </TableCell>
+            <TableCell className="text-right tabular-nums">
+              {equity.gainLossPercent.toFixed(2)}
+            </TableCell>
+          </TableRow>
+        ))}
       </TableBody>
     </Table>
   );

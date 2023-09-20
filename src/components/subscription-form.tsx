@@ -3,7 +3,6 @@ import { getExpiryOptions } from '@/lib/utils';
 import { useBansStore } from '@/stores/bans';
 import { useStockStore } from '@/stores/stocks';
 import type { StockInitResponse } from '@/types';
-import { TouchlineResponse } from '@/types/shoonya';
 import { zodResolver } from '@hookform/resolvers/zod';
 import ky from 'ky';
 import { useForm } from 'react-hook-form';
@@ -24,11 +23,9 @@ const formSchema = z.object({
 
 export function SubscriptionForm() {
   const addEquity = useStockStore((state) => state.addEquity);
-  const updateLtp = useStockStore((state) => state.updateLtp);
   const addInstrument = useStockStore((state) => state.addInstruments);
-  const updateInstrumentBid = useStockStore((state) => state.updateBid);
   const bannedStocks = useBansStore((state) => state.bannedStocks);
-  const ws = useStockStore((state) => state.socket);
+  const initSocket = useStockStore((state) => state.initSocket);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     values: {
@@ -58,22 +55,8 @@ export function SubscriptionForm() {
           },
         })
         .json<StockInitResponse>();
-
       addEquity(equity);
-      ws?.send(
-        JSON.stringify({
-          t: 't',
-          k: `NSE|${equity.token}`,
-        })
-      );
-
       addInstrument(instruments);
-      ws?.send(
-        JSON.stringify({
-          t: 't',
-          k: instruments.map((i) => `NFO|${i.token}`).join('#'),
-        })
-      );
     }
 
     toast({
@@ -81,19 +64,7 @@ export function SubscriptionForm() {
       description: 'Instruments fetched for all stocks',
     });
 
-    if (ws) {
-      ws.onmessage = (event) => {
-        const messageData = JSON.parse(event.data as string);
-        if (messageData.t !== 'tf') return;
-
-        const data = messageData as TouchlineResponse;
-        if (data.e === 'NSE' && 'lp' in data) {
-          updateLtp(data);
-        } else if (data.e === 'NFO' && 'bp1' in data) {
-          updateInstrumentBid(data);
-        }
-      };
-    }
+    initSocket();
   };
 
   return (

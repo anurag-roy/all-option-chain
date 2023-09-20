@@ -1,4 +1,6 @@
+import { Bans } from '@/components/bans';
 import { Header } from '@/components/header';
+import { Movers } from '@/components/movers';
 import { OptionsTable } from '@/components/options-table';
 import { SubscriptionForm } from '@/components/subscription-form';
 import { injectTokenIntoEnv } from '@/lib/api/utils';
@@ -30,17 +32,21 @@ type HomeProps = {
 
 export default function Home({ token }: HomeProps) {
   const setToken = useStockStore((state) => state.setToken);
-  const initSocket = useStockStore((state) => state.initSocket);
+  // const initSocket = useStockStore((state) => state.initSocket);
 
   React.useEffect(() => {
     setToken(token);
-    initSocket();
+    // initSocket();
   }, []);
 
   return (
     <>
       <Header />
       <main className="py-6">
+        <div className="flex">
+          <Movers />
+          <Bans />
+        </div>
         <SubscriptionForm />
         <OptionsTable />
       </main>

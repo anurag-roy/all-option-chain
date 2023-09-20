@@ -10,10 +10,10 @@ const handler: NextApiHandler = async (req, res) => {
   let bannedStocks: string[] = [];
   if (response.ok) {
     const csv = await response.text();
-    bannedStocks = csv
-      .split('\n')
-      .map((row) => row.split(',').pop()!)
-      .filter(Boolean);
+    const rows = csv.split('\n');
+    // Remove header
+    rows.shift();
+    bannedStocks = rows.map((row) => row.split(',').pop()!).filter(Boolean);
   }
   res.json(bannedStocks);
 };

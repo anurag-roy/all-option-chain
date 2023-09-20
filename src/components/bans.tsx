@@ -19,26 +19,27 @@ export function Bans() {
     const bansFromLs = localStorage.getItem('bans');
 
     if (bansFromLs) {
-      let bannedStocks = JSON.parse(bansFromLs);
+      const bannedStocks = JSON.parse(bansFromLs);
       if (dateParam in bannedStocks) {
         bansStore.setBannedStocks(bannedStocks[dateParam]);
-      } else {
-        ky.get('/api/bans', {
-          searchParams: {
-            dateParam,
-          },
-        })
-          .json<string[]>()
-          .then((bans) => {
-            bansStore.setBannedStocks(bans);
-            bannedStocks = {
-              [dateParam]: bans,
-            };
-            localStorage.setItem('bans', JSON.stringify(bannedStocks));
-          })
-          .catch();
+        return;
       }
     }
+
+    ky.get('/api/bans', {
+      searchParams: {
+        dateParam,
+      },
+    })
+      .json<string[]>()
+      .then((bans) => {
+        bansStore.setBannedStocks(bans);
+        const bannedStocks = {
+          [dateParam]: bans,
+        };
+        localStorage.setItem('bans', JSON.stringify(bannedStocks));
+      })
+      .catch();
   }, []);
 
   return (
@@ -49,15 +50,17 @@ export function Bans() {
         </TableRow>
       </TableHeader>
       <TableBody>
-        <TableRow>
-          {bansStore.bannedStocks.length ? (
+        {bansStore.bannedStocks.length === 0 ? (
+          <TableRow>
             <TableCell>No bans for today</TableCell>
-          ) : (
-            bansStore.bannedStocks.map((stock) => (
-              <TableCell key={stock}>{stock}</TableCell>
-            ))
-          )}
-        </TableRow>
+          </TableRow>
+        ) : (
+          bansStore.bannedStocks.map((stock) => (
+            <TableRow key={stock}>
+              <TableCell>{stock}</TableCell>
+            </TableRow>
+          ))
+        )}
       </TableBody>
     </Table>
   );

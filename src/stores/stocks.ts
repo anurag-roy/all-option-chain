@@ -116,6 +116,10 @@ export const useStockStore = create<StockState>()((set) => ({
         console.log('Socket error:', error);
       };
 
+      socket.onclose = (event) => {
+        console.log('Socket closed!', event);
+      };
+
       socket.onopen = () => {
         socket.send(
           JSON.stringify({
@@ -132,10 +136,31 @@ export const useStockStore = create<StockState>()((set) => ({
         const messageData = JSON.parse(messageEvent.data as string);
         if (messageData.t === 'ck' && messageData.s === 'OK') {
           console.log('Socket connected successfully!');
-          socket.onerror = null;
+
+          socket.onmessage = (event) => {
+            const messageData = JSON.parse(event.data as string);
+            if (messageData.t !== 'tf') return;
+
+            const data = messageData as TouchlineResponse;
+            if (data.e === 'NSE' && 'lp' in data) {
+              state.updateLtp(data);
+            } else if (data.e === 'NFO' && 'bp1' in data) {
+              state.updateBid(data);
+            }
+          };
+
+          const tokensToSubscribe = [
+            ...state.instruments.map((s) => `NFO|${s.token}`),
+            ...state.equities.map((s) => `NSE|${s.token}`),
+          ].join('#');
+          socket.send(
+            JSON.stringify({
+              t: 't',
+              k: tokensToSubscribe,
+            })
+          );
         }
       };
-
       return { socket };
     }),
 }));

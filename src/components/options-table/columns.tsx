@@ -2,13 +2,13 @@ import { cn } from '@/lib/utils';
 import { UiInstrument } from '@/types';
 import { ColumnDef } from '@tanstack/react-table';
 import { DataTableColumnHeader } from './column-header';
+import { RowOrderAction } from './order-action';
 
 export const columns: ColumnDef<UiInstrument>[] = [
   {
     id: 'optionStrike',
     header: 'Option Strike',
-    cell: ({ row }) =>
-      `${row.original.symbol} ${row.original.strikePrice}${row.original.optionType}`,
+    accessorFn: (row) => `${row.symbol} ${row.strikePrice}${row.optionType}`,
   },
   {
     accessorKey: 'strikePrice',
@@ -26,12 +26,12 @@ export const columns: ColumnDef<UiInstrument>[] = [
   {
     id: 'peLimit',
     header: 'PE Limit',
-    cell: ({ row }) => (0.7 * row.original.ltp).toFixed(2),
+    accessorFn: (row) => (0.7 * row.ltp).toFixed(2),
   },
   {
     id: 'ceLimit',
     header: 'CE Limit',
-    cell: ({ row }) => (1.3 * row.original.ltp).toFixed(2),
+    accessorFn: (row) => (1.3 * row.ltp).toFixed(2),
   },
   {
     accessorKey: 'bid',
@@ -43,9 +43,7 @@ export const columns: ColumnDef<UiInstrument>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Return Value" />
     ),
-    cell: ({ row }) => (
-      <span className="pr-4">{row.original.returnValue.toFixed(2)}</span>
-    ),
+    cell: ({ row }) => <RowOrderAction row={row} />,
     sortingFn: (rowA, rowsB) =>
       rowA.original.returnValue - rowsB.original.returnValue,
   },

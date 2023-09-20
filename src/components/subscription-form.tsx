@@ -4,7 +4,9 @@ import { useBansStore } from '@/stores/bans';
 import { useStockStore } from '@/stores/stocks';
 import type { StockInitResponse } from '@/types';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { UpdateIcon } from '@radix-ui/react-icons';
 import ky from 'ky';
+import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { Button } from './ui/button';
@@ -12,6 +14,8 @@ import { Form } from './ui/form';
 import { NumberInputFormField } from './ui/number-input-form-field';
 import { SelectFormField } from './ui/select-form-field';
 import { useToast } from './ui/use-toast';
+
+type ButtonState = 'subscribe' | 'subscribing' | 'subscribed';
 
 const expiryOptions = getExpiryOptions(EXPIRY_OPTION_LENGTH);
 const formSchema = z.object({
@@ -35,9 +39,12 @@ export function SubscriptionForm() {
       orderPercent: 0.5,
     },
   });
+  const [buttonState, setButtonState] =
+    React.useState<ButtonState>('subscribe');
   const { toast } = useToast();
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    setButtonState('subscribing');
     const { expiry, entryPercent } = values;
     for (const stock of STOCKS_TO_INCLUDE) {
       if (bannedStocks.includes(stock)) {
@@ -59,6 +66,7 @@ export function SubscriptionForm() {
       addInstrument(instruments);
     }
 
+    setButtonState('subscribed');
     toast({
       title: 'All set!',
       description: 'Instruments fetched for all stocks',
@@ -95,8 +103,19 @@ export function SubscriptionForm() {
           max={100}
           step={0.01}
         />
-        <Button type="submit" className="mt-[30px]">
-          Subscribe
+        <Button
+          type="submit"
+          className="mt-[30px]"
+          disabled={buttonState !== 'subscribe'}
+        >
+          {buttonState === 'subscribe' ? 'Subscribe' : null}
+          {buttonState === 'subscribing' ? (
+            <>
+              <UpdateIcon className="mr-2 h-4 w-4 animate-spin" />
+              Subscribing...
+            </>
+          ) : null}
+          {buttonState === 'subscribed' ? 'Subscribed!' : null}
         </Button>
       </form>
     </Form>

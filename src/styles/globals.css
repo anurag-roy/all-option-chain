@@ -61,6 +61,7 @@
     height: 100%;
     @apply bg-background text-foreground;
     font-feature-settings: 'rlig' 1, 'calt' 1;
+    overflow-y: auto;
   }
   div#__next {
     height: 100%;

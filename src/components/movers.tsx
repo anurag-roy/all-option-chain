@@ -12,7 +12,7 @@ import {
 function MoverTableBody({ rows }: { rows: UiEquity[] }) {
   return (
     <TableBody>
-      {[1, 2, 3, 4, 5].map((i) =>
+      {[0, 1, 2, 3, 4].map((i) =>
         rows[i] ? (
           <TableRow key={rows[i].symbol}>
             <TableCell>{rows[i].symbol}</TableCell>

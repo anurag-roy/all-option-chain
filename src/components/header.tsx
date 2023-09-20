@@ -49,7 +49,7 @@ export function Header() {
       <hgroup className="flex gap-2 items-center">
         <NseLogo />
         <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-          Option Chain
+          All Option Chain
         </h1>
       </hgroup>
       <ModeToggle />

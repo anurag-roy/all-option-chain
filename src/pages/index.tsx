@@ -47,10 +47,13 @@ export default function Home({ token }: HomeProps) {
           <Movers />
           <Bans />
         </div>
-        <div className="border rounded-md">
-          <SubscriptionForm />
-          <OptionsTable />
-        </div>
+        <section>
+          <h2 className="text-xl font-bold mb-2 ml-1">Option Chain</h2>
+          <div className="border rounded-md">
+            <SubscriptionForm />
+            <OptionsTable />
+          </div>
+        </section>
       </main>
     </>
   );

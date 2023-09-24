@@ -1,4 +1,7 @@
+import type { UiInstrument } from '@/types';
+import { Margin } from '@/types/shoonya';
 import { clsx, type ClassValue } from 'clsx';
+import ky from 'ky';
 import { twMerge } from 'tailwind-merge';
 
 export const getKeys = <T extends Object>(object: T) =>
@@ -47,3 +50,18 @@ export const getRandomIndex = (min: number, max: number) =>
 
 export const getTodayAsParam = () =>
   new Date().toISOString().slice(0, 10).split('-').reverse().join('');
+
+export const getReturnValue = async (i: UiInstrument) => {
+  const { bid, lotSize, tradingSymbol } = i;
+  try {
+    const margin = await ky
+      .get('/api/margin', {
+        searchParams: { price: bid, quantity: lotSize, tradingSymbol },
+      })
+      .json<Margin>();
+    return ((bid - 0.05) * lotSize * 100) / Number(margin.ordermargin);
+  } catch (error) {
+    console.error('Could not get margin for', tradingSymbol, error);
+    return 0;
+  }
+};

@@ -6,6 +6,8 @@ import { create } from 'zustand';
 interface StockState {
   token: string | null;
   setToken: (token: string) => void;
+  initComplete: boolean;
+  setInitComplete: (initComplete: boolean) => void;
   equities: UiEquity[];
   addEquity: (equities: UiEquity) => void;
   updateLtp: (socketResponse: TouchlineResponse) => void;
@@ -13,7 +15,8 @@ interface StockState {
   instruments: UiInstrument[];
   addInstruments: (instruments: UiInstrument[]) => void;
   updateBid: (socketResponse: TouchlineResponse) => void;
-  updateReturn: (token: string, margin: Margin) => void;
+  updateReturn: (token: string, returnValue: number) => void;
+  updateReturnFromMargin: (token: string, margin: Margin) => void;
   resetInstruments: () => void;
   socket: WebSocket | null;
   initSocket: () => void;
@@ -22,6 +25,8 @@ interface StockState {
 export const useStockStore = create<StockState>()((set) => ({
   token: null,
   setToken: (token) => set({ token }),
+  initComplete: false,
+  setInitComplete: (initComplete) => set({ initComplete }),
   equities: [],
   addEquity: (equityToAdd) =>
     set((state) => {
@@ -92,7 +97,20 @@ export const useStockStore = create<StockState>()((set) => ({
       });
       return { instruments };
     }),
-  updateReturn: (token: string, margin: Margin) =>
+  updateReturn: (token, returnValue) =>
+    set((state) => {
+      const instruments = state.instruments.map((i) => {
+        if (i.token === token) {
+          return {
+            ...i,
+            returnValue,
+          };
+        }
+        return i;
+      });
+      return { instruments };
+    }),
+  updateReturnFromMargin: (token: string, margin: Margin) =>
     set((state) => {
       const instruments = state.instruments.map((i) => {
         if (i.token === token) {

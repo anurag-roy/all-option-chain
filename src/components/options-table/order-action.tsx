@@ -9,7 +9,7 @@ interface OrderActionProps {
 export function RowOrderAction({ row }: OrderActionProps) {
   return (
     <div className="flex items-center pr-4">
-      {row.original.returnValue < 0.05 ? <OrderModal i={row.original} /> : null}
+      {row.original.returnValue > 0.05 ? <OrderModal i={row.original} /> : null}
       <span className="ml-auto">{row.original.returnValue.toFixed(2)}</span>
     </div>
   );

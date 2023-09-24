@@ -40,8 +40,12 @@ export const columns: ColumnDef<UiInstrument>[] = [
   },
   {
     accessorKey: 'returnValue',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Return Value" />
+    header: ({ table, column }) => (
+      <DataTableColumnHeader
+        table={table}
+        column={column}
+        title="Return Value"
+      />
     ),
     cell: ({ row }) => <RowOrderAction row={row} />,
     sortingFn: (rowA, rowsB) =>
@@ -49,8 +53,12 @@ export const columns: ColumnDef<UiInstrument>[] = [
   },
   {
     accessorKey: 'strikePosition',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Strike Position" />
+    header: ({ table, column }) => (
+      <DataTableColumnHeader
+        table={table}
+        column={column}
+        title="Strike Position"
+      />
     ),
     cell: ({ row }) => (
       <span

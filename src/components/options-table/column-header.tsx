@@ -4,7 +4,7 @@ import {
   CaretSortIcon,
   ReloadIcon,
 } from '@radix-ui/react-icons';
-import { Column } from '@tanstack/react-table';
+import { Column, Table } from '@tanstack/react-table';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -18,11 +18,13 @@ import { cn } from '@/lib/utils';
 
 interface DataTableColumnHeaderProps<TData, TValue>
   extends React.HTMLAttributes<HTMLDivElement> {
+  table: Table<TData>;
   column: Column<TData, TValue>;
   title: string;
 }
 
 export function DataTableColumnHeader<TData, TValue>({
+  table,
   column,
   title,
   className,
@@ -51,16 +53,31 @@ export function DataTableColumnHeader<TData, TValue>({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
-          <DropdownMenuItem onClick={() => column.toggleSorting(false)}>
+          <DropdownMenuItem
+            onClick={() => {
+              column.toggleSorting(false);
+              table.resetPageIndex();
+            }}
+          >
             <ArrowUpIcon className="mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
             Asc
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => column.toggleSorting(true)}>
+          <DropdownMenuItem
+            onClick={() => {
+              column.toggleSorting(true);
+              table.resetPageIndex();
+            }}
+          >
             <ArrowDownIcon className="mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
             Desc
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => column.clearSorting()}>
+          <DropdownMenuItem
+            onClick={() => {
+              column.clearSorting();
+              table.resetPageIndex();
+            }}
+          >
             <ReloadIcon className="mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
             Reset
           </DropdownMenuItem>

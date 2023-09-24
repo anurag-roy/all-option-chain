@@ -30,6 +30,7 @@ export function SubscriptionForm() {
   const addInstrument = useStockStore((state) => state.addInstruments);
   const bannedStocks = useBansStore((state) => state.bannedStocks);
   const initSocket = useStockStore((state) => state.initSocket);
+  const setInitComplete = useStockStore((state) => state.setInitComplete);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     values: {
@@ -73,6 +74,7 @@ export function SubscriptionForm() {
     });
 
     initSocket();
+    setInitComplete(true);
   };
 
   return (

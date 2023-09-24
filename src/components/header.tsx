@@ -1,4 +1,5 @@
 import { ModeToggle } from './mode-toggle';
+import { UserNav } from './user-nav';
 
 function NseLogo() {
   return (
@@ -45,14 +46,15 @@ function NseLogo() {
 
 export function Header() {
   return (
-    <header className="py-4 max-w-7xl mx-auto flex items-center justify-between border-b">
-      <hgroup className="flex gap-2 items-center">
+    <header className="py-4 max-w-7xl mx-auto flex items-center gap-4 border-b">
+      <hgroup className="flex gap-2 items-center mr-auto">
         <NseLogo />
         <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
           All Option Chain
         </h1>
       </hgroup>
       <ModeToggle />
+      <UserNav />
     </header>
   );
 }

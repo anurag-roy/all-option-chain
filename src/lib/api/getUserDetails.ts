@@ -1,4 +1,5 @@
 import env from '@/env.json';
+import type { ShoonyaError, UserDetails } from '@/types/shoonya';
 
 export const getUserDetails = async () => {
   const res = await fetch(
@@ -16,7 +17,7 @@ export const getUserDetails = async () => {
   if (!res.ok) {
     throw new Error(await res.text());
   }
-  const userDetails = await res.json();
+  const userDetails: UserDetails | ShoonyaError = await res.json();
   if (userDetails.stat !== 'Ok') {
     throw new Error(userDetails.emsg);
   }

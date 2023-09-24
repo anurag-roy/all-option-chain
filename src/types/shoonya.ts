@@ -1,3 +1,14 @@
+export type ShoonyaError = {
+  /**
+   * User details success or failure indication.
+   */
+  stat: 'Not_Ok';
+  /**
+   * Error message
+   */
+  emsg: string;
+};
+
 export type ShoonyaInstrument = {
   exchange: string;
   token: string;
@@ -11,13 +22,102 @@ export type ShoonyaInstrument = {
   tickSize: string;
 };
 
-export type Margin = {
+export type UserDetails = {
+  /**
+   * User details success or failure indication.
+   */
+  stat: 'Ok';
+  /**
+   * Json array of strings with enabled exchange names
+   */
+  exarr: string[];
+  /**
+   * Json array of strings with enabled price types for user
+   */
+  orarr: string[];
+  /**
+   * Json array of Product Obj with enabled products, as defined below.
+   */
+  prarr: Array<{
+    /**
+     * Product name
+     */
+    prd: string;
+    /**
+     * Product display name
+     */
+    s_prdt_ali: string;
+    /**
+     * Json array of strings with enabled, allowed exchange names
+     */
+    exch: string[];
+  }>;
+  /**
+   * Broker id
+   */
+  brkname: string;
+  /**
+   * Branch id
+   */
+  brnchid: string;
+  /**
+   * Email id
+   */
+  email: string;
+  /**
+   * Account id
+   */
+  actid: string;
+  /**
+   * User id
+   */
+  uid: string;
+  /**
+   * User name
+   */
+  uname: string;
+  /**
+   * Mobile Number
+   */
+  m_num: string;
+  /**
+   * Always it will be an INVESTOR, other types of user not allowed to login using this API.
+   */
+  uprev: 'INVESTOR';
+  /**
+   * It will be present only in a successful response.
+   */
   request_time: string;
-  stat: string;
+};
+
+export type Margin = {
+  /**
+   * Response received time.
+   */
+  request_time: string;
+  /**
+   * Place order success or failure indication.
+   */
+  stat: 'Ok';
+  /**
+   * Total credits available for order
+   */
   cash: string;
+  /**
+   * Total margin used.
+   */
   marginused: string;
+  /**
+   * This field will be available only on success.
+   */
   remarks: 'Insufficient Balance' | 'Order Success';
+  /**
+   * Previously used margin.
+   */
   marginusedprev: string;
+  /**
+   * Margin required for order.
+   */
   ordermargin: string;
 };
 
@@ -29,7 +129,7 @@ export type Quote = {
   /**
    * Market watch success or failure indication
    */
-  stat: 'Ok' | 'Not_Ok';
+  stat: 'Ok';
   /**
    * Exchange
    */

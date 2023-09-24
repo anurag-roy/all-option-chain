@@ -53,8 +53,8 @@ export function UserNav() {
           <DropdownMenuItem disabled>Holdings</DropdownMenuItem>
           <DropdownMenuItem disabled>Positions</DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link href="/amoOrder" target="_blank">
-              AMO Order
+            <Link href="/amo" target="_blank">
+              Place AMO
               <ArrowTopRightIcon className="ml-2 mb-[1px] h-4 w-4" />
             </Link>
           </DropdownMenuItem>

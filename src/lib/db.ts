@@ -1,5 +1,17 @@
 import { db } from '@/globals/db';
 
+export const getAllEquityStocks = async () => {
+  const equityStocks = await db.instrument.findMany({
+    where: {
+      instrument: 'EQ',
+    },
+    orderBy: {
+      symbol: 'asc',
+    },
+  });
+  return equityStocks;
+};
+
 export const getInstrumentsToSubscribe = async (
   symbol: string,
   expiryPrefix: string

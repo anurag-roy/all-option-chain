@@ -2,6 +2,16 @@ import { STOCKS_TO_INCLUDE } from '@/config';
 import { ShoonyaInstrument } from '@/types/shoonya';
 import JSZip from 'jszip';
 
+export const getNifty500Stocks = async () => {
+  const res = await fetch(
+    'https://archives.nseindia.com/content/indices/ind_nifty500list.csv'
+  );
+  const text = await res.text();
+
+  const rows = text.split('\n').slice(1);
+  return rows.map((row) => row.split(',')[2]);
+};
+
 export const getInstruments = async (forExchange: 'NSE' | 'NFO') => {
   const txtFileName = forExchange + '_symbols.txt';
   const zipFileName = txtFileName + '.zip';

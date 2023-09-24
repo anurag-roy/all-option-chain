@@ -1,9 +1,10 @@
+import { STOCKS_TO_INCLUDE } from '@/config';
 import { getKeys } from '@/lib/utils';
 import Database from 'better-sqlite3';
-import { getInstruments } from './getInstruments';
+import { getInstruments, getNifty500Stocks } from './getInstruments';
 
 // Create the sqlite db here
-const DB_PATH = 'src/db/data.db';
+const DB_PATH = 'src/data/data.db';
 
 const getSqliteType = (key: string, value: any) =>
   typeof value === 'number' ? 'REAL' : 'TEXT';
@@ -12,7 +13,12 @@ async function main() {
   const nseInstruments = await getInstruments('NSE');
   const nfoInstruments = await getInstruments('NFO');
 
-  const instruments = [...nseInstruments, ...nfoInstruments];
+  const nifty500 = await getNifty500Stocks();
+  const equityStocksToInclude = new Set([...nifty500, ...STOCKS_TO_INCLUDE]);
+  const instruments = [
+    ...nseInstruments.filter((i) => equityStocksToInclude.has(i.symbol)),
+    ...nfoInstruments,
+  ];
 
   const columns = getKeys(instruments[0]);
 

@@ -49,32 +49,22 @@ const calculateOrders = (
   let totalValue = 0;
 
   const addPrice = (diff: number) => {
-    currentValue -= diff;
+    currentValue = Number((currentValue - diff).toFixed(2));
     totalValue += currentValue;
     prices.push(currentValue);
   };
 
   addPrice(leg1);
-  addPrice(leg2);
-  addPrice(leg3);
 
-  if (currentValue < 0) {
-    return prices.map((p) => ({
-      tradingSymbol,
-      price: p,
-      quantity: 1,
-    }));
-  }
-
-  while (currentValue >= lowerCircuit) {
+  while (currentValue >= lowerCircuit && totalValue < value) {
     addPrice(leg2);
-    if (currentValue < lowerCircuit) break;
+    if (currentValue < lowerCircuit || totalValue > value) break;
     addPrice(leg3);
   }
 
   const lastPrice = prices.pop()!;
-  totalValue = totalValue - lastPrice;
-  const quantity = Math.floor(value / totalValue);
+  totalValue = Number((totalValue - lastPrice).toFixed(2));
+  const quantity = Math.max(Math.floor(value / totalValue), 1);
   return prices.map((p) => ({
     tradingSymbol,
     price: p,
@@ -182,6 +172,7 @@ export function AmoOrderForm({ equityStocks }: AmoOrderFormProps) {
                   <Input
                     type="number"
                     className="w-32"
+                    step={0.01}
                     {...form.register('value', { valueAsNumber: true })}
                   />
                 </FormControl>
@@ -199,6 +190,7 @@ export function AmoOrderForm({ equityStocks }: AmoOrderFormProps) {
                   <Input
                     type="number"
                     className="w-32"
+                    step={0.01}
                     {...form.register('ltp', { valueAsNumber: true })}
                   />
                 </FormControl>
@@ -216,6 +208,7 @@ export function AmoOrderForm({ equityStocks }: AmoOrderFormProps) {
                   <Input
                     type="number"
                     className="w-32"
+                    step={0.01}
                     {...form.register('lowerCircuit', {
                       valueAsNumber: true,
                     })}
@@ -235,6 +228,7 @@ export function AmoOrderForm({ equityStocks }: AmoOrderFormProps) {
                   <Input
                     type="number"
                     className="w-24"
+                    step={0.01}
                     {...form.register('leg1', { valueAsNumber: true })}
                   />
                 </FormControl>
@@ -252,6 +246,7 @@ export function AmoOrderForm({ equityStocks }: AmoOrderFormProps) {
                   <Input
                     type="number"
                     className="w-24"
+                    step={0.01}
                     {...form.register('leg2', { valueAsNumber: true })}
                   />
                 </FormControl>
@@ -269,6 +264,7 @@ export function AmoOrderForm({ equityStocks }: AmoOrderFormProps) {
                   <Input
                     type="number"
                     className="w-24"
+                    step={0.01}
                     {...form.register('leg3', { valueAsNumber: true })}
                   />
                 </FormControl>

@@ -28,7 +28,7 @@ export const STOCKS_TO_INCLUDE = [
   'BANKBARODA',
   'BATAINDIA',
   'BEL',
-  'BERGEPAINT',
+  // 'BERGEPAINT',
   'BHARATFORG',
   'BHARTIARTL',
   'BHEL',

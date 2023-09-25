@@ -50,7 +50,7 @@ function OrderModalContent({ i, setOpen }: OrderModalContentProps) {
       searchParams: {
         price: i.bid,
         quantity: quantity * i.lotSize,
-        tradingSymbol: i.tradingSymbol,
+        tradingSymbol: encodeURIComponent(i.tradingSymbol),
       },
     })
       .json<Margin>()

@@ -56,7 +56,11 @@ export const getReturnValue = async (i: UiInstrument) => {
   try {
     const margin = await ky
       .get('/api/margin', {
-        searchParams: { price: bid, quantity: lotSize, tradingSymbol },
+        searchParams: {
+          price: bid,
+          quantity: lotSize,
+          tradingSymbol: encodeURIComponent(tradingSymbol),
+        },
       })
       .json<Margin>();
     return ((bid - 0.05) * lotSize * 100) / Number(margin.ordermargin);

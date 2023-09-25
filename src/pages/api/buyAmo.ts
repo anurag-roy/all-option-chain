@@ -29,6 +29,7 @@ const handler: NextApiHandler = async (req, res) => {
     throw new Error(await orderRes.text());
   }
   const orderResult = await orderRes.json();
+  console.log(`Placed AMO ${tradingSymbol} ${quantity} @ ${price}`);
 
   res.json(orderResult);
 };

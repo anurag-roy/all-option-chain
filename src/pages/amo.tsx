@@ -1,7 +1,7 @@
 import { AmoOrderForm } from '@/components/amo-order-form';
 import { injectTokenIntoEnv } from '@/lib/api/utils';
 import { getAllEquityStocks } from '@/lib/db';
-import type { instrument } from '@prisma/client';
+import Head from 'next/head';
 
 export async function getServerSideProps() {
   await injectTokenIntoEnv();
@@ -16,22 +16,29 @@ export async function getServerSideProps() {
   }
 
   const equityStocks = await getAllEquityStocks();
-
+  const equityStockOptions = equityStocks.map((stock) => stock.tradingSymbol);
   return {
     props: {
-      equityStocks,
+      equityStockOptions,
     },
   };
 }
 
 type AmoProps = {
-  equityStocks: instrument[];
+  equityStockOptions: string[];
 };
 
-export default function Home({ equityStocks }: AmoProps) {
+export default function Home({ equityStockOptions }: AmoProps) {
   return (
-    <main className="max-w-7xl mx-auto py-6">
-      <AmoOrderForm equityStocks={equityStocks} />
-    </main>
+    <>
+      <Head>
+        <title>AMO - Option Chain</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/favicon.ico" />
+      </Head>
+      <main className="max-w-7xl mx-auto py-6">
+        <AmoOrderForm equityStockOptions={equityStockOptions} />
+      </main>
+    </>
   );
 }

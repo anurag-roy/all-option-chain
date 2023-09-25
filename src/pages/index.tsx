@@ -5,6 +5,7 @@ import { OptionsTable } from '@/components/options-table';
 import { SubscriptionForm } from '@/components/subscription-form';
 import { injectTokenIntoEnv } from '@/lib/api/utils';
 import { useStockStore } from '@/stores/stocks';
+import Head from 'next/head';
 import * as React from 'react';
 
 export async function getServerSideProps() {
@@ -41,6 +42,11 @@ export default function Home({ token }: HomeProps) {
 
   return (
     <>
+      <Head>
+        <title>Home - Option Chain</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/favicon.ico" />
+      </Head>
       <Header />
       <main className="max-w-7xl mx-auto py-6 space-y-8">
         <div className="grid grid-cols-[6fr_4fr] gap-8">

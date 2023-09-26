@@ -63,9 +63,13 @@ export const getReturnValue = async (i: UiInstrument) => {
         },
       })
       .json<Margin>();
-    return ((bid - 0.05) * lotSize * 100) / Number(margin.ordermargin);
+    const returnValue =
+      ((bid - 0.05) * lotSize * 100) / Number(margin.ordermargin);
+    const isMarginAvailable = margin.remarks !== 'Insufficient Balance';
+
+    return { returnValue, isMarginAvailable };
   } catch (error) {
     console.error('Could not get margin for', tradingSymbol, error);
-    return 0;
+    return { returnValue: 0, isMarginAvailable: false };
   }
 };

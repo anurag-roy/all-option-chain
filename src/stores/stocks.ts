@@ -6,6 +6,10 @@ import { create } from 'zustand';
 interface StockState {
   token: string | null;
   setToken: (token: string) => void;
+  entryValue: number;
+  setEntryValue: (entryValue: number) => void;
+  orderPercent: number;
+  setOrderPercent: (orderPercent: number) => void;
   initComplete: boolean;
   setInitComplete: (initComplete: boolean) => void;
   equities: UiEquity[];
@@ -25,6 +29,10 @@ interface StockState {
 export const useStockStore = create<StockState>()((set) => ({
   token: null,
   setToken: (token) => set({ token }),
+  entryValue: 0,
+  setEntryValue: (entryValue) => set({ entryValue }),
+  orderPercent: 0,
+  setOrderPercent: (orderPercent) => set({ orderPercent }),
   initComplete: false,
   setInitComplete: (initComplete) => set({ initComplete }),
   equities: [],

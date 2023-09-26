@@ -186,7 +186,9 @@ function OrderModalContent({ i, setOpen }: OrderModalContentProps) {
         <Button
           type="button"
           size="lg"
-          disabled={margin?.remarks === 'Insufficient Balance'}
+          disabled={
+            margin?.remarks === 'Insufficient Balance' || i.strikePosition > 30
+          }
           onClick={placeSellOrder}
         >
           Place Sell Order

@@ -29,6 +29,8 @@ export function SubscriptionForm() {
   const addEquity = useStockStore((state) => state.addEquity);
   const addInstrument = useStockStore((state) => state.addInstruments);
   const bannedStocks = useBansStore((state) => state.bannedStocks);
+  const setEntryValue = useStockStore((state) => state.setEntryValue);
+  const setOrderPercent = useStockStore((state) => state.setOrderPercent);
   const initSocket = useStockStore((state) => state.initSocket);
   const setInitComplete = useStockStore((state) => state.setInitComplete);
   const form = useForm<z.infer<typeof formSchema>>({
@@ -46,7 +48,7 @@ export function SubscriptionForm() {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setButtonState('subscribing');
-    const { expiry, entryPercent } = values;
+    const { expiry, entryPercent, entryValue, orderPercent } = values;
     for (const stock of STOCKS_TO_INCLUDE) {
       if (bannedStocks.includes(stock)) {
         console.log('Skipping banned stock', stock);
@@ -74,6 +76,8 @@ export function SubscriptionForm() {
     });
 
     initSocket();
+    setEntryValue(entryValue);
+    setOrderPercent(orderPercent);
     setInitComplete(true);
   };
 

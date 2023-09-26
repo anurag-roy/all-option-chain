@@ -42,8 +42,7 @@ export function SubscriptionForm() {
       orderPercent: 0.5,
     },
   });
-  const [buttonState, setButtonState] =
-    React.useState<ButtonState>('subscribe');
+  const [buttonState, setButtonState] = React.useState<ButtonState>('subscribe');
   const { toast } = useToast();
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -83,41 +82,16 @@ export function SubscriptionForm() {
 
   return (
     <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(onSubmit)}
-        className="p-4 flex gap-4 justify-between"
-      >
-        <SelectFormField form={form} name="expiry" options={expiryOptions} />
-        <NumberInputFormField
-          form={form}
-          name="entryPercent"
-          min={0}
-          max={100}
-          step={1}
-        />
-        <NumberInputFormField
-          form={form}
-          name="entryValue"
-          min={0}
-          max={10000}
-          step={0.05}
-        />
-        <NumberInputFormField
-          form={form}
-          name="orderPercent"
-          min={0}
-          max={100}
-          step={0.01}
-        />
-        <Button
-          type="submit"
-          className="mt-[30px]"
-          disabled={buttonState !== 'subscribe'}
-        >
+      <form onSubmit={form.handleSubmit(onSubmit)} className='flex justify-between gap-4 p-4'>
+        <SelectFormField form={form} name='expiry' options={expiryOptions} />
+        <NumberInputFormField form={form} name='entryPercent' min={0} max={100} step={1} />
+        <NumberInputFormField form={form} name='entryValue' min={0} max={10000} step={0.05} />
+        <NumberInputFormField form={form} name='orderPercent' min={0} max={100} step={0.01} />
+        <Button type='submit' className='mt-[30px]' disabled={buttonState !== 'subscribe'}>
           {buttonState === 'subscribe' ? 'Subscribe' : null}
           {buttonState === 'subscribing' ? (
             <>
-              <UpdateIcon className="mr-2 h-4 w-4 animate-spin" />
+              <UpdateIcon className='mr-2 h-4 w-4 animate-spin' />
               Subscribing...
             </>
           ) : null}

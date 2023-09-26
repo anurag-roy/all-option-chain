@@ -3,9 +3,7 @@ import { ShoonyaInstrument } from '@/types/shoonya';
 import JSZip from 'jszip';
 
 export const getNifty500Stocks = async () => {
-  const res = await fetch(
-    'https://archives.nseindia.com/content/indices/ind_nifty500list.csv'
-  );
+  const res = await fetch('https://archives.nseindia.com/content/indices/ind_nifty500list.csv');
   const text = await res.text();
 
   const rows = text.split('\n').slice(1);
@@ -34,15 +32,7 @@ export const getInstruments = async (forExchange: 'NSE' | 'NFO') => {
 
   for (const row of rows) {
     if (forExchange === 'NSE') {
-      const [
-        exchange,
-        token,
-        lotSize,
-        symbol,
-        tradingSymbol,
-        instrument,
-        tickSize,
-      ] = row.split(',');
+      const [exchange, token, lotSize, symbol, tradingSymbol, instrument, tickSize] = row.split(',');
 
       if (instrument === 'EQ') {
         output.push({
@@ -59,23 +49,10 @@ export const getInstruments = async (forExchange: 'NSE' | 'NFO') => {
         });
       }
     } else if (forExchange === 'NFO') {
-      const [
-        exchange,
-        token,
-        lotSize,
-        symbol,
-        tradingSymbol,
-        expiry,
-        instrument,
-        optionType,
-        strikePrice,
-        tickSize,
-      ] = row.split(',');
+      const [exchange, token, lotSize, symbol, tradingSymbol, expiry, instrument, optionType, strikePrice, tickSize] =
+        row.split(',');
 
-      if (
-        (optionType === 'CE' || optionType === 'PE') &&
-        STOCKS_TO_INCLUDE.includes(symbol)
-      ) {
+      if ((optionType === 'CE' || optionType === 'PE') && STOCKS_TO_INCLUDE.includes(symbol)) {
         output.push({
           exchange,
           token,

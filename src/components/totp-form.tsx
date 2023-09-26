@@ -12,17 +12,12 @@ const TOTP_LENGTH = 6;
 export function TotpForm({ className, ...props }: TotpFormProps) {
   const { toast } = useToast();
   const router = useRouter();
-  const [buttonState, setButtonState] = React.useState<
-    'confirm' | 'confirming'
-  >('confirm');
+  const [buttonState, setButtonState] = React.useState<'confirm' | 'confirming'>('confirm');
 
   const fieldSetRef = React.useRef<HTMLFieldSetElement>(null);
   const digitIds = [...Array(TOTP_LENGTH).keys()];
 
-  const otpInputKeydownhandler = (
-    event: React.KeyboardEvent<HTMLInputElement>,
-    i: number
-  ) => {
+  const otpInputKeydownhandler = (event: React.KeyboardEvent<HTMLInputElement>, i: number) => {
     const inputContainer = fieldSetRef.current;
     if (!inputContainer) return;
 
@@ -63,22 +58,17 @@ export function TotpForm({ className, ...props }: TotpFormProps) {
   };
 
   return (
-    <form
-      onSubmit={confirmTotp}
-      method="post"
-      className="py-2 flex flex-col gap-2 items-center"
-      {...props}
-    >
-      <fieldset className="mb-4 flex w-fit flex-row gap-3" ref={fieldSetRef}>
-        <legend className="text-center text-sm text-muted-foreground mb-6">
+    <form onSubmit={confirmTotp} method='post' className='flex flex-col items-center gap-2 py-2' {...props}>
+      <fieldset className='mb-4 flex w-fit flex-row gap-3' ref={fieldSetRef}>
+        <legend className='mb-6 text-center text-sm text-muted-foreground'>
           Please enter your TOTP to login again.
         </legend>
         {digitIds.map((i) => (
           <Input
             required
             key={i.toString()}
-            className="hide-arrows text-center h-12"
-            type="number"
+            className='hide-arrows h-12 text-center'
+            type='number'
             name={`otp-input-${i}`}
             id={`otp-input-${i}`}
             onKeyDown={(event) => otpInputKeydownhandler(event, i)}
@@ -86,34 +76,22 @@ export function TotpForm({ className, ...props }: TotpFormProps) {
         ))}
       </fieldset>
 
-      <Button
-        type="submit"
-        size="lg"
-        className="w-full"
-        disabled={buttonState === 'confirming'}
-      >
+      <Button type='submit' size='lg' className='w-full' disabled={buttonState === 'confirming'}>
         {buttonState === 'confirm' ? (
           `Login as ${env.USER_ID}`
         ) : (
           <>
             <svg
-              className="-ml-1 mr-3 h-5 w-5 animate-spin text-white"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
+              className='-ml-1 mr-3 h-5 w-5 animate-spin text-white'
+              xmlns='http://www.w3.org/2000/svg'
+              fill='none'
+              viewBox='0 0 24 24'
             >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              ></circle>
+              <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4'></circle>
               <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                className='opacity-75'
+                fill='currentColor'
+                d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
               ></path>
             </svg>
             Logging in as {env.USER_ID}...

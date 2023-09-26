@@ -16,9 +16,7 @@ import {
 } from './ui/dropdown-menu';
 
 export function UserNav() {
-  const [userDetails, setUserDetails] = React.useState<UserDetails | null>(
-    null
-  );
+  const [userDetails, setUserDetails] = React.useState<UserDetails | null>(null);
   React.useEffect(() => {
     ky.get('/api/userDetails').json<UserDetails>().then(setUserDetails);
   }, []);
@@ -26,8 +24,8 @@ export function UserNav() {
   return userDetails ? (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-          <Avatar className="h-9 w-9">
+        <Button variant='ghost' className='relative h-8 w-8 rounded-full'>
+          <Avatar className='h-9 w-9'>
             <AvatarFallback>
               {userDetails.uname
                 .split(' ')
@@ -37,15 +35,11 @@ export function UserNav() {
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end" forceMount>
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">
-              {userDetails.uname}
-            </p>
-            <p className="text-xs leading-none text-muted-foreground">
-              {userDetails.uid}
-            </p>
+      <DropdownMenuContent className='w-56' align='end' forceMount>
+        <DropdownMenuLabel className='font-normal'>
+          <div className='flex flex-col space-y-1'>
+            <p className='text-sm font-medium leading-none'>{userDetails.uname}</p>
+            <p className='text-xs leading-none text-muted-foreground'>{userDetails.uid}</p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
@@ -53,9 +47,9 @@ export function UserNav() {
           <DropdownMenuItem disabled>Holdings</DropdownMenuItem>
           <DropdownMenuItem disabled>Positions</DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link href="/amo" target="_blank">
+            <Link href='/amo' target='_blank'>
               Place AMO
-              <ArrowTopRightIcon className="ml-2 mb-[1px] h-4 w-4" />
+              <ArrowTopRightIcon className='mb-[1px] ml-2 h-4 w-4' />
             </Link>
           </DropdownMenuItem>
         </DropdownMenuGroup>
@@ -64,8 +58,8 @@ export function UserNav() {
       </DropdownMenuContent>
     </DropdownMenu>
   ) : (
-    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-      <Avatar className="h-9 w-9">
+    <Button variant='ghost' className='relative h-8 w-8 rounded-full'>
+      <Avatar className='h-9 w-9'>
         <AvatarFallback></AvatarFallback>
       </Avatar>
     </Button>

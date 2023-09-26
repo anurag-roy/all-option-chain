@@ -2,8 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { getUserDetails } from './getUserDetails';
 
-export const getHash = (input: string) =>
-  createHash('sha256').update(input).digest('hex');
+export const getHash = (input: string) => createHash('sha256').update(input).digest('hex');
 
 export const injectTokenIntoEnv = async (token?: string) => {
   if (token) {

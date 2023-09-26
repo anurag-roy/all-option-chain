@@ -1,33 +1,14 @@
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  CaretSortIcon,
-  CheckIcon,
-  MinusCircledIcon,
-  PlusIcon,
-  UpdateIcon,
-} from '@radix-ui/react-icons';
+import { CaretSortIcon, CheckIcon, MinusCircledIcon, PlusIcon, UpdateIcon } from '@radix-ui/react-icons';
 import ky from 'ky';
 import pQueue from 'p-queue';
 import * as React from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { Button } from './ui/button';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from './ui/command';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from './ui/form';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from './ui/command';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from './ui/form';
 import { Input } from './ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { useToast } from './ui/use-toast';
@@ -92,9 +73,7 @@ const calculateOrders = (values: FormObject) => {
 };
 
 export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
-  const [buttonState, setButtonState] = React.useState<'order' | 'ordering'>(
-    'order'
-  );
+  const [buttonState, setButtonState] = React.useState<'order' | 'ordering'>('order');
   const { toast } = useToast();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -114,9 +93,7 @@ export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setButtonState('ordering');
 
-    const orders = values.stocks
-      .map((s) => calculateOrders(s))
-      .flatMap((s) => s);
+    const orders = values.stocks.map((s) => calculateOrders(s)).flatMap((s) => s);
 
     const queue = new pQueue({ concurrency: 1, intervalCap: 1, interval: 300 });
     for (const order of orders) {
@@ -143,68 +120,47 @@ export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
 
   return (
     <>
-      <h1 className="text-xl font-bold mb-2 ml-1">Place After Market Order</h1>
+      <h1 className='mb-2 ml-1 text-xl font-bold'>Place After Market Order</h1>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
-          <div className="border rounded-md">
+          <div className='rounded-md border'>
             {fields.map((field, index) => (
-              <section
-                key={field.id}
-                className="p-4 flex gap-8 justify-between border-b"
-              >
+              <section key={field.id} className='flex justify-between gap-8 border-b p-4'>
                 <FormField
                   control={form.control}
                   name={`stocks.${index}.tradingSymbol`}
                   render={({ field }) => (
-                    <FormItem className="space-y-2">
+                    <FormItem className='space-y-2'>
                       <FormLabel>Trading Symbol</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
                             <Button
-                              variant="outline"
-                              role="combobox"
-                              className={cn(
-                                'flex w-[200px] justify-between',
-                                !field.value && 'text-muted-foreground'
-                              )}
+                              variant='outline'
+                              role='combobox'
+                              className={cn('flex w-[200px] justify-between', !field.value && 'text-muted-foreground')}
                             >
-                              {field.value
-                                ? equityStockOptions.find(
-                                    (eq) => eq === field.value
-                                  )
-                                : 'Select Stock'}
-                              <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              {field.value ? equityStockOptions.find((eq) => eq === field.value) : 'Select Stock'}
+                              <CaretSortIcon className='ml-2 h-4 w-4 shrink-0 opacity-50' />
                             </Button>
                           </FormControl>
                         </PopoverTrigger>
-                        <PopoverContent className="w-[200px] p-0">
+                        <PopoverContent className='w-[200px] p-0'>
                           <Command>
-                            <CommandInput
-                              placeholder="Search..."
-                              className="h-9"
-                            />
+                            <CommandInput placeholder='Search...' className='h-9' />
                             <CommandEmpty>No stock found.</CommandEmpty>
-                            <CommandGroup className="max-h-64 overflow-auto">
+                            <CommandGroup className='max-h-64 overflow-auto'>
                               {equityStockOptions.map((eq) => (
                                 <CommandItem
                                   value={eq}
                                   key={eq}
                                   onSelect={() => {
-                                    form.setValue(
-                                      `stocks.${index}.tradingSymbol`,
-                                      eq
-                                    );
+                                    form.setValue(`stocks.${index}.tradingSymbol`, eq);
                                   }}
                                 >
                                   {eq}
                                   <CheckIcon
-                                    className={cn(
-                                      'ml-auto h-4 w-4',
-                                      eq === field.value
-                                        ? 'opacity-100'
-                                        : 'opacity-0'
-                                    )}
+                                    className={cn('ml-auto h-4 w-4', eq === field.value ? 'opacity-100' : 'opacity-0')}
                                   />
                                 </CommandItem>
                               ))}
@@ -224,8 +180,8 @@ export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
                       <FormLabel>Value</FormLabel>
                       <FormControl>
                         <Input
-                          type="number"
-                          className="w-32"
+                          type='number'
+                          className='w-32'
                           step={0.01}
                           {...form.register(`stocks.${index}.value`, {
                             valueAsNumber: true,
@@ -244,8 +200,8 @@ export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
                       <FormLabel>LTP</FormLabel>
                       <FormControl>
                         <Input
-                          type="number"
-                          className="w-32"
+                          type='number'
+                          className='w-32'
                           step={0.01}
                           {...form.register(`stocks.${index}.ltp`, {
                             valueAsNumber: true,
@@ -264,8 +220,8 @@ export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
                       <FormLabel>Lower Circuit</FormLabel>
                       <FormControl>
                         <Input
-                          type="number"
-                          className="w-32"
+                          type='number'
+                          className='w-32'
                           step={0.01}
                           {...form.register(`stocks.${index}.lowerCircuit`, {
                             valueAsNumber: true,
@@ -284,8 +240,8 @@ export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
                       <FormLabel>Leg 1</FormLabel>
                       <FormControl>
                         <Input
-                          type="number"
-                          className="w-24"
+                          type='number'
+                          className='w-24'
                           step={0.01}
                           {...form.register(`stocks.${index}.leg1`, {
                             valueAsNumber: true,
@@ -304,8 +260,8 @@ export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
                       <FormLabel>Leg 2</FormLabel>
                       <FormControl>
                         <Input
-                          type="number"
-                          className="w-24"
+                          type='number'
+                          className='w-24'
                           step={0.01}
                           {...form.register(`stocks.${index}.leg2`, {
                             valueAsNumber: true,
@@ -324,8 +280,8 @@ export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
                       <FormLabel>Leg 3</FormLabel>
                       <FormControl>
                         <Input
-                          type="number"
-                          className="w-24"
+                          type='number'
+                          className='w-24'
                           step={0.01}
                           {...form.register(`stocks.${index}.leg3`, {
                             valueAsNumber: true,
@@ -337,27 +293,27 @@ export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
                   )}
                 />
                 <Button
-                  type="button"
-                  variant="ghost"
-                  className="mt-[30px]"
+                  type='button'
+                  variant='ghost'
+                  className='mt-[30px]'
                   disabled={fields.length === 1}
                   onClick={() => remove(index)}
                 >
-                  <MinusCircledIcon className="h-4 w-4" />
+                  <MinusCircledIcon className='h-4 w-4' />
                 </Button>
               </section>
             ))}
           </div>
-          <div className="flex py-4 justify-end items-center gap-4">
-            <Button type="button" onClick={() => addRow()}>
-              <PlusIcon className="mr-2 h-4 w-4" />
+          <div className='flex items-center justify-end gap-4 py-4'>
+            <Button type='button' onClick={() => addRow()}>
+              <PlusIcon className='mr-2 h-4 w-4' />
               Add row
             </Button>
-            <Button type="submit" disabled={buttonState !== 'order'}>
+            <Button type='submit' disabled={buttonState !== 'order'}>
               {buttonState === 'order' ? 'Place orders' : null}
               {buttonState === 'ordering' ? (
                 <>
-                  <UpdateIcon className="mr-2 h-4 w-4 animate-spin" />
+                  <UpdateIcon className='mr-2 h-4 w-4 animate-spin' />
                   Placing orders...
                 </>
               ) : null}

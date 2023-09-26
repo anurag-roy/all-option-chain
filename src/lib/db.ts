@@ -12,10 +12,7 @@ export const getAllEquityStocks = async () => {
   return equityStocks;
 };
 
-export const getInstrumentsToSubscribe = async (
-  symbol: string,
-  expiryPrefix: string
-) => {
+export const getInstrumentsToSubscribe = async (symbol: string, expiryPrefix: string) => {
   const equityStock = await db.instrument.findFirstOrThrow({
     where: {
       id: `${symbol}-EQ`,

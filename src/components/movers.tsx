@@ -1,13 +1,6 @@
 import { useStockStore } from '@/stores/stocks';
 import { UiEquity } from '@/types';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from './ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 
 function MoverTableBody({ rows }: { rows: UiEquity[] }) {
   return (
@@ -16,12 +9,8 @@ function MoverTableBody({ rows }: { rows: UiEquity[] }) {
         rows[i] ? (
           <TableRow key={rows[i].symbol}>
             <TableCell>{rows[i].symbol}</TableCell>
-            <TableCell className="tabular-nums">
-              {rows[i].ltp.toFixed(2)}
-            </TableCell>
-            <TableCell className="tabular-nums">
-              {rows[i].gainLossPercent.toFixed(2)}
-            </TableCell>
+            <TableCell className='tabular-nums'>{rows[i].ltp.toFixed(2)}</TableCell>
+            <TableCell className='tabular-nums'>{rows[i].gainLossPercent.toFixed(2)}</TableCell>
           </TableRow>
         ) : (
           <TableRow key={i}>
@@ -37,13 +26,11 @@ function MoverTableBody({ rows }: { rows: UiEquity[] }) {
 
 function Gainers() {
   const equities = useStockStore((state) => state.equities);
-  const gainers = [...equities]
-    .sort((a, b) => b.gainLossPercent - a.gainLossPercent)
-    .slice(0, 5);
+  const gainers = [...equities].sort((a, b) => b.gainLossPercent - a.gainLossPercent).slice(0, 5);
   // .filter((equity) => equity.gainLossPercent > 5);
 
   return (
-    <div className="border rounded-md">
+    <div className='rounded-md border'>
       <Table>
         <TableHeader>
           <TableRow>
@@ -60,13 +47,11 @@ function Gainers() {
 
 function Losers() {
   const equities = useStockStore((state) => state.equities);
-  const losers = [...equities]
-    .sort((a, b) => a.gainLossPercent - b.gainLossPercent)
-    .slice(0, 5);
+  const losers = [...equities].sort((a, b) => a.gainLossPercent - b.gainLossPercent).slice(0, 5);
   // .filter((equity) => equity.gainLossPercent < -5);
 
   return (
-    <div className="border rounded-md">
+    <div className='rounded-md border'>
       <Table>
         <TableHeader>
           <TableRow>
@@ -84,8 +69,8 @@ function Losers() {
 export function Movers() {
   return (
     <section>
-      <h2 className="text-xl font-bold mb-2 ml-1">Movers</h2>
-      <div className="grid grid-cols-2 gap-4 p-4 border rounded-md">
+      <h2 className='mb-2 ml-1 text-xl font-bold'>Movers</h2>
+      <div className='grid grid-cols-2 gap-4 rounded-md border p-4'>
         <Gainers />
         <Losers />
       </div>

@@ -18,13 +18,10 @@ const handler: NextApiHandler = async (req, res) => {
   };
 
   try {
-    const loginRes = await fetch(
-      'https://api.shoonya.com/NorenWClientTP/QuickAuth',
-      {
-        method: 'POST',
-        body: 'jData=' + JSON.stringify(data),
-      }
-    );
+    const loginRes = await fetch('https://api.shoonya.com/NorenWClientTP/QuickAuth', {
+      method: 'POST',
+      body: 'jData=' + JSON.stringify(data),
+    });
 
     if (!loginRes.ok) {
       throw new Error(await loginRes.text());

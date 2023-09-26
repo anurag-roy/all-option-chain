@@ -44,18 +44,18 @@ export default function Home({ token }: HomeProps) {
     <>
       <Head>
         <title>Home - Option Chain</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
+        <meta name='viewport' content='width=device-width, initial-scale=1' />
+        <link rel='icon' href='/favicon.ico' />
       </Head>
       <Header />
-      <main className="max-w-7xl mx-auto py-6 space-y-8">
-        <div className="grid grid-cols-[6fr_4fr] gap-8">
+      <main className='mx-auto max-w-7xl space-y-8 py-6'>
+        <div className='grid grid-cols-[6fr_4fr] gap-8'>
           <Movers />
           <Bans />
         </div>
         <section>
-          <h2 className="text-xl font-bold mb-2 ml-1">Option Chain</h2>
-          <div className="border rounded-md">
+          <h2 className='mb-2 ml-1 text-xl font-bold'>Option Chain</h2>
+          <div className='rounded-md border'>
             <SubscriptionForm />
             <OptionsTable />
           </div>

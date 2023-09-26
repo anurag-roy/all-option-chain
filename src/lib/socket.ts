@@ -47,12 +47,9 @@ export const getValidInstruments = async (
 
     const filteredInstruments = instruments.filter(
       (s) =>
-        (s.strikePrice <= lowerBound && s.optionType === 'PE') ||
-        (s.strikePrice >= upperBound && s.optionType === 'CE')
+        (s.strikePrice <= lowerBound && s.optionType === 'PE') || (s.strikePrice >= upperBound && s.optionType === 'CE')
     );
-    const tokensToSubscribe = filteredInstruments
-      .map((s) => `NFO|${s.token}`)
-      .join('#');
+    const tokensToSubscribe = filteredInstruments.map((s) => `NFO|${s.token}`).join('#');
 
     // Timeout after 3 seconds, because sometimes Shoonya doesn't return an acknowledgement
     const timeout = setTimeout(() => {
@@ -66,18 +63,12 @@ export const getValidInstruments = async (
     }, 3000);
 
     ws.onmessage = (messageEvent: MessageEvent) => {
-      const messageData = JSON.parse(
-        messageEvent.data as string
-      ) as TouchlineResponse;
+      const messageData = JSON.parse(messageEvent.data as string) as TouchlineResponse;
 
       if (messageData.t === 'tk' && 'oi' in messageData && messageData.bp1) {
-        const foundInstrument = instruments.find(
-          (i) => i.token === messageData.tk
-        )!;
-        const sellValue =
-          (Number(messageData.bp1) - 0.05) * foundInstrument.lotSize;
-        const strikePosition =
-          (Math.abs(foundInstrument.strikePrice - ltp) * 100) / ltp;
+        const foundInstrument = instruments.find((i) => i.token === messageData.tk)!;
+        const sellValue = (Number(messageData.bp1) - 0.05) * foundInstrument.lotSize;
+        const strikePosition = (Math.abs(foundInstrument.strikePrice - ltp) * 100) / ltp;
         validInstruments.push({
           ...foundInstrument,
           ltp: ltp,

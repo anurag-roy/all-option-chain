@@ -17,9 +17,7 @@ export const useBansStore = create<BansState>((set) => ({
     }),
   removeBannedStock: (stockName) =>
     set((state) => {
-      const bannedStocks = state.bannedStocks.filter(
-        (stock) => stock !== stockName
-      );
+      const bannedStocks = state.bannedStocks.filter((stock) => stock !== stockName);
       return { bannedStocks };
     }),
 }));

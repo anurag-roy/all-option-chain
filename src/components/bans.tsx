@@ -2,18 +2,11 @@ import { getTodayAsParam } from '@/lib/utils';
 import { useBansStore } from '@/stores/bans';
 import ky from 'ky';
 import * as React from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from './ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 
 function NseBans({ stocks }: { stocks: string[] }) {
   return (
-    <div className="ml-auto h-56 w-full overflow-y-auto border rounded-md">
+    <div className='ml-auto h-56 w-full overflow-y-auto rounded-md border'>
       <Table>
         <TableHeader>
           <TableRow>
@@ -40,7 +33,7 @@ function NseBans({ stocks }: { stocks: string[] }) {
 
 function CustomBans({ stocks }: { stocks: string[] }) {
   return (
-    <div className="ml-auto h-56 w-full overflow-y-auto border rounded-md">
+    <div className='ml-auto h-56 w-full overflow-y-auto rounded-md border'>
       <Table>
         <TableHeader>
           <TableRow>
@@ -98,8 +91,8 @@ export function Bans() {
 
   return (
     <section>
-      <h2 className="text-xl font-bold mb-2 ml-1">Bans</h2>
-      <div className="grid grid-cols-2 gap-4 p-4 border rounded-md">
+      <h2 className='mb-2 ml-1 text-xl font-bold'>Bans</h2>
+      <div className='grid grid-cols-2 gap-4 rounded-md border p-4'>
         <NseBans stocks={bansStore.bannedStocks} />
         <CustomBans stocks={['IDEA']} />
       </div>

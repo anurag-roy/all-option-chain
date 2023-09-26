@@ -33,10 +33,10 @@ export default function Home({ equityStockOptions }: AmoProps) {
     <>
       <Head>
         <title>AMO - Option Chain</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
+        <meta name='viewport' content='width=device-width, initial-scale=1' />
+        <link rel='icon' href='/favicon.ico' />
       </Head>
-      <main className="max-w-7xl mx-auto py-6">
+      <main className='mx-auto max-w-7xl py-6'>
         <AmoOrderForm equityStockOptions={equityStockOptions} />
       </main>
     </>

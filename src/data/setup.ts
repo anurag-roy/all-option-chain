@@ -6,8 +6,7 @@ import { getInstruments, getNifty500Stocks } from './getInstruments';
 // Create the sqlite db here
 const DB_PATH = 'src/data/data.db';
 
-const getSqliteType = (key: string, value: any) =>
-  typeof value === 'number' ? 'REAL' : 'TEXT';
+const getSqliteType = (key: string, value: any) => (typeof value === 'number' ? 'REAL' : 'TEXT');
 
 async function main() {
   const nseInstruments = await getInstruments('NSE');
@@ -15,10 +14,7 @@ async function main() {
 
   const nifty500 = await getNifty500Stocks();
   const equityStocksToInclude = new Set([...nifty500, ...STOCKS_TO_INCLUDE]);
-  const instruments = [
-    ...nseInstruments.filter((i) => equityStocksToInclude.has(i.symbol)),
-    ...nfoInstruments,
-  ];
+  const instruments = [...nseInstruments.filter((i) => equityStocksToInclude.has(i.symbol)), ...nfoInstruments];
 
   const columns = getKeys(instruments[0]);
 
@@ -32,20 +28,14 @@ async function main() {
   db.prepare(
     `CREATE TABLE ${TABLE_NAME} (` +
       'id TEXT NOT NULL PRIMARY KEY,' +
-      columns.map(
-        (c) => `${c} ${getSqliteType(c, instruments[0][c])} NOT NULL`
-      ) +
+      columns.map((c) => `${c} ${getSqliteType(c, instruments[0][c])} NOT NULL`) +
       ');'
   ).run();
   console.log('Table creation successful!');
 
   const insert = (values: string[]) => {
     if (values.length === 0) return;
-    db.exec(
-      `INSERT INTO ${TABLE_NAME} (id, ${columns.join(
-        ','
-      )}) VALUES ${values.join(',')};`
-    );
+    db.exec(`INSERT INTO ${TABLE_NAME} (id, ${columns.join(',')}) VALUES ${values.join(',')};`);
   };
 
   // Variables to insert values in batches

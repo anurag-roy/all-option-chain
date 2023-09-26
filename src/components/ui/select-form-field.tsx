@@ -1,19 +1,7 @@
 import { startCase } from 'lodash-es';
 import type { UseFormReturn } from 'react-hook-form';
-import {
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from './form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './select';
+import { FormControl, FormField, FormItem, FormLabel, FormMessage } from './form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
 
 type SelectFormFieldProps = {
   form: UseFormReturn<any>;
@@ -31,7 +19,7 @@ export function SelectFormField({ form, name, options }: SelectFormFieldProps) {
           <FormLabel>{startCase(field.name)}</FormLabel>
           <Select onValueChange={field.onChange} defaultValue={field.value}>
             <FormControl>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className='w-48'>
                 <SelectValue />
               </SelectTrigger>
             </FormControl>

@@ -18,7 +18,7 @@ export default function App({ Component, pageProps }: AppProps) {
           }
         `}
       </style>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <ThemeProvider attribute='class' defaultTheme='system' enableSystem>
         <Component {...pageProps} />
         <Toaster />
       </ThemeProvider>

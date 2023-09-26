@@ -40,40 +40,24 @@ export const columns: ColumnDef<UiInstrument>[] = [
   },
   {
     accessorKey: 'returnValue',
-    header: ({ table, column }) => (
-      <DataTableColumnHeader
-        table={table}
-        column={column}
-        title="Return Value"
-      />
-    ),
+    header: ({ table, column }) => <DataTableColumnHeader table={table} column={column} title='Return Value' />,
     cell: ({ row }) => <RowOrderAction row={row} />,
-    sortingFn: (rowA, rowsB) =>
-      rowA.original.returnValue - rowsB.original.returnValue,
+    sortingFn: (rowA, rowsB) => rowA.original.returnValue - rowsB.original.returnValue,
   },
   {
     accessorKey: 'strikePosition',
-    header: ({ table, column }) => (
-      <DataTableColumnHeader
-        table={table}
-        column={column}
-        title="Strike Position"
-      />
-    ),
+    header: ({ table, column }) => <DataTableColumnHeader table={table} column={column} title='Strike Position' />,
     cell: ({ row }) => (
       <span
         className={cn(
           'pr-4 font-semibold',
-          row.original.strikePosition > 30
-            ? 'text-red-800 dark:text-red-400'
-            : 'text-emerald-800 dark:text-emerald-400'
+          row.original.strikePosition > 30 ? 'text-red-800 dark:text-red-400' : 'text-emerald-800 dark:text-emerald-400'
         )}
       >
         {row.original.strikePosition.toFixed(2)}
       </span>
     ),
-    sortingFn: (rowA, rowsB) =>
-      rowA.original.strikePosition - rowsB.original.strikePosition,
+    sortingFn: (rowA, rowsB) => rowA.original.strikePosition - rowsB.original.strikePosition,
   },
   {
     accessorKey: 'sellValue',
@@ -82,12 +66,4 @@ export const columns: ColumnDef<UiInstrument>[] = [
   },
 ];
 
-export const numericCols = [
-  'ltp',
-  'peLimit',
-  'ceLimit',
-  'bid',
-  'returnValue',
-  'strikePosition',
-  'sellValue',
-];
+export const numericCols = ['ltp', 'peLimit', 'ceLimit', 'bid', 'returnValue', 'strikePosition', 'sellValue'];

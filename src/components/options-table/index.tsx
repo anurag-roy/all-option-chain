@@ -37,10 +37,7 @@ export function OptionsTable() {
           returnFetchState.current.fetchIndex++;
           returnFetchState.current.fetchCount++;
         } else if (returnFetchState.current.fetchCount < 200) {
-          returnFetchState.current.fetchIndex = getRandomIndex(
-            101,
-            instruments.length - 1
-          );
+          returnFetchState.current.fetchIndex = getRandomIndex(101, instruments.length - 1);
           returnFetchState.current.fetchCount++;
         } else {
           returnFetchState.current.fetchIndex = 0;
@@ -61,11 +58,8 @@ export function OptionsTable() {
   }, [initComplete]);
 
   return (
-    <div className="border-t p-4">
-      <DataTable
-        columns={columns}
-        data={instruments.filter((i) => i.sellValue >= entryValue)}
-      />
+    <div className='border-t p-4'>
+      <DataTable columns={columns} data={instruments.filter((i) => i.sellValue >= entryValue)} />
     </div>
   );
 }

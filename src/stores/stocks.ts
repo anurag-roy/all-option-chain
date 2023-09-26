@@ -44,9 +44,7 @@ export const useStockStore = create<StockState>()((set) => ({
   resetEquities: () => set({ equities: [] }),
   updateLtp: (data) =>
     set((state) => {
-      let foundEquity = state.equities.find(
-        (equity) => equity.token === data.tk
-      )!;
+      let foundEquity = state.equities.find((equity) => equity.token === data.tk)!;
       if (!foundEquity) return {};
 
       const ltp = Number(data.lp);
@@ -55,8 +53,7 @@ export const useStockStore = create<StockState>()((set) => ({
       const equities = state.equities.map((equity) => {
         if (equity.token === data.tk) {
           foundEquity = equity;
-          const newGainLossPercent =
-            ((ltp - equity.prevClose) * 100) / equity.prevClose;
+          const newGainLossPercent = ((ltp - equity.prevClose) * 100) / equity.prevClose;
           return {
             ...equity,
             ltp,
@@ -69,8 +66,7 @@ export const useStockStore = create<StockState>()((set) => ({
       // Update instruments LTP
       const instruments = state.instruments.map((instrument) => {
         if (instrument.symbol === foundEquity.symbol) {
-          const newStrikePosition =
-            (Math.abs(instrument.strikePrice - ltp) * 100) / ltp;
+          const newStrikePosition = (Math.abs(instrument.strikePrice - ltp) * 100) / ltp;
           return {
             ...instrument,
             ltp,
@@ -122,8 +118,7 @@ export const useStockStore = create<StockState>()((set) => ({
     set((state) => {
       const instruments = state.instruments.map((i) => {
         if (i.token === token) {
-          const newReturn =
-            ((i.bid - 0.05) * i.lotSize * 100) / Number(margin.ordermargin);
+          const newReturn = ((i.bid - 0.05) * i.lotSize * 100) / Number(margin.ordermargin);
           return {
             ...i,
             returnValue: newReturn,

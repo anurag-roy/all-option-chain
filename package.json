@@ -8,7 +8,20 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "data:prepare": "rimraf src/data/data.db && tsx src/data/setup.ts"
+    "data:prepare": "rimraf src/data/data.db && tsx src/data/setup.ts",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\""
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.5",
+    "@types/lodash-es": "^4.17.9",
+    "@types/node": "^20.7.0",
+    "@types/react": "^18.2.22",
+    "@types/react-dom": "^18.2.7",
+    "@types/ws": "^8.5.6",
+    "autoprefixer": "^10.4.16",
+    "prettier": "^3.0.3",
+    "prettier-plugin-tailwindcss": "^0.5.4",
+    "typescript": "^5.2.2"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.1",
@@ -23,13 +36,6 @@
     "@radix-ui/react-slot": "^1.0.2",
     "@radix-ui/react-toast": "^1.1.4",
     "@tanstack/react-table": "^8.9.9",
-    "@types/better-sqlite3": "^7.6.4",
-    "@types/lodash-es": "^4.17.9",
-    "@types/node": "20.6.0",
-    "@types/react": "18.2.21",
-    "@types/react-dom": "18.2.7",
-    "@types/ws": "^8.5.5",
-    "autoprefixer": "10.4.15",
     "better-sqlite3": "^8.6.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
@@ -48,12 +54,23 @@
     "tailwind-merge": "^1.14.0",
     "tailwindcss": "3.3.3",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "5.2.2",
     "ws": "^8.14.1",
     "zod": "^3.22.2",
     "zustand": "^4.4.1"
   },
   "prisma": {
     "schema": "src/data/schema.prisma"
+  },
+  "prettier": {
+    "printWidth": 120,
+    "useTabs": false,
+    "tabWidth": 2,
+    "trailingComma": "es5",
+    "singleQuote": true,
+    "semi": true,
+    "jsxSingleQuote": true,
+    "plugins": [
+      "prettier-plugin-tailwindcss"
+    ]
   }
 }

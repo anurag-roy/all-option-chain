@@ -14,10 +14,7 @@ const handler: NextApiHandler = async (req, res) => {
 
   try {
     console.log(`Fetching data for ${stock}...`);
-    const { equityStock, optionsStocks } = await getInstrumentsToSubscribe(
-      stock,
-      expiry
-    );
+    const { equityStock, optionsStocks } = await getInstrumentsToSubscribe(stock, expiry);
 
     // Get LTP to calculate lower bound and upper bound
     const response = await getQuotes('NSE', equityStock.token);
@@ -29,13 +26,7 @@ const handler: NextApiHandler = async (req, res) => {
     const upperBound = ((100 + effectivePercent) * ltp) / 100;
 
     // Compute filtered stocks to send to socket client
-    const validInstruments = await getValidInstruments(
-      tempWs,
-      optionsStocks,
-      ltp,
-      lowerBound,
-      upperBound
-    );
+    const validInstruments = await getValidInstruments(tempWs, optionsStocks, ltp, lowerBound, upperBound);
     tempWs.close();
 
     const initResponse: StockInitResponse = {

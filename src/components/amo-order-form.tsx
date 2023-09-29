@@ -154,9 +154,7 @@ export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
                                 <CommandItem
                                   value={eq}
                                   key={eq}
-                                  onSelect={() => {
-                                    form.setValue(`stocks.${index}.tradingSymbol`, eq);
-                                  }}
+                                  onSelect={() => form.setValue(`stocks.${index}.tradingSymbol`, eq)}
                                 >
                                   {eq}
                                   <CheckIcon
@@ -183,9 +181,7 @@ export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
                           type='number'
                           className='w-32'
                           step={0.01}
-                          {...form.register(`stocks.${index}.value`, {
-                            valueAsNumber: true,
-                          })}
+                          {...form.register(`stocks.${index}.value`, { valueAsNumber: true })}
                         />
                       </FormControl>
                       <FormMessage />
@@ -203,9 +199,7 @@ export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
                           type='number'
                           className='w-32'
                           step={0.01}
-                          {...form.register(`stocks.${index}.ltp`, {
-                            valueAsNumber: true,
-                          })}
+                          {...form.register(`stocks.${index}.ltp`, { valueAsNumber: true })}
                         />
                       </FormControl>
                       <FormMessage />
@@ -223,9 +217,7 @@ export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
                           type='number'
                           className='w-32'
                           step={0.01}
-                          {...form.register(`stocks.${index}.lowerCircuit`, {
-                            valueAsNumber: true,
-                          })}
+                          {...form.register(`stocks.${index}.lowerCircuit`, { valueAsNumber: true })}
                         />
                       </FormControl>
                       <FormMessage />
@@ -243,9 +235,7 @@ export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
                           type='number'
                           className='w-24'
                           step={0.01}
-                          {...form.register(`stocks.${index}.leg1`, {
-                            valueAsNumber: true,
-                          })}
+                          {...form.register(`stocks.${index}.leg1`, { valueAsNumber: true })}
                         />
                       </FormControl>
                       <FormMessage />
@@ -263,9 +253,7 @@ export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
                           type='number'
                           className='w-24'
                           step={0.01}
-                          {...form.register(`stocks.${index}.leg2`, {
-                            valueAsNumber: true,
-                          })}
+                          {...form.register(`stocks.${index}.leg2`, { valueAsNumber: true })}
                         />
                       </FormControl>
                       <FormMessage />
@@ -283,9 +271,7 @@ export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
                           type='number'
                           className='w-24'
                           step={0.01}
-                          {...form.register(`stocks.${index}.leg3`, {
-                            valueAsNumber: true,
-                          })}
+                          {...form.register(`stocks.${index}.leg3`, { valueAsNumber: true })}
                         />
                       </FormControl>
                       <FormMessage />

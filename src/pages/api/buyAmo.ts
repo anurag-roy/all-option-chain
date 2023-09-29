@@ -19,6 +19,7 @@ const handler: NextApiHandler = async (req, res) => {
         trantype: 'B',
         prctyp: 'LMT',
         ret: 'DAY',
+        amo: 'Yes',
       }) +
       `&jKey=${process.env.token}`,
   });

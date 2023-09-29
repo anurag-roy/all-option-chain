@@ -52,7 +52,7 @@ export function OptionsTable() {
           returnFetchState.current.fetchCount = 0;
         }
       }
-    }, 600);
+    }, 500);
 
     return () => clearInterval(interval);
   }, [initComplete]);

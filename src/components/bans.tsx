@@ -28,7 +28,7 @@ function BansTable({ stocks, type }: { stocks: string[]; type: 'nse' | 'custom' 
         </TableHeader>
         <TableBody className='[&_tr:last-child]:border-1'>
           {stocks.length === 0 ? (
-            <TableRow>
+            <TableRow className='border-0'>
               <TableCell>{emptyText}</TableCell>
             </TableRow>
           ) : (

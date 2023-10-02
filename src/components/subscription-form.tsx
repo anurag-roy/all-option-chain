@@ -28,7 +28,7 @@ const formSchema = z.object({
 export function SubscriptionForm() {
   const addEquity = useStockStore((state) => state.addEquity);
   const addInstrument = useStockStore((state) => state.addInstruments);
-  const bannedStocks = useBansStore((state) => state.bannedStocks);
+  const bannedStocks = useBansStore((state) => state.bannedStocks.map((s) => s.name));
   const setEntryValue = useStockStore((state) => state.setEntryValue);
   const setOrderPercent = useStockStore((state) => state.setOrderPercent);
   const initSocket = useStockStore((state) => state.initSocket);

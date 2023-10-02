@@ -70,7 +70,9 @@ export const useStockStore = create<StockState>()((set) => ({
           return {
             ...instrument,
             ltp,
+            ltpChange: ltp - instrument.ltp,
             strikePosition: newStrikePosition,
+            strikePositionChange: newStrikePosition - instrument.strikePosition,
           };
         }
         return instrument;
@@ -108,6 +110,7 @@ export const useStockStore = create<StockState>()((set) => ({
           return {
             ...i,
             returnValue,
+            returnValueChange: returnValue - i.returnValue,
           };
         }
         return i;

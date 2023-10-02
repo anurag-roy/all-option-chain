@@ -11,10 +11,6 @@ export const columns: ColumnDef<UiInstrument>[] = [
     accessorFn: (row) => `${row.symbol} ${row.strikePrice}${row.optionType}`,
   },
   {
-    accessorKey: 'strikePrice',
-    header: 'Strike',
-  },
-  {
     accessorKey: 'symbol',
     header: 'Stock',
   },
@@ -34,6 +30,11 @@ export const columns: ColumnDef<UiInstrument>[] = [
     accessorFn: (row) => (1.3 * row.ltp).toFixed(2),
   },
   {
+    accessorKey: 'strikePrice',
+    header: 'Strike',
+    cell: ({ row }) => `${row.original.strikePrice} ${row.original.optionType}`,
+  },
+  {
     accessorKey: 'bid',
     header: 'Buyer Price',
     cell: ({ row }) => row.original.bid.toFixed(2),
@@ -51,7 +52,7 @@ export const columns: ColumnDef<UiInstrument>[] = [
       <span
         className={cn(
           'pr-4 font-semibold',
-          row.original.strikePosition > 30 ? 'text-red-800 dark:text-red-400' : 'text-emerald-800 dark:text-emerald-400'
+          row.original.strikePosition > 30 ? 'text-red-800 dark:text-red-500' : 'text-emerald-800 dark:text-emerald-500'
         )}
       >
         {row.original.strikePosition.toFixed(2)}
@@ -66,4 +67,15 @@ export const columns: ColumnDef<UiInstrument>[] = [
   },
 ];
 
-export const numericCols = ['ltp', 'peLimit', 'ceLimit', 'bid', 'returnValue', 'strikePosition', 'sellValue'];
+export const numericCols = [
+  'ltp',
+  'peLimit',
+  'ceLimit',
+  'bid',
+  'returnValue',
+  'strikePrice',
+  'strikePosition',
+  'sellValue',
+];
+
+export const asChildCols = ['ltp', 'returnValue', 'strikePosition'];

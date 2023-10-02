@@ -6,6 +6,10 @@ export interface UiInstrument extends instrument {
   returnValue: number;
   strikePosition: number;
   sellValue: number;
+  // UI variables to store increase/decrease from previous values
+  ltpChange?: number;
+  returnValueChange?: number;
+  strikePositionChange?: number;
 }
 
 export type UiEquity = {

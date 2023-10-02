@@ -20,3 +20,8 @@ export type StockInitResponse = {
   equity: UiEquity;
   instruments: UiInstrument[];
 };
+
+export type BannedStock = {
+  name: string;
+  type: 'nse' | 'custom';
+};

@@ -1,22 +1,33 @@
+import { cn } from '@/lib/utils';
 import { useStockStore } from '@/stores/stocks';
 import { UiEquity } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 
-function MoverTableBody({ rows }: { rows: UiEquity[] }) {
+function MoversTableBody({ rows, type }: { rows: UiEquity[]; type: 'gainers' | 'losers' }) {
+  const classNames = cn(
+    'tabular-nums font-semibold text-right',
+    type === 'gainers'
+      ? 'bg-emerald-50/60 text-emerald-800 dark:bg-emerald-900/10 dark:text-emerald-500'
+      : 'bg-red-50/60 text-red-800 dark:bg-red-900/10 dark:text-red-500'
+  );
+
   return (
     <TableBody>
       {[0, 1, 2, 3, 4].map((i) =>
         rows[i] ? (
           <TableRow key={rows[i].symbol}>
-            <TableCell>{rows[i].symbol}</TableCell>
-            <TableCell className='tabular-nums'>{rows[i].ltp.toFixed(2)}</TableCell>
-            <TableCell className='tabular-nums'>{rows[i].gainLossPercent.toFixed(2)}</TableCell>
+            <TableCell className='font-semibold'>{rows[i].symbol}</TableCell>
+            <TableCell className={classNames}>{rows[i].ltp.toFixed(2)}</TableCell>
+            <TableCell className={classNames}>
+              {type === 'losers' ? '↓ ' : '↑ '}
+              {rows[i].gainLossPercent.toFixed(2)}
+            </TableCell>
           </TableRow>
         ) : (
           <TableRow key={i}>
             <TableCell>-</TableCell>
-            <TableCell>-</TableCell>
-            <TableCell>-</TableCell>
+            <TableCell className={classNames}>-</TableCell>
+            <TableCell className={classNames}>-</TableCell>
           </TableRow>
         )
       )}
@@ -26,8 +37,10 @@ function MoverTableBody({ rows }: { rows: UiEquity[] }) {
 
 function Gainers() {
   const equities = useStockStore((state) => state.equities);
-  const gainers = [...equities].sort((a, b) => b.gainLossPercent - a.gainLossPercent).slice(0, 5);
-  // .filter((equity) => equity.gainLossPercent > 5);
+  const gainers = [...equities]
+    .sort((a, b) => b.gainLossPercent - a.gainLossPercent)
+    .filter((equity) => equity.gainLossPercent > 0)
+    .slice(0, 5);
 
   return (
     <div className='rounded-md border'>
@@ -35,11 +48,11 @@ function Gainers() {
         <TableHeader>
           <TableRow>
             <TableHead>Gainers</TableHead>
-            <TableHead>LTP</TableHead>
-            <TableHead>Gain %</TableHead>
+            <TableHead className='text-right'>LTP</TableHead>
+            <TableHead className='text-right'>Gain %</TableHead>
           </TableRow>
         </TableHeader>
-        <MoverTableBody rows={gainers} />
+        <MoversTableBody rows={gainers} type='gainers' />
       </Table>
     </div>
   );
@@ -47,8 +60,10 @@ function Gainers() {
 
 function Losers() {
   const equities = useStockStore((state) => state.equities);
-  const losers = [...equities].sort((a, b) => a.gainLossPercent - b.gainLossPercent).slice(0, 5);
-  // .filter((equity) => equity.gainLossPercent < -5);
+  const losers = [...equities]
+    .sort((a, b) => a.gainLossPercent - b.gainLossPercent)
+    .filter((equity) => equity.gainLossPercent < 0)
+    .slice(0, 5);
 
   return (
     <div className='rounded-md border'>
@@ -56,11 +71,11 @@ function Losers() {
         <TableHeader>
           <TableRow>
             <TableHead>Losers</TableHead>
-            <TableHead>LTP</TableHead>
-            <TableHead>Loss %</TableHead>
+            <TableHead className='text-right'>LTP</TableHead>
+            <TableHead className='text-right'>Loss %</TableHead>
           </TableRow>
         </TableHeader>
-        <MoverTableBody rows={losers} />
+        <MoversTableBody rows={losers} type='losers' />
       </Table>
     </div>
   );

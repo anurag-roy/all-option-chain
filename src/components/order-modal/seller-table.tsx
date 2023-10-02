@@ -27,10 +27,10 @@ export function SellerTable({ quote }: Props) {
             indices.map((i) => (
               <TableRow key={i}>
                 <TableCell>Seller {i}</TableCell>
-                <TableCell className='bg-red-50/60 text-red-800 dark:bg-red-900/5 dark:text-red-500'>
+                <TableCell className='bg-red-50/60 text-red-800 dark:bg-red-900/10 dark:text-red-500'>
                   {quote[`sp${i}`] ?? '-'}
                 </TableCell>
-                <TableCell className='bg-red-50/60 text-red-800 dark:bg-red-900/5 dark:text-red-500'>
+                <TableCell className='bg-red-50/60 text-red-800 dark:bg-red-900/10 dark:text-red-500'>
                   {quote[`sq${i}`] ?? '-'}
                 </TableCell>
               </TableRow>

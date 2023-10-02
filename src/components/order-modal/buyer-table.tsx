@@ -27,10 +27,10 @@ export function BuyerTable({ quote }: Props) {
             indices.map((i) => (
               <TableRow key={i}>
                 <TableCell>Buyer {i}</TableCell>
-                <TableCell className='bg-blue-50/60 text-blue-800 dark:bg-blue-900/5 dark:text-blue-500'>
+                <TableCell className='bg-blue-50/60 text-blue-800 dark:bg-blue-900/10 dark:text-blue-500'>
                   {quote[`bp${i}`] ?? '-'}
                 </TableCell>
-                <TableCell className='bg-blue-50/60 text-blue-800 dark:bg-blue-900/5 dark:text-blue-500'>
+                <TableCell className='bg-blue-50/60 text-blue-800 dark:bg-blue-900/10 dark:text-blue-500'>
                   {quote[`bq${i}`] ?? '-'}
                 </TableCell>
               </TableRow>

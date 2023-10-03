@@ -70,9 +70,9 @@ export const useStockStore = create<StockState>()((set) => ({
           return {
             ...instrument,
             ltp,
-            ltpChange: ltp - instrument.ltp,
+            ltpChange: ltp - instrument.ltp || instrument.ltpChange,
             strikePosition: newStrikePosition,
-            strikePositionChange: newStrikePosition - instrument.strikePosition,
+            strikePositionChange: newStrikePosition - instrument.strikePosition || instrument.strikePositionChange,
           };
         }
         return instrument;
@@ -110,7 +110,7 @@ export const useStockStore = create<StockState>()((set) => ({
           return {
             ...i,
             returnValue,
-            returnValueChange: returnValue - i.returnValue,
+            returnValueChange: returnValue - i.returnValue || i.returnValueChange,
           };
         }
         return i;
@@ -125,6 +125,7 @@ export const useStockStore = create<StockState>()((set) => ({
           return {
             ...i,
             returnValue: newReturn,
+            returnValueChange: newReturn - i.returnValue || i.returnValueChange,
           };
         }
         return i;

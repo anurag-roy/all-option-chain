@@ -20,7 +20,7 @@ function MoversTableBody({ rows, type }: { rows: UiEquity[]; type: 'gainers' | '
             <TableCell className={classNames}>{rows[i].ltp.toFixed(2)}</TableCell>
             <TableCell className={classNames}>
               {type === 'losers' ? '↓ ' : '↑ '}
-              {rows[i].gainLossPercent.toFixed(2)}
+              {Math.abs(rows[i].gainLossPercent).toFixed(2)}
             </TableCell>
           </TableRow>
         ) : (

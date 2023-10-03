@@ -79,8 +79,8 @@ export function DataTable({ columns, data }: DataTableProps) {
                       overrideCellBg = 'font-semibold';
                       const value = row.original[`${columnId as 'ltp' | 'returnValue' | 'strikePosition'}Change`];
                       if (value) {
-                        if (value > 0) overrideCellBg += ' bg-emerald-100/60 dark:bg-emerald-900/20';
-                        else overrideCellBg += ' bg-red-100/60 dark:bg-red-900/20';
+                        if (value > 0) overrideCellBg += ' bg-emerald-100/60 dark:bg-emerald-800/20';
+                        else overrideCellBg += ' bg-red-100/60 dark:bg-red-800/20';
                       }
                     }
                     return (

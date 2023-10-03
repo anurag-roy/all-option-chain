@@ -14,8 +14,8 @@ export function SellerTable({ quote }: Props) {
         <TableHeader>
           <TableRow>
             <TableHead className='min-w-[100px]'>Seller</TableHead>
-            <TableHead className='min-w-[8ch]'>Ask</TableHead>
-            <TableHead className='min-w-[8ch]'>Qty</TableHead>
+            <TableHead className='min-w-[8ch] text-right'>Ask</TableHead>
+            <TableHead className='min-w-[8ch] text-right'>Qty</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -27,10 +27,10 @@ export function SellerTable({ quote }: Props) {
             indices.map((i) => (
               <TableRow key={i}>
                 <TableCell>Seller {i}</TableCell>
-                <TableCell className='bg-red-50/60 text-red-800 dark:bg-red-900/10 dark:text-red-500'>
+                <TableCell className='bg-red-50/60 text-right font-semibold tabular-nums text-red-800 dark:bg-red-900/10 dark:text-red-500'>
                   {quote[`sp${i}`] ?? '-'}
                 </TableCell>
-                <TableCell className='bg-red-50/60 text-red-800 dark:bg-red-900/10 dark:text-red-500'>
+                <TableCell className='bg-red-50/60 text-right font-semibold tabular-nums text-red-800 dark:bg-red-900/10 dark:text-red-500'>
                   {quote[`sq${i}`] ?? '-'}
                 </TableCell>
               </TableRow>

@@ -42,28 +42,23 @@ export const displayInr = (amount: number) =>
     minimumFractionDigits: 2,
   }).format(amount);
 
-export const getRandomIndex = (min: number, max: number) => Math.random() * (max - min) + min;
+export const getRandomIndex = (min: number, max: number) => Math.floor(Math.random() * (max - min)) + min;
 
 export const getTodayAsParam = () => new Date().toISOString().slice(0, 10).split('-').reverse().join('');
 
 export const getReturnValue = async (i: UiInstrument) => {
   const { bid, lotSize, tradingSymbol } = i;
-  try {
-    const margin = await ky
-      .get('/api/margin', {
-        searchParams: {
-          price: bid,
-          quantity: lotSize,
-          tradingSymbol: encodeURIComponent(tradingSymbol),
-        },
-      })
-      .json<Margin>();
-    const returnValue = ((bid - 0.05) * lotSize * 100) / Number(margin.ordermargin);
-    const isMarginAvailable = margin.remarks !== 'Insufficient Balance';
+  const margin = await ky
+    .get('/api/margin', {
+      searchParams: {
+        price: bid,
+        quantity: lotSize,
+        tradingSymbol: encodeURIComponent(tradingSymbol),
+      },
+    })
+    .json<Margin>();
+  const returnValue = ((bid - 0.05) * lotSize * 100) / Number(margin.ordermargin);
+  const isMarginAvailable = margin.remarks !== 'Insufficient Balance';
 
-    return { returnValue, isMarginAvailable };
-  } catch (error) {
-    console.error('Could not get margin for', tradingSymbol, error);
-    return { returnValue: 0, isMarginAvailable: false };
-  }
+  return { returnValue, isMarginAvailable };
 };

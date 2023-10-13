@@ -22,15 +22,19 @@ export function OptionsTable() {
 
     const interval = setInterval(() => {
       const instrument = instruments[returnFetchState.current.fetchIndex];
-      getReturnValue(instrument).then(({ returnValue, isMarginAvailable }) => {
-        updateReturn(instrument.token, returnValue);
-        if (returnValue >= orderPercent && isMarginAvailable) {
-          toast({
-            title: 'Order Triggered!',
-            description: `Order triggered for ${instrument.tradingSymbol} with return ${returnValue} at price ${instrument.bid} and quantity ${instrument.lotSize}`,
-          });
-        }
-      });
+      getReturnValue(instrument)
+        .then(({ returnValue, isMarginAvailable }) => {
+          updateReturn(instrument.token, returnValue);
+          if (returnValue >= orderPercent && isMarginAvailable) {
+            toast({
+              title: 'Order Triggered!',
+              description: `Order triggered for ${instrument.tradingSymbol} with return ${returnValue} at price ${instrument.bid} and quantity ${instrument.lotSize}`,
+            });
+          }
+        })
+        .catch((err) => {
+          console.error(err);
+        });
 
       if (instruments.length > 200) {
         if (returnFetchState.current.fetchIndex < 100) {

@@ -79,8 +79,10 @@ export function DataTable({ columns, data }: DataTableProps) {
                       overrideCellBg = 'font-semibold';
                       const value = row.original[`${columnId as 'ltp' | 'returnValue' | 'strikePosition'}Change`];
                       if (value) {
-                        if (value > 0) overrideCellBg += ' bg-emerald-100/60 dark:bg-emerald-800/20';
-                        else overrideCellBg += ' bg-red-100/60 dark:bg-red-800/20';
+                        if (value > 0)
+                          overrideCellBg +=
+                            ' bg-emerald-50/60 text-emerald-800 dark:bg-emerald-900/10 dark:text-emerald-500';
+                        else overrideCellBg += ' bg-red-50/60 text-red-800 dark:bg-red-900/10 dark:text-red-500';
                       }
                     }
                     return (

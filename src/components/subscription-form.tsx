@@ -82,12 +82,12 @@ export function SubscriptionForm() {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className='flex gap-12 p-4'>
+      <form onSubmit={form.handleSubmit(onSubmit)} className='flex justify-between gap-4 p-4'>
         <SelectFormField form={form} name='expiry' options={expiryOptions} />
         <NumberInputFormField form={form} name='entryPercent' min={0} max={100} step={1} />
         <NumberInputFormField form={form} name='entryValue' min={0} max={10000} step={0.05} />
         <NumberInputFormField form={form} name='orderPercent' min={0} max={100} step={0.01} />
-        <Button type='submit' className='ml-auto mt-[30px]' disabled={buttonState !== 'subscribe'}>
+        <Button type='submit' className='mt-[30px]' disabled={buttonState !== 'subscribe'}>
           {buttonState === 'subscribe' ? 'Subscribe' : null}
           {buttonState === 'subscribing' ? (
             <>

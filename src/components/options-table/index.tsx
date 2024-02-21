@@ -1,4 +1,4 @@
-import { getRandomIndex, getReturnValue } from '@/lib/utils';
+import { getReturnValue } from '@/lib/utils';
 import { useStockStore } from '@/stores/stocks';
 import * as React from 'react';
 import { useToast } from '../ui/use-toast';
@@ -36,25 +36,12 @@ export function OptionsTable() {
           console.error(err);
         });
 
-      if (instruments.length > 200) {
-        if (returnFetchState.current.fetchIndex < 100) {
-          returnFetchState.current.fetchIndex++;
-          returnFetchState.current.fetchCount++;
-        } else if (returnFetchState.current.fetchCount < 200) {
-          returnFetchState.current.fetchIndex = getRandomIndex(101, instruments.length - 1);
-          returnFetchState.current.fetchCount++;
-        } else {
-          returnFetchState.current.fetchIndex = 0;
-          returnFetchState.current.fetchCount = 0;
-        }
+      if (returnFetchState.current.fetchIndex < instruments.length - 1) {
+        returnFetchState.current.fetchIndex++;
+        returnFetchState.current.fetchCount++;
       } else {
-        if (returnFetchState.current.fetchIndex < instruments.length - 1) {
-          returnFetchState.current.fetchIndex++;
-          returnFetchState.current.fetchCount++;
-        } else {
-          returnFetchState.current.fetchIndex = 0;
-          returnFetchState.current.fetchCount = 0;
-        }
+        returnFetchState.current.fetchIndex = 0;
+        returnFetchState.current.fetchCount = 0;
       }
     }, 500);
 

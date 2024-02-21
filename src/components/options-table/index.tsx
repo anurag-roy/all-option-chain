@@ -11,17 +11,16 @@ export function OptionsTable() {
   const orderPercent = useStockStore((state) => state.orderPercent);
   const initComplete = useStockStore((state) => state.initComplete);
   const updateReturn = useStockStore((state) => state.updateReturn);
-  const returnFetchState = React.useRef({
-    fetchIndex: 0,
-    fetchCount: 0,
-  });
+  const fetchIndexRef = React.useRef(0);
   const { toast } = useToast();
+
+  const filteredInstruments = instruments.filter((i) => i.sellValue >= entryValue);
 
   React.useEffect(() => {
     if (!initComplete) return;
 
     const interval = setInterval(() => {
-      const instrument = instruments[returnFetchState.current.fetchIndex];
+      const instrument = filteredInstruments[fetchIndexRef.current];
       getReturnValue(instrument)
         .then(({ returnValue, isMarginAvailable }) => {
           updateReturn(instrument.token, returnValue);
@@ -36,12 +35,10 @@ export function OptionsTable() {
           console.error(err);
         });
 
-      if (returnFetchState.current.fetchIndex < instruments.length - 1) {
-        returnFetchState.current.fetchIndex++;
-        returnFetchState.current.fetchCount++;
+      if (fetchIndexRef.current < filteredInstruments.length - 1) {
+        fetchIndexRef.current++;
       } else {
-        returnFetchState.current.fetchIndex = 0;
-        returnFetchState.current.fetchCount = 0;
+        fetchIndexRef.current = 0;
       }
     }, 500);
 
@@ -50,7 +47,7 @@ export function OptionsTable() {
 
   return (
     <div className='border-t p-4'>
-      <DataTable columns={columns} data={instruments.filter((i) => i.sellValue >= entryValue)} />
+      <DataTable columns={columns} data={filteredInstruments} />
     </div>
   );
 }

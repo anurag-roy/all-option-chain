@@ -1,4 +1,5 @@
 import env from '@/env.json';
+import { getReturnValue } from '@/lib/utils';
 import type { UiEquity, UiInstrument } from '@/types';
 import type { Margin, TouchlineResponse } from '@/types/shoonya';
 import { create } from 'zustand';
@@ -93,6 +94,11 @@ export const useStockStore = create<StockState>()((set) => ({
         if (instrument.token === data.tk) {
           const newBid = Number(data.bp1);
           const newSellValue = (newBid - 0.05) * instrument.lotSize;
+          getReturnValue(instrument)
+            .then(({ returnValue, isMarginAvailable }) => {
+              state.updateReturn(instrument.token, returnValue);
+            })
+            .catch(() => {});
           return {
             ...instrument,
             bid: newBid,
@@ -170,6 +176,7 @@ export const useStockStore = create<StockState>()((set) => ({
             if (data.e === 'NSE' && 'lp' in data) {
               state.updateLtp(data);
             } else if (data.e === 'NFO' && 'bp1' in data) {
+              console.log('Buyer price changed', data);
               state.updateBid(data);
             }
           };

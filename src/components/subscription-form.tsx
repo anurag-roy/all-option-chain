@@ -25,6 +25,8 @@ const formSchema = z.object({
   orderPercent: z.number(),
 });
 
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export function SubscriptionForm() {
   const addEquity = useStockStore((state) => state.addEquity);
   const addInstrument = useStockStore((state) => state.addInstruments);
@@ -63,8 +65,6 @@ export function SubscriptionForm() {
               expiry,
               entryPercent,
             },
-            timeout: 3000,
-            retry: 3,
           })
           .json<StockInitResponse>();
         addEquity(equity);
@@ -77,6 +77,8 @@ export function SubscriptionForm() {
           description: `Failed to fetch init data for ${stock}`,
           variant: 'destructive',
         });
+      } finally {
+        await delay(2000);
       }
     }
 

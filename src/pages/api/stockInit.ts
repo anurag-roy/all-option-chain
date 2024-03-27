@@ -4,13 +4,20 @@ import { getInstrumentsToSubscribe } from '@/lib/db';
 import { getNewTicker, getValidInstruments } from '@/lib/socket';
 import type { StockInitResponse } from '@/types';
 import { NextApiHandler } from 'next';
+import { WebSocket } from 'ws';
 
 const handler: NextApiHandler = async (req, res) => {
   const stock = String(req.query.stock);
   const expiry = String(req.query.expiry);
   const entryPercent = Number(req.query.entryPercent);
 
-  const tempWs = await getNewTicker();
+  let tempWs: WebSocket | null = null;
+  try {
+    tempWs = await getNewTicker(stock);
+  } catch (error) {
+    res.setHeader('Retry-After', 2).status(503).json({ error: 'Failed to connect to Shoonya' });
+    return;
+  }
 
   try {
     console.log(`Fetching data for ${stock}...`);

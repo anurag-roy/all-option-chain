@@ -55,17 +55,29 @@ export function SubscriptionForm() {
       }
 
       console.log('Fetching init data for', stock);
-      const { equity, instruments } = await ky
-        .get('/api/stockInit', {
-          searchParams: {
-            stock,
-            expiry,
-            entryPercent,
-          },
-        })
-        .json<StockInitResponse>();
-      addEquity(equity);
-      addInstrument(instruments);
+      try {
+        const { equity, instruments } = await ky
+          .get('/api/stockInit', {
+            searchParams: {
+              stock,
+              expiry,
+              entryPercent,
+            },
+            timeout: 3000,
+            retry: 3,
+          })
+          .json<StockInitResponse>();
+        addEquity(equity);
+        addInstrument(instruments);
+      } catch (error) {
+        console.error('Failed to fetch init data for', stock);
+        console.error(error);
+        toast({
+          title: 'Failed to fetch init data',
+          description: `Failed to fetch init data for ${stock}`,
+          variant: 'destructive',
+        });
+      }
     }
 
     setButtonState('subscribed');

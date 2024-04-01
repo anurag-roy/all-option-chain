@@ -49,6 +49,19 @@ export function SubscriptionForm() {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setButtonState('subscribing');
+
+    try {
+      await ky('/api/tickerInit', { retry: { limit: 3 } }).json();
+    } catch (error) {
+      toast({
+        title: 'Failed to connect to ticker',
+        description: 'Failed to connect to ticker. Please retry again.',
+        variant: 'destructive',
+      });
+      setButtonState('subscribe');
+      return;
+    }
+
     const { expiry, entryPercent, entryValue, orderPercent } = values;
     for (const stock of STOCKS_TO_INCLUDE) {
       if (bannedStocks.includes(stock)) {
@@ -70,15 +83,12 @@ export function SubscriptionForm() {
         addEquity(equity);
         addInstrument(instruments);
       } catch (error) {
-        console.error('Failed to fetch init data for', stock);
-        console.error(error);
+        console.error('Failed to fetch init data for', stock, error);
         toast({
           title: 'Failed to fetch init data',
           description: `Failed to fetch init data for ${stock}`,
           variant: 'destructive',
         });
-      } finally {
-        await delay(2000);
       }
     }
 

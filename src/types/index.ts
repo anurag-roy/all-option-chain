@@ -1,4 +1,9 @@
 import type { instrument } from '@prisma/client';
+import type { WebSocket } from 'ws';
+
+declare global {
+  var ticker: WebSocket | null;
+}
 
 export interface UiInstrument extends instrument {
   ltp: number;

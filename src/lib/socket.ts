@@ -4,14 +4,13 @@ import type { TouchlineResponse } from '@/types/shoonya';
 import type { instrument } from '@prisma/client';
 import { WebSocket, type MessageEvent } from 'ws';
 
-export const getNewTicker = async (stock: string) =>
+export const getNewTicker = async () =>
   new Promise<WebSocket>((resolve, reject) => {
     const ws = new WebSocket('wss://api.shoonya.com/NorenWSTP/');
 
     const timeout = setTimeout(() => {
-      console.error(`Failed to connect for ${stock}!`);
       ws.close();
-      reject(`Failed to connect for ${stock}!`);
+      reject('Connection timed out. Failed to connect ticker.');
     }, 3000);
 
     ws.onerror = (error) => {
@@ -33,7 +32,7 @@ export const getNewTicker = async (stock: string) =>
     ws.onmessage = (messageEvent: MessageEvent) => {
       const messageData = JSON.parse(messageEvent.data as string);
       if (messageData.t === 'ck' && messageData.s === 'OK') {
-        console.log(`Ticker connected successfully for ${stock}!`);
+        console.log(`Ticker connected successfully!`);
         clearTimeout(timeout);
         ws.onerror = null;
         resolve(ws);

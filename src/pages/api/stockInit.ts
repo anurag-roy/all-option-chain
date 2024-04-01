@@ -1,21 +1,17 @@
 import { CUSTOM_PERCENT } from '@/config';
 import { getQuotes } from '@/lib/api/getQuotes';
 import { getInstrumentsToSubscribe } from '@/lib/db';
-import { getNewTicker, getValidInstruments } from '@/lib/socket';
+import { getValidInstruments } from '@/lib/socket';
 import type { StockInitResponse } from '@/types';
 import { NextApiHandler } from 'next';
-import { WebSocket } from 'ws';
 
 const handler: NextApiHandler = async (req, res) => {
   const stock = String(req.query.stock);
   const expiry = String(req.query.expiry);
   const entryPercent = Number(req.query.entryPercent);
 
-  let tempWs: WebSocket | null = null;
-  try {
-    tempWs = await getNewTicker(stock);
-  } catch (error) {
-    res.setHeader('Retry-After', 2).status(503).json({ error: 'Failed to connect to Shoonya' });
+  if (!global.ticker) {
+    res.status(500).json({ error: 'Ticker not connected' });
     return;
   }
 
@@ -33,8 +29,7 @@ const handler: NextApiHandler = async (req, res) => {
     const upperBound = ((100 + effectivePercent) * ltp) / 100;
 
     // Compute filtered stocks to send to socket client
-    const validInstruments = await getValidInstruments(tempWs, optionsStocks, ltp, lowerBound, upperBound);
-    tempWs.close();
+    const validInstruments = await getValidInstruments(global.ticker, optionsStocks, ltp, lowerBound, upperBound);
 
     const initResponse: StockInitResponse = {
       equity: {
@@ -48,7 +43,6 @@ const handler: NextApiHandler = async (req, res) => {
     };
     res.json(initResponse);
   } catch (error: any) {
-    tempWs.close();
     res.status(500).json({ error: error.message });
   }
 };

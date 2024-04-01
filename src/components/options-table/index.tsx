@@ -21,6 +21,7 @@ export function OptionsTable() {
 
     const interval = setInterval(() => {
       const instrument = filteredInstruments[fetchIndexRef.current];
+      if (!instrument) return;
       getReturnValue(instrument)
         .then(({ returnValue, isMarginAvailable }) => {
           updateReturn(instrument.token, returnValue);

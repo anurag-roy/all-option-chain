@@ -23,7 +23,7 @@ Live Option Chain for Equity Derivatives using Finvasia (Shoonya) APIs and Next.
   - Strike Position
   - Sell Value
 - Place Sell orders manually or automated
-- (Bonus) Place bulk After Market Orders (AMO) 
+- (Bonus) Place bulk After Market Orders (AMO)
 
 ## Screenshots
 

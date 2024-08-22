@@ -11,15 +11,6 @@ import * as React from 'react';
 export async function getServerSideProps() {
   await injectTokenIntoEnv();
 
-  if (!process.env.token) {
-    return {
-      redirect: {
-        destination: '/login',
-        permanent: false,
-      },
-    };
-  }
-
   return {
     props: {
       token: process.env.token,

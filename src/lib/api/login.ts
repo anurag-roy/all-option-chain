@@ -1,16 +1,15 @@
 import env from '@/env.json';
-import { getHash, injectTokenIntoEnv } from '@/lib/api/utils';
-import { writeFileSync } from 'fs';
-import { NextApiHandler } from 'next';
+import { getHash } from '@/lib/api/utils';
+import { TOTP } from 'totp-generator';
 
-const handler: NextApiHandler = async (req, res) => {
-  const { totp } = req.query;
+export const login = async () => {
+  const { otp } = TOTP.generate(env.TOTP_CODE);
 
   const data = {
     apkversion: 'js:1.0.0',
     uid: env.USER_ID,
     pwd: getHash(env.PASSWORD),
-    factor2: totp,
+    factor2: otp,
     vc: env.VENDOR_CODE,
     appkey: getHash(`${env.USER_ID}|${env.API_KEY}`),
     imei: env.IMEI,
@@ -32,13 +31,12 @@ const handler: NextApiHandler = async (req, res) => {
       throw new Error(loginResponse.emsg);
     }
 
-    writeFileSync('src/data/token.txt', loginResponse.susertoken, 'utf-8');
-    injectTokenIntoEnv(loginResponse.susertoken);
+    console.log('Login successful!');
 
-    res.json({ message: 'Login successful!' });
+    return loginResponse.susertoken;
   } catch (error) {
-    res.status(500).json({ message: 'Error while logging in', error });
+    console.error('Error while logging in', error);
+    console.log('Exiting...');
+    process.exit(1);
   }
 };
-
-export default handler;

@@ -6,15 +6,6 @@ import Head from 'next/head';
 export async function getServerSideProps() {
   await injectTokenIntoEnv();
 
-  if (!process.env.token) {
-    return {
-      redirect: {
-        destination: '/login',
-        permanent: false,
-      },
-    };
-  }
-
   const equityStocks = await getAllEquityStocks();
   const equityStockOptions = equityStocks.map((stock) => stock.tradingSymbol);
   return {

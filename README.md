@@ -49,6 +49,12 @@ cp example.env.json env.json
 # Populate env.json secrets
 ```
 
+Generate Prisma client.
+
+```sh
+npx prisma generate
+```
+
 Populate the SQLite DB with instrument data.
 
 ```sh

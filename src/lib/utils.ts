@@ -62,3 +62,5 @@ export const getReturnValue = async (i: UiInstrument) => {
 
   return { returnValue, isMarginAvailable };
 };
+
+export const playAlert = () => new Audio('/add.mp3').play();

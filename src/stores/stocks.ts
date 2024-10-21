@@ -1,5 +1,5 @@
 import env from '@/env.json';
-import { getReturnValue } from '@/lib/utils';
+import { getReturnValue, playAlert } from '@/lib/utils';
 import type { UiEquity, UiInstrument } from '@/types';
 import type { Margin, TouchlineResponse } from '@/types/shoonya';
 import { create } from 'zustand';
@@ -90,6 +90,10 @@ export const useStockStore = create<StockState>()((set) => ({
   resetInstruments: () => set({ instruments: [] }),
   updateBid: (data) =>
     set((state) => {
+      const [firstInstrument] = state.instruments.toSorted((a, b) => b.returnValue - a.returnValue);
+      if (firstInstrument.token === data.tk) {
+        playAlert();
+      }
       const instruments = state.instruments.map((instrument) => {
         if (instrument.token === data.tk) {
           const newBid = Number(data.bp1);

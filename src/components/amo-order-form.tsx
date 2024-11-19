@@ -1,3 +1,6 @@
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { getKiteBasket } from '@/lib/kite';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CaretSortIcon, CheckIcon, MinusCircledIcon, PlusIcon, UpdateIcon } from '@radix-ui/react-icons';
@@ -12,8 +15,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from './ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { useToast } from './ui/use-toast';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getKiteBasket } from '@/lib/kite';
 
 type AmoOrderFormProps = {
   equityStockOptions: string[];
@@ -23,6 +24,7 @@ const requiredNumber = z.number({ invalid_type_error: 'Required' });
 const formSchema = z.object({
   stocks: z.array(
     z.object({
+      isAmo: z.boolean(),
       tradingSymbol: z.string(),
       value: requiredNumber,
       ltp: requiredNumber,
@@ -35,6 +37,7 @@ const formSchema = z.object({
 });
 type FormObject = z.infer<typeof formSchema.shape.stocks>[number];
 const defaultValues: FormObject = {
+  isAmo: false,
   tradingSymbol: undefined,
   value: undefined,
   ltp: undefined,
@@ -45,7 +48,7 @@ const defaultValues: FormObject = {
 } as any;
 
 const calculateOrders = (values: FormObject) => {
-  const { tradingSymbol, value, ltp, lowerCircuit, leg1, leg2, leg3 } = values;
+  const { isAmo, tradingSymbol, value, ltp, lowerCircuit, leg1, leg2, leg3 } = values;
   const prices: number[] = [];
   let currentValue = ltp;
   let totalValue = 0;
@@ -68,6 +71,7 @@ const calculateOrders = (values: FormObject) => {
   totalValue = Number((totalValue - lastPrice).toFixed(2));
   const quantity = Math.max(Math.floor(value / totalValue), 1);
   return prices.map((p) => ({
+    isAmo,
     tradingSymbol,
     price: p,
     quantity,
@@ -146,6 +150,19 @@ export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
           <div className='rounded-md border'>
             {fields.map((field, index) => (
               <section key={field.id} className='flex justify-between gap-8 border-b p-4'>
+                <FormField
+                  control={form.control}
+                  name={`stocks.${index}.isAmo`}
+                  render={({ field }) => (
+                    <FormItem className='flex flex-col gap-2 pt-2'>
+                      <FormLabel>AMO</FormLabel>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField
                   control={form.control}
                   name={`stocks.${index}.tradingSymbol`}

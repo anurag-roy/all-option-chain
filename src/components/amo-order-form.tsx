@@ -12,6 +12,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from './ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { useToast } from './ui/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { getKiteBasket } from '@/lib/kite';
 
 type AmoOrderFormProps = {
   equityStockOptions: string[];
@@ -73,6 +75,7 @@ const calculateOrders = (values: FormObject) => {
 };
 
 export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
+  const [broker, setBroker] = React.useState<'shoonya' | 'zerodha'>('shoonya');
   const [buttonState, setButtonState] = React.useState<'order' | 'ordering'>('order');
   const { toast } = useToast();
   const form = useForm<z.infer<typeof formSchema>>({
@@ -91,36 +94,53 @@ export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    setButtonState('ordering');
-
     const orders = values.stocks.map((s) => calculateOrders(s)).flatMap((s) => s);
 
-    const queue = new pQueue({ concurrency: 1, intervalCap: 1, interval: 300 });
-    for (const order of orders) {
-      queue.add(async () => {
-        try {
-          await ky.post('/api/buyAmo', { json: order });
-        } catch (error) {
-          toast({
-            title: 'Error',
-            description: `Failed to place order for ${order.tradingSymbol} at ${order.price} with quantity ${order.quantity}`,
-          });
-        }
-      });
-    }
-    await queue.onIdle();
+    if (broker === 'shoonya') {
+      setButtonState('ordering');
+      const queue = new pQueue({ concurrency: 1, intervalCap: 1, interval: 300 });
+      for (const order of orders) {
+        queue.add(async () => {
+          try {
+            await ky.post('/api/buyAmo', { json: order });
+          } catch (error) {
+            toast({
+              title: 'Error',
+              description: `Failed to place order for ${order.tradingSymbol} at ${order.price} with quantity ${order.quantity}`,
+            });
+          }
+        });
+      }
+      await queue.onIdle();
 
-    toast({
-      title: 'Complete!',
-      description: `Placed ${orders.length} AMOs. Please check the console for more details.`,
-    });
-    setButtonState('order');
-    form.setValue('stocks', [{ ...defaultValues }]);
+      toast({
+        title: 'Complete!',
+        description: `Placed ${orders.length} AMOs. Please check the console for more details.`,
+      });
+      setButtonState('order');
+      form.setValue('stocks', [{ ...defaultValues }]);
+    } else {
+      const url = new URL('/kite', window.location.href);
+      const basketValue = getKiteBasket(orders);
+      url.searchParams.set('data', JSON.stringify(basketValue));
+      window.open(url, '_blank', `left=20,top=20,width=850,height=550,toolbar=1,resizable=0`);
+    }
   };
 
   return (
     <>
-      <h1 className='mb-2 ml-1 text-xl font-bold'>Place After Market Order</h1>
+      <div className='mb-4 flex items-center justify-between'>
+        <h1 className='ml-1 text-xl font-bold'>Place After Market Order</h1>
+        <Select value={broker} onValueChange={(value) => setBroker(value as 'shoonya' | 'zerodha')}>
+          <SelectTrigger className='w-[180px]'>
+            <SelectValue placeholder='Broker' />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value='shoonya'>Shoonya</SelectItem>
+            <SelectItem value='zerodha'>Zerodha</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <div className='rounded-md border'>
@@ -291,12 +311,23 @@ export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
             ))}
           </div>
           <div className='flex items-center justify-end gap-4 py-4'>
+            <Button type='button' variant='destructive' className='mr-auto' onClick={() => form.reset()}>
+              Reset
+            </Button>
             <Button type='button' onClick={() => addRow()}>
               <PlusIcon className='mr-2 h-4 w-4' />
               Add row
             </Button>
-            <Button type='submit' disabled={buttonState !== 'order'}>
-              {buttonState === 'order' ? 'Place orders' : null}
+            <Button
+              type='submit'
+              disabled={buttonState !== 'order'}
+              variant={broker === 'zerodha' ? 'zerodha' : 'default'}
+            >
+              {buttonState === 'order'
+                ? broker === 'zerodha'
+                  ? 'Place orders on Zerodha'
+                  : 'Place orders on Shoonya'
+                : null}
               {buttonState === 'ordering' ? (
                 <>
                   <UpdateIcon className='mr-2 h-4 w-4 animate-spin' />

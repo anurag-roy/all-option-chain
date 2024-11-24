@@ -98,10 +98,11 @@ export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    const orders = values.stocks.map((s) => calculateOrders(s)).flatMap((s) => s);
+    const ordersArray = values.stocks.map((s) => calculateOrders(s));
 
     if (broker === 'shoonya') {
       setButtonState('ordering');
+      const orders = ordersArray.flat();
       const queue = new pQueue({ concurrency: 1, intervalCap: 1, interval: 300 });
       for (const order of orders) {
         queue.add(async () => {
@@ -125,9 +126,11 @@ export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
       form.setValue('stocks', [{ ...defaultValues }]);
     } else {
       const url = new URL('/kite', window.location.href);
-      const basketValue = getKiteBasket(orders);
-      url.searchParams.set('data', JSON.stringify(basketValue));
-      window.open(url, '_blank', `left=20,top=20,width=850,height=550,toolbar=1,resizable=0`);
+      for (const orders of ordersArray) {
+        const basketValue = getKiteBasket(orders);
+        url.searchParams.set('data', JSON.stringify(basketValue));
+        window.open(url, '_blank', `left=20,top=20,width=850,height=550,toolbar=1,resizable=0`);
+      }
     }
   };
 

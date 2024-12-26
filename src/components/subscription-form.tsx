@@ -1,4 +1,4 @@
-import { EXPIRY_OPTION_LENGTH, STOCKS_TO_INCLUDE } from '@/config';
+import { EXPIRY_OPTION_LENGTH, NSE_STOCKS_TO_INCLUDE } from '@/config';
 import { getExpiryOptions } from '@/lib/utils';
 import { useBansStore } from '@/stores/bans';
 import { useStockStore } from '@/stores/stocks';
@@ -63,7 +63,7 @@ export function SubscriptionForm() {
     }
 
     const { expiry, entryPercent, entryValue, orderPercent } = values;
-    for (const stock of STOCKS_TO_INCLUDE) {
+    for (const stock of NSE_STOCKS_TO_INCLUDE) {
       if (bannedStocks.includes(stock)) {
         console.log('Skipping banned stock', stock);
         continue;

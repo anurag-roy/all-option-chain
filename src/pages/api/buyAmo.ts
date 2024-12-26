@@ -1,8 +1,10 @@
+import { BSE_STOCKS_TO_INCLUDE } from '@/config';
 import env from '@/env.json';
 import { NextApiHandler } from 'next';
 
 const handler: NextApiHandler = async (req, res) => {
   const { price, quantity, tradingSymbol } = req.body;
+  const exchange = BSE_STOCKS_TO_INCLUDE.includes(tradingSymbol) ? 'BSE' : 'NSE';
 
   const orderRes = await fetch('https://api.shoonya.com/NorenWClientTP/PlaceOrder', {
     method: 'POST',
@@ -11,7 +13,7 @@ const handler: NextApiHandler = async (req, res) => {
       JSON.stringify({
         uid: env.USER_ID,
         actid: env.USER_ID,
-        exch: 'NSE',
+        exch: String(exchange),
         tsym: String(tradingSymbol),
         qty: String(quantity),
         prc: String(price),

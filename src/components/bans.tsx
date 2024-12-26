@@ -1,4 +1,4 @@
-import { STOCKS_TO_INCLUDE } from '@/config';
+import { NSE_STOCKS_TO_INCLUDE } from '@/config';
 import { cn, getTodayAsParam } from '@/lib/utils';
 import { useBansStore } from '@/stores/bans';
 import { useStockStore } from '@/stores/stocks';
@@ -113,7 +113,7 @@ export function Bans() {
                 <CommandList>
                   <CommandEmpty>No results found.</CommandEmpty>
                   <CommandGroup>
-                    {STOCKS_TO_INCLUDE.map((s) => {
+                    {NSE_STOCKS_TO_INCLUDE.map((s) => {
                       const isDisabled = nseBans.includes(s);
                       const isSelected = isDisabled || customBans.includes(s);
                       return (

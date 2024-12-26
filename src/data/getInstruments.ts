@@ -1,4 +1,4 @@
-import { STOCKS_TO_INCLUDE } from '@/config';
+import { NSE_STOCKS_TO_INCLUDE } from '@/config';
 import { ShoonyaInstrument } from '@/types/shoonya';
 import JSZip from 'jszip';
 
@@ -10,7 +10,7 @@ export const getNifty500Stocks = async () => {
   return rows.map((row) => row.split(',')[2]);
 };
 
-export const getInstruments = async (forExchange: 'NSE' | 'NFO') => {
+export const getInstruments = async (forExchange: 'BSE' | 'NSE' | 'NFO') => {
   const txtFileName = forExchange + '_symbols.txt';
   const zipFileName = txtFileName + '.zip';
 
@@ -31,10 +31,11 @@ export const getInstruments = async (forExchange: 'NSE' | 'NFO') => {
   const rows = fileContents.split('\n').slice(1);
 
   for (const row of rows) {
-    if (forExchange === 'NSE') {
+    if (forExchange === 'NSE' || forExchange === 'BSE') {
       const [exchange, token, lotSize, symbol, tradingSymbol, instrument, tickSize] = row.split(',');
 
-      if (instrument === 'EQ') {
+      const validInstrumentType = forExchange === 'NSE' ? 'EQ' : 'B';
+      if (instrument === validInstrumentType) {
         output.push({
           exchange,
           token,
@@ -42,7 +43,7 @@ export const getInstruments = async (forExchange: 'NSE' | 'NFO') => {
           symbol,
           tradingSymbol,
           expiry: '',
-          instrument,
+          instrument: 'EQ',
           optionType: 'XX',
           strikePrice: 0,
           tickSize,
@@ -52,7 +53,7 @@ export const getInstruments = async (forExchange: 'NSE' | 'NFO') => {
       const [exchange, token, lotSize, symbol, tradingSymbol, expiry, instrument, optionType, strikePrice, tickSize] =
         row.split(',');
 
-      if ((optionType === 'CE' || optionType === 'PE') && STOCKS_TO_INCLUDE.includes(symbol)) {
+      if ((optionType === 'CE' || optionType === 'PE') && NSE_STOCKS_TO_INCLUDE.includes(symbol)) {
         output.push({
           exchange,
           token,

@@ -1,5 +1,5 @@
 // All F&O stocks to be monitored
-export const STOCKS_TO_INCLUDE = [
+export const NSE_STOCKS_TO_INCLUDE = [
   'AARTIIND',
   'ABB',
   'ABBOTINDIA',
@@ -223,6 +223,8 @@ export const STOCKS_TO_INCLUDE = [
   'ZOMATO',
   'ZYDUSLIFE',
 ];
+
+export const BSE_STOCKS_TO_INCLUDE = ['NTPCGREEN', 'PTC'];
 
 export const CUSTOM_PERCENT: Record<string, number> = {
   ADANIENT: 44,

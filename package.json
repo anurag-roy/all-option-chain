@@ -8,7 +8,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "data:prepare": "rimraf src/data/data.db && tsx src/data/setup.ts",
+    "data:prepare": "rimraf src/data/data.db && npx prisma migrate deploy && tsx src/data/setup.ts",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\""
   },
   "devDependencies": {

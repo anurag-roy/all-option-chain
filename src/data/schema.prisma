@@ -19,4 +19,6 @@ model instrument {
   optionType    String
   strikePrice   Float
   tickSize      String
+  dv            Float?
+  av            Float?
 }

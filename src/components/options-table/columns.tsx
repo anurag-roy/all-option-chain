@@ -20,14 +20,22 @@ export const columns: ColumnDef<UiInstrument>[] = [
     cell: ({ row }) => row.original.ltp.toFixed(2),
   },
   {
-    id: 'peLimit',
-    header: 'PE Limit',
-    accessorFn: (row) => (0.7 * row.ltp).toFixed(2),
-  },
-  {
-    id: 'ceLimit',
-    header: 'CE Limit',
-    accessorFn: (row) => (1.3 * row.ltp).toFixed(2),
+    id: 'dv',
+    header: 'DV',
+    cell: ({ row }) => {
+      const dv = row.original.dv;
+      let bg = 'bg-white';
+      const ltpChangePercent = row.original.gainLossPercent;
+      if (dv && ltpChangePercent) {
+        const [min, max] = [dv, dv * -1].sort((a, b) => a - b);
+        if (ltpChangePercent >= min && ltpChangePercent <= max) {
+          bg = 'ring-emerald-100 bg-emerald-50/60 text-emerald-800 dark:bg-emerald-900/10 dark:text-emerald-500';
+        } else {
+          bg = 'ring-red-100 bg-red-50/60 text-red-800 dark:bg-red-900/10 dark:text-red-500';
+        }
+      }
+      return <div className={cn('rounded-full text-center ring-1 ring-gray-100', bg)}>{row.original.dv}</div>;
+    },
   },
   {
     accessorKey: 'strikePrice',
@@ -61,6 +69,25 @@ export const columns: ColumnDef<UiInstrument>[] = [
     sortingFn: (rowA, rowsB) => rowA.original.strikePosition - rowsB.original.strikePosition,
   },
   {
+    id: 'av',
+    header: 'AV',
+    cell: ({ row }) => {
+      const { strikePosition, av } = row.original;
+      return (
+        <div
+          className={cn(
+            'rounded-full text-center ring-1',
+            strikePosition >= av!
+              ? 'bg-emerald-50/60 text-emerald-800 ring-emerald-100 dark:bg-emerald-900/10 dark:text-emerald-500'
+              : 'bg-red-50/60 text-red-800 ring-red-100 dark:bg-red-900/10 dark:text-red-500'
+          )}
+        >
+          {row.original.av}
+        </div>
+      );
+    },
+  },
+  {
     accessorKey: 'sellValue',
     header: 'Sell Value',
     cell: ({ row }) => row.original.sellValue.toFixed(2),
@@ -69,8 +96,8 @@ export const columns: ColumnDef<UiInstrument>[] = [
 
 export const numericCols = [
   'ltp',
-  'peLimit',
-  'ceLimit',
+  // 'peLimit',
+  // 'ceLimit',
   'bid',
   'returnValue',
   'strikePrice',

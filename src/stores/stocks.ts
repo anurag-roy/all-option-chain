@@ -49,16 +49,17 @@ export const useStockStore = create<StockState>()((set) => ({
       if (!foundEquity) return {};
 
       const ltp = Number(data.lp);
+      let gainLossPercent = 0;
 
       // Update equity LTP
       const equities = state.equities.map((equity) => {
         if (equity.token === data.tk) {
           foundEquity = equity;
-          const newGainLossPercent = ((ltp - equity.prevClose) * 100) / equity.prevClose;
+          gainLossPercent = ((ltp - equity.prevClose) * 100) / equity.prevClose;
           return {
             ...equity,
             ltp,
-            gainLossPercent: newGainLossPercent,
+            gainLossPercent: gainLossPercent,
           };
         }
         return equity;
@@ -68,12 +69,14 @@ export const useStockStore = create<StockState>()((set) => ({
       const instruments = state.instruments.map((instrument) => {
         if (instrument.symbol === foundEquity.symbol) {
           const newStrikePosition = (Math.abs(instrument.strikePrice - ltp) * 100) / ltp;
+
           return {
             ...instrument,
             ltp,
             ltpChange: ltp - instrument.ltp || instrument.ltpChange,
             strikePosition: newStrikePosition,
             strikePositionChange: newStrikePosition - instrument.strikePosition || instrument.strikePositionChange,
+            gainLossPercent: gainLossPercent,
           };
         }
         return instrument;

@@ -3,7 +3,7 @@ import { ShoonyaInstrument } from '@/types/shoonya';
 import JSZip from 'jszip';
 
 export const getVolatilityData = async () => {
-  const res = await fetch('https://nsearchives.nseindia.com/archives/nsccl/volt/CMVOLT_25042025.CSV');
+  const res = await fetch('https://nsearchives.nseindia.com/archives/nsccl/volt/CMVOLT_28042025.CSV');
   const text = await res.text();
 
   // The CSV file has the following columns:

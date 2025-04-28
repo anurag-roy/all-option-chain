@@ -13,7 +13,7 @@ import {
 } from '@tanstack/react-table';
 import * as React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
-import { asChildCols, numericCols } from './columns';
+import { numericCols } from './columns';
 import { DataTablePagination } from './pagination';
 import { DataTableToolbar } from './toolbar';
 
@@ -73,24 +73,12 @@ export function DataTable({ columns, data }: DataTableProps) {
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
                   {row.getVisibleCells().map((cell) => {
-                    const columnId = cell.getContext().column.id;
-                    let overrideCellBg = '';
-                    if (asChildCols.includes(columnId)) {
-                      overrideCellBg = 'font-semibold';
-                      const value = row.original[`${columnId as 'ltp' | 'returnValue' | 'strikePosition'}Change`];
-                      if (value) {
-                        if (value > 0)
-                          overrideCellBg +=
-                            ' bg-emerald-50/60 text-emerald-800 dark:bg-emerald-900/10 dark:text-emerald-500';
-                        else overrideCellBg += ' bg-red-50/60 text-red-800 dark:bg-red-900/10 dark:text-red-500';
-                      }
-                    }
                     return (
                       <TableCell
                         key={cell.id}
                         className={cn(
-                          numericCols.includes(cell.getContext().column.id) ? 'text-right tabular-nums' : '',
-                          overrideCellBg
+                          'p-0',
+                          numericCols.includes(cell.getContext().column.id) ? 'text-right tabular-nums' : ''
                         )}
                       >
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}

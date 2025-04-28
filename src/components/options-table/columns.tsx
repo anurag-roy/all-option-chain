@@ -4,67 +4,97 @@ import { ColumnDef } from '@tanstack/react-table';
 import { DataTableColumnHeader } from './column-header';
 import { RowOrderAction } from './order-action';
 
+const green = 'bg-emerald-50/60 text-emerald-800 ring-emerald-100 dark:bg-emerald-900/10 dark:text-emerald-500';
+const red = 'bg-red-50/60 text-red-800 ring-red-100 dark:bg-red-900/10 dark:text-red-500';
+
 export const columns: ColumnDef<UiInstrument>[] = [
   {
     id: 'optionStrike',
     header: 'Option Strike',
-    accessorFn: (row) => `${row.symbol} ${row.strikePrice}${row.optionType}`,
+    cell: ({ row }) => {
+      const { symbol, strikePrice, optionType } = row.original;
+      return (
+        <div className='p-2 pl-4'>
+          {symbol} {strikePrice} {optionType}
+        </div>
+      );
+    },
   },
   {
-    accessorKey: 'symbol',
     header: 'Stock',
+    cell: ({ row }) => {
+      const { symbol } = row.original;
+      return <div className='p-2'>{symbol}</div>;
+    },
   },
   {
     accessorKey: 'ltp',
     header: 'LTP',
-    cell: ({ row }) => row.original.ltp.toFixed(2),
+    cell: ({ row }) => {
+      const ltp = row.original.ltp;
+      return <div className={cn('p-2 font-semibold', ltp > 0 ? green : red)}>{row.original.ltp.toFixed(2)}</div>;
+    },
   },
   {
     id: 'dv',
     header: 'DV',
     cell: ({ row }) => {
       const dv = row.original.dv;
-      let bg = 'bg-white';
+      let text = 'text-yellow-800 dark:text-yellow-500';
       const ltpChangePercent = row.original.gainLossPercent;
       if (dv && ltpChangePercent) {
         const [min, max] = [dv, dv * -1].sort((a, b) => a - b);
         if (ltpChangePercent >= min && ltpChangePercent <= max) {
-          bg = 'ring-emerald-100 bg-emerald-50/60 text-emerald-800 dark:bg-emerald-900/10 dark:text-emerald-500';
+          text = 'text-emerald-800 dark:text-emerald-500';
         } else {
-          bg = 'ring-red-100 bg-red-50/60 text-red-800 dark:bg-red-900/10 dark:text-red-500';
+          text = 'text-red-800 dark:text-red-500';
         }
       }
-      return <div className={cn('rounded-full text-center ring-1 ring-gray-100', bg)}>{row.original.dv}</div>;
+      return (
+        <div className={cn('bg-yellow-50/60 p-2 text-center dark:bg-yellow-900/20', text)}>
+          {row.original.dv?.toFixed(2)}
+        </div>
+      );
     },
   },
   {
-    accessorKey: 'strikePrice',
     header: 'Strike',
-    cell: ({ row }) => `${row.original.strikePrice} ${row.original.optionType}`,
+    cell: ({ row }) => (
+      <div className='p-2'>
+        {row.original.strikePrice} {row.original.optionType}
+      </div>
+    ),
   },
   {
     accessorKey: 'bid',
     header: 'Buyer Price',
-    cell: ({ row }) => row.original.bid.toFixed(2),
+    cell: ({ row }) => <div className='p-2'>{row.original.bid.toFixed(2)}</div>,
   },
   {
     accessorKey: 'returnValue',
     header: ({ table, column }) => <DataTableColumnHeader table={table} column={column} title='Return Value' />,
-    cell: ({ row }) => <RowOrderAction row={row} />,
+    cell: ({ row }) => (
+      <div className={cn('font-semibold', row.original.returnValue > 0 ? green : red)}>
+        <RowOrderAction row={row} />
+      </div>
+    ),
     sortingFn: (rowA, rowsB) => rowA.original.returnValue - rowsB.original.returnValue,
   },
   {
     accessorKey: 'strikePosition',
     header: ({ table, column }) => <DataTableColumnHeader table={table} column={column} title='Strike Position' />,
     cell: ({ row }) => (
-      <span
+      <div
         className={cn(
-          'pr-4 font-semibold',
+          'p-1 pr-4 font-semibold',
+          row.original.strikePositionChange && row.original.strikePositionChange > 0 ? green : red,
           row.original.strikePosition > 30 ? 'text-red-800 dark:text-red-500' : 'text-emerald-800 dark:text-emerald-500'
         )}
       >
-        {row.original.strikePosition.toFixed(2)}
-      </span>
+        <span className='rounded-full px-2 py-1 ring-1 ring-gray-400 dark:ring-gray-100'>
+          {row.original.strikePosition.toFixed(2)}
+        </span>
+      </div>
     ),
     sortingFn: (rowA, rowsB) => rowA.original.strikePosition - rowsB.original.strikePosition,
   },
@@ -76,13 +106,11 @@ export const columns: ColumnDef<UiInstrument>[] = [
       return (
         <div
           className={cn(
-            'rounded-full text-center ring-1',
-            strikePosition >= av!
-              ? 'bg-emerald-50/60 text-emerald-800 ring-emerald-100 dark:bg-emerald-900/10 dark:text-emerald-500'
-              : 'bg-red-50/60 text-red-800 ring-red-100 dark:bg-red-900/10 dark:text-red-500'
+            'bg-yellow-50/60 p-2 text-center dark:bg-yellow-900/20',
+            strikePosition >= av! ? 'text-emerald-800 dark:text-emerald-500' : 'text-red-800 dark:text-red-500'
           )}
         >
-          {row.original.av}
+          {row.original.av?.toFixed(2)}
         </div>
       );
     },

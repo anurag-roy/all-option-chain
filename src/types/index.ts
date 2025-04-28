@@ -15,7 +15,7 @@ export interface UiInstrument extends instrument {
   ltpChange?: number;
   returnValueChange?: number;
   strikePositionChange?: number;
-  gainLossPercent: number;
+  gainLossPercent?: number;
 }
 
 export type UiEquity = {

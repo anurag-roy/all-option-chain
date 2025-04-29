@@ -2,8 +2,27 @@ import { NSE_STOCKS_TO_INCLUDE } from '@/config';
 import { ShoonyaInstrument } from '@/types/shoonya';
 import JSZip from 'jszip';
 
+type DailyReport = {
+  name: string;
+  type: string;
+  category: string;
+  section: string;
+  link: string;
+};
+
 export const getVolatilityData = async () => {
-  const res = await fetch('https://nsearchives.nseindia.com/archives/nsccl/volt/CMVOLT_28042025.CSV');
+  const dailyReportsRes = await fetch('https://www.nseindia.com/api/merged-daily-reports?key=favCapital');
+  const dailyReportsData: DailyReport[] = await dailyReportsRes.json();
+
+  const volatilityReport = dailyReportsData.find((report) => report.name === 'CM - Daily Volatility');
+  if (!volatilityReport) {
+    throw new Error('Volatility report not found');
+  }
+
+  const reportLink = volatilityReport?.link;
+  console.log('Fetching volatility data from', reportLink);
+
+  const res = await fetch(reportLink);
   const text = await res.text();
 
   // The CSV file has the following columns:

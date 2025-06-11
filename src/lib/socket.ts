@@ -1,7 +1,6 @@
 import env from '@/env.json';
-import { UiInstrument } from '@/types';
+import { Instrument, UiInstrument } from '@/types';
 import type { TouchlineResponse } from '@/types/shoonya';
-import type { instrument } from '@prisma/client';
 import { WebSocket, type MessageEvent } from 'ws';
 
 export const getNewTicker = async () =>
@@ -42,7 +41,7 @@ export const getNewTicker = async () =>
 
 export const getValidInstruments = async (
   ws: WebSocket,
-  instruments: instrument[],
+  instruments: Instrument[],
   ltp: number,
   lowerBound: number,
   upperBound: number

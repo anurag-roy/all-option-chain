@@ -1,11 +1,13 @@
-import type { instrument } from '@prisma/client';
+import type { instruments } from '@/db/schema';
 import type { WebSocket } from 'ws';
 
 declare global {
   var ticker: WebSocket | null;
 }
 
-export interface UiInstrument extends instrument {
+export type Instrument = typeof instruments.$inferSelect;
+
+export type UiInstrument = Instrument & {
   ltp: number;
   bid: number;
   returnValue: number;
@@ -16,7 +18,7 @@ export interface UiInstrument extends instrument {
   returnValueChange?: number;
   strikePositionChange?: number;
   gainLossPercent?: number;
-}
+};
 
 export type UiEquity = {
   token: string;

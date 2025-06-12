@@ -6,6 +6,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "next dev",
+    "typecheck": "tsc --noEmit",
     "build": "next build",
     "start": "next start",
     "data:prepare": "rimraf src/data/data.db && npx drizzle-kit push && tsx src/data/setup.ts",
@@ -44,6 +45,8 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "cmdk": "^0.2.1",
+    "date-fns": "^4.1.0",
+    "date-fns-tz": "^3.2.0",
     "drizzle-orm": "^0.43.1",
     "jszip": "^3.10.1",
     "ky": "^1.7.1",

@@ -1,11 +1,11 @@
-import type { instruments } from '@/db/schema';
+import type { instrumentsTable } from '@/db/schema';
 import type { WebSocket } from 'ws';
 
 declare global {
   var ticker: WebSocket | null;
 }
 
-export type Instrument = typeof instruments.$inferSelect;
+export type Instrument = typeof instrumentsTable.$inferSelect;
 
 export type UiInstrument = Instrument & {
   ltp: number;

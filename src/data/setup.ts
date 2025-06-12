@@ -1,12 +1,62 @@
 import { BSE_STOCKS_TO_INCLUDE, NSE_STOCKS_TO_INCLUDE } from '@/config';
 import { db, closeDb } from '@/db';
-import { instruments } from '@/db/schema';
+import { instrumentsTable, holidaysTable } from '@/db/schema';
 import { getInstruments, getNifty500Stocks, getVolatilityData } from './getInstruments';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { parse, format } from 'date-fns';
+
+// Function to parse and import holidays data
+async function importHolidays() {
+  console.log('Importing holidays data...');
+
+  try {
+    // Read the CSV file
+    const csvPath = join(process.cwd(), 'src/data/holidays.csv');
+    const csvContent = readFileSync(csvPath, 'utf-8');
+
+    // Parse CSV (skip header)
+    const lines = csvContent.trim().split('\n').slice(1);
+    const holidaysData = [];
+
+    for (const line of lines) {
+      const [dateStr, name] = line.split(',');
+
+      // Parse the date from DD-MMM-YYYY format to proper Date
+      const parsedDate = parse(dateStr, 'dd-MMM-yyyy', new Date());
+
+      // Format as YYYY-MM-DD for database storage
+      const formattedDate = format(parsedDate, 'yyyy-MM-dd');
+
+      holidaysData.push({
+        date: formattedDate,
+        name: name.trim(),
+        year: parsedDate.getFullYear(),
+        month: parsedDate.getMonth() + 1, // getMonth() returns 0-11
+        day: parsedDate.getDate(),
+      });
+    }
+
+    // Clear existing holidays data
+    await db.delete(holidaysTable);
+    console.log('Cleared existing holidays data');
+
+    // Insert holidays data
+    await db.insert(holidaysTable).values(holidaysData);
+    console.log(`Inserted ${holidaysData.length} holidays`);
+  } catch (error) {
+    console.error('Failed to import holidays:', error);
+    throw error;
+  }
+}
 
 async function main() {
   console.log('Starting data seeding...');
 
   try {
+    // Import holidays first
+    await importHolidays();
+
     // Fetch all instrument data
     const bseInstruments = await getInstruments('BSE');
     const nseInstruments = await getInstruments('NSE');
@@ -30,7 +80,7 @@ async function main() {
     console.log(`Preparing to insert ${instrumentsData.length} instruments...`);
 
     // Clear existing data
-    await db.delete(instruments);
+    await db.delete(instrumentsTable);
     console.log('Cleared existing instruments data');
 
     // Prepare data for insertion
@@ -59,7 +109,7 @@ async function main() {
 
     for (let i = 0; i < instrumentsToInsert.length; i += BATCH_SIZE) {
       const batch = instrumentsToInsert.slice(i, i + BATCH_SIZE);
-      await db.insert(instruments).values(batch);
+      await db.insert(instrumentsTable).values(batch);
       insertedCount += batch.length;
       console.log(`Inserted ${insertedCount}/${instrumentsToInsert.length} instruments...`);
     }

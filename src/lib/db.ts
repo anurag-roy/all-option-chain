@@ -1,34 +1,34 @@
 import { db } from '@/db';
 import { eq, asc, inArray, and, like } from 'drizzle-orm';
-import { instruments } from '@/db/schema';
+import { instrumentsTable } from '@/db/schema';
 
 export const getAllEquityStocks = async () => {
   const equityStocks = await db
     .select()
-    .from(instruments)
-    .where(eq(instruments.instrument, 'EQ'))
-    .orderBy(asc(instruments.symbol));
+    .from(instrumentsTable)
+    .where(eq(instrumentsTable.instrument, 'EQ'))
+    .orderBy(asc(instrumentsTable.symbol));
   return equityStocks;
 };
 
 export const getInstrumentsToSubscribe = async (symbol: string, expiryPrefix: string) => {
   const [equityStock] = await db
     .select()
-    .from(instruments)
-    .where(eq(instruments.id, `${symbol}-EQ`));
+    .from(instrumentsTable)
+    .where(eq(instrumentsTable.id, `${symbol}-EQ`));
 
   const optionsStocks = await db
     .select()
-    .from(instruments)
+    .from(instrumentsTable)
     .where(
       and(
-        eq(instruments.symbol, symbol),
-        eq(instruments.exchange, 'NFO'),
-        inArray(instruments.optionType, ['CE', 'PE']),
-        like(instruments.expiry, `%${expiryPrefix}`)
+        eq(instrumentsTable.symbol, symbol),
+        eq(instrumentsTable.exchange, 'NFO'),
+        inArray(instrumentsTable.optionType, ['CE', 'PE']),
+        like(instrumentsTable.expiry, `%${expiryPrefix}`)
       )
     )
-    .orderBy(asc(instruments.strikePrice));
+    .orderBy(asc(instrumentsTable.strikePrice));
 
   return {
     equityStock,

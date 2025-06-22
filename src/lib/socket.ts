@@ -1,6 +1,7 @@
 import env from '@/env.json';
 import { Instrument, UiInstrument } from '@/types';
 import type { TouchlineResponse } from '@/types/shoonya';
+import { workingDaysCache } from './workingDaysCache';
 import { WebSocket, type MessageEvent } from 'ws';
 
 export const getNewTicker = async () =>
@@ -67,13 +68,29 @@ export const getValidInstruments = async (
       resolve(validInstruments);
     }, 3000);
 
-    ws.onmessage = (messageEvent: MessageEvent) => {
+    ws.onmessage = async (messageEvent: MessageEvent) => {
       const messageData = JSON.parse(messageEvent.data as string) as TouchlineResponse;
 
       if (messageData.t === 'tk' && 'oi' in messageData && messageData.bp1) {
         const foundInstrument = instruments.find((i) => i.token === messageData.tk)!;
         const sellValue = (Number(messageData.bp1) - 0.05) * foundInstrument.lotSize;
         const strikePosition = (Math.abs(foundInstrument.strikePrice - ltp) * 100) / ltp;
+
+        // Calculate SD using cached working days
+        let sd = 0;
+        try {
+          if (foundInstrument.av && foundInstrument.expiry) {
+            sd = await workingDaysCache.calculateSD(foundInstrument.av, foundInstrument.expiry);
+          }
+        } catch (error) {
+          console.error(
+            `Error calculating SD for instrument ${foundInstrument.tradingSymbol} with expiry "${foundInstrument.expiry}":`,
+            error
+          );
+          // Set SD to 0 if calculation fails
+          sd = 0;
+        }
+
         validInstruments.push({
           ...foundInstrument,
           ltp: ltp,
@@ -81,6 +98,7 @@ export const getValidInstruments = async (
           sellValue,
           strikePosition,
           returnValue: 0,
+          sd,
         });
       }
 

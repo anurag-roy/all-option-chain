@@ -11,6 +11,8 @@ interface StockState {
   setEntryValue: (entryValue: number) => void;
   orderPercent: number;
   setOrderPercent: (orderPercent: number) => void;
+  sdMultiplier: number;
+  setSdMultiplier: (sdMultiplier: number) => void;
   initComplete: boolean;
   setInitComplete: (initComplete: boolean) => void;
   equities: UiEquity[];
@@ -34,6 +36,8 @@ export const useStockStore = create<StockState>()((set) => ({
   setEntryValue: (entryValue) => set({ entryValue }),
   orderPercent: 0,
   setOrderPercent: (orderPercent) => set({ orderPercent }),
+  sdMultiplier: 1,
+  setSdMultiplier: (sdMultiplier) => set({ sdMultiplier }),
   initComplete: false,
   setInitComplete: (initComplete) => set({ initComplete }),
   equities: [],

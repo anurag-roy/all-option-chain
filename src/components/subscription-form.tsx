@@ -23,6 +23,7 @@ const formSchema = z.object({
   entryPercent: z.number(),
   entryValue: z.number(),
   orderPercent: z.number(),
+  sdMultiplier: z.number(),
 });
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -33,6 +34,7 @@ export function SubscriptionForm() {
   const bannedStocks = useBansStore((state) => state.bannedStocks.map((s) => s.name));
   const setEntryValue = useStockStore((state) => state.setEntryValue);
   const setOrderPercent = useStockStore((state) => state.setOrderPercent);
+  const setSdMultiplier = useStockStore((state) => state.setSdMultiplier);
   const initSocket = useStockStore((state) => state.initSocket);
   const setInitComplete = useStockStore((state) => state.setInitComplete);
   const form = useForm<z.infer<typeof formSchema>>({
@@ -42,6 +44,7 @@ export function SubscriptionForm() {
       entryPercent: 30,
       entryValue: 99,
       orderPercent: 0.5,
+      sdMultiplier: 1.0,
     },
   });
   const [buttonState, setButtonState] = React.useState<ButtonState>('subscribe');
@@ -101,6 +104,7 @@ export function SubscriptionForm() {
     initSocket();
     setEntryValue(entryValue);
     setOrderPercent(orderPercent);
+    setSdMultiplier(values.sdMultiplier);
     setInitComplete(true);
   };
 
@@ -111,6 +115,7 @@ export function SubscriptionForm() {
         <NumberInputFormField form={form} name='entryPercent' min={0} max={100} step={1} />
         <NumberInputFormField form={form} name='entryValue' min={0} max={10000} step={0.05} />
         <NumberInputFormField form={form} name='orderPercent' min={0} max={100} step={0.01} />
+        <NumberInputFormField form={form} name='sdMultiplier' min={0} max={10} step={0.01} />
         <Button type='submit' className='mt-[30px]' disabled={buttonState !== 'subscribe'}>
           {buttonState === 'subscribe' ? 'Subscribe' : null}
           {buttonState === 'subscribing' ? (

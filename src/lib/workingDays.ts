@@ -1,7 +1,17 @@
 import { db } from '@/db';
 import { holidaysTable } from '@/db/schema';
 import { sql } from 'drizzle-orm';
-import { eachDayOfInterval, isWeekend, format, parseISO, startOfDay, isAfter, isBefore, isSameDay } from 'date-fns';
+import {
+  eachDayOfInterval,
+  isWeekend,
+  format,
+  parseISO,
+  startOfDay,
+  isAfter,
+  isBefore,
+  isSameDay,
+  parse,
+} from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 
 const INDIA_TIMEZONE = 'Asia/Kolkata';
@@ -85,13 +95,49 @@ export async function calculateWorkingDays(startDate: Date | string, endDate: Da
 }
 
 /**
+ * Parse expiry date string to Date object
+ * Handles both ISO format (YYYY-MM-DD) and Shoonya format (DD-MMM-YYYY)
+ */
+function parseExpiryDate(expiryDate: string): Date {
+  if (!expiryDate || typeof expiryDate !== 'string') {
+    throw new Error('Invalid expiry date: must be a non-empty string');
+  }
+
+  const trimmed = expiryDate.trim();
+
+  // Try ISO format first (YYYY-MM-DD)
+  if (trimmed.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    const parsed = parseISO(trimmed);
+    if (!isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+
+  // Try Shoonya format (DD-MMM-YYYY)
+  if (trimmed.match(/^\d{2}-[A-Z]{3}-\d{4}$/)) {
+    const parsed = parse(trimmed, 'dd-MMM-yyyy', new Date());
+    if (!isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+
+  // Fallback: try native Date parsing
+  const fallback = new Date(trimmed);
+  if (!isNaN(fallback.getTime())) {
+    return fallback;
+  }
+
+  throw new Error(`Unable to parse expiry date: "${expiryDate}". Expected format: DD-MMM-YYYY or YYYY-MM-DD`);
+}
+
+/**
  * Calculate working days to expiry from today
- * @param expiryDate - Expiry date of the option contract
+ * @param expiryDate - Expiry date of the option contract (DD-MMM-YYYY or YYYY-MM-DD format)
  * @returns Promise<number> - Number of working days from today to expiry
  */
 export async function calculateWorkingDaysToExpiry(expiryDate: Date | string): Promise<number> {
   const today = toZonedTime(new Date(), INDIA_TIMEZONE);
-  const expiry = typeof expiryDate === 'string' ? parseISO(expiryDate) : expiryDate;
+  const expiry = typeof expiryDate === 'string' ? parseExpiryDate(expiryDate) : expiryDate;
   const indiaExpiry = toZonedTime(expiry, INDIA_TIMEZONE);
 
   // If expiry is today, return 0

@@ -2,6 +2,8 @@ import { BSE_STOCKS_TO_INCLUDE, NSE_STOCKS_TO_INCLUDE } from '@/config';
 import { db, closeDb } from '@/db';
 import { instrumentsTable, holidaysTable } from '@/db/schema';
 import { getInstruments, getNifty500Stocks, getVolatilityData } from './getInstruments';
+import { getUniqueExpiryDates } from '@/lib/db';
+import { workingDaysCache } from '@/lib/workingDaysCache';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { parse, format } from 'date-fns';
@@ -115,6 +117,20 @@ async function main() {
     }
 
     console.log('Data seeding completed successfully!');
+
+    // Initialize working days cache after all data is inserted
+    console.log('Initializing working days cache...');
+
+    // Pre-populate the working days in last year cache
+    await workingDaysCache.getWorkingDaysInLastYear();
+
+    // Get unique expiry dates and pre-populate the expiry cache
+    const uniqueExpiryDates = await getUniqueExpiryDates();
+    console.log('Raw expiry dates from database:', uniqueExpiryDates);
+
+    await workingDaysCache.prePopulateExpiryCache(uniqueExpiryDates);
+
+    console.log('Working days cache initialized successfully!');
   } catch (error) {
     console.error('Data seeding failed:', error);
     throw error;

@@ -13,6 +13,7 @@ export type UiInstrument = Instrument & {
   returnValue: number;
   strikePosition: number;
   sellValue: number;
+  sd?: number; // Standard Deviation calculation
   // UI variables to store increase/decrease from previous values
   ltpChange?: number;
   returnValueChange?: number;

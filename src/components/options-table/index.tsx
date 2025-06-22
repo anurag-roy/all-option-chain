@@ -2,7 +2,7 @@ import { getReturnValue } from '@/lib/utils';
 import { useStockStore } from '@/stores/stocks';
 import * as React from 'react';
 import { useToast } from '../ui/use-toast';
-import { columns } from './columns';
+import { useColumns } from './columns';
 import { DataTable } from './data-table';
 
 export function OptionsTable() {
@@ -13,6 +13,7 @@ export function OptionsTable() {
   const updateReturn = useStockStore((state) => state.updateReturn);
   const fetchIndexRef = React.useRef(0);
   const { toast } = useToast();
+  const columns = useColumns();
 
   const filteredInstruments = instruments.filter((i) => i.sellValue >= entryValue);
 

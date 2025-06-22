@@ -35,3 +35,12 @@ export const getInstrumentsToSubscribe = async (symbol: string, expiryPrefix: st
     optionsStocks,
   };
 };
+
+export const getUniqueExpiryDates = async (): Promise<string[]> => {
+  const result = await db
+    .selectDistinct({ expiry: instrumentsTable.expiry })
+    .from(instrumentsTable)
+    .where(and(eq(instrumentsTable.exchange, 'NFO'), inArray(instrumentsTable.optionType, ['CE', 'PE'])));
+
+  return result.map((row) => row.expiry).filter((expiry) => expiry && expiry.trim() !== '');
+};

@@ -44,17 +44,49 @@ export const getValidInstruments = async (
   ws: WebSocket,
   instruments: Instrument[],
   ltp: number,
-  lowerBound: number,
-  upperBound: number
+  minusSD: number,
+  plusSD: number
 ) =>
   new Promise<UiInstrument[]>((resolve) => {
     let responseReceived = 0;
     const validInstruments: UiInstrument[] = [];
 
-    const filteredInstruments = instruments.filter(
-      (s) =>
-        (s.strikePrice <= lowerBound && s.optionType === 'PE') || (s.strikePrice >= upperBound && s.optionType === 'CE')
+    // New SD-based filtering logic
+    // Get all available strikes for PUTs and CALLs
+    const putStrikes = instruments
+      .filter((s) => s.optionType === 'PE')
+      .map((s) => s.strikePrice)
+      .sort((a, b) => b - a); // Sort descending for PUTs
+
+    const callStrikes = instruments
+      .filter((s) => s.optionType === 'CE')
+      .map((s) => s.strikePrice)
+      .sort((a, b) => a - b); // Sort ascending for CALLs
+
+    // Find closest floor strike to minusSD value
+    const closestFloorStrike = putStrikes.find((strike) => strike <= minusSD) || putStrikes[putStrikes.length - 1];
+
+    // Find closest ceiling strike to plusSD value
+    const closestCeilingStrike = callStrikes.find((strike) => strike >= plusSD) || callStrikes[callStrikes.length - 1];
+
+    console.log(
+      `Filtering logic: minusSD=${minusSD}, plusSD=${plusSD}, closestFloorStrike=${closestFloorStrike}, closestCeilingStrike=${closestCeilingStrike}`
     );
+
+    // Filter instruments based on the new logic
+    const filteredInstruments = instruments.filter((s) => {
+      if (s.optionType === 'PE') {
+        // Get all PUTs with strikes below (and including) the closest floor strike
+        return s.strikePrice <= closestFloorStrike;
+      } else if (s.optionType === 'CE') {
+        // Get all CALLs with strikes above (and including) the closest ceiling strike
+        return s.strikePrice >= closestCeilingStrike;
+      }
+      return false;
+    });
+
+    console.log(`Filtered ${filteredInstruments.length} instruments out of ${instruments.length} total`);
+
     const tokensToSubscribe = filteredInstruments.map((s) => `NFO|${s.token}`).join('#');
 
     // Timeout after 3 seconds, because sometimes Shoonya doesn't return an acknowledgement

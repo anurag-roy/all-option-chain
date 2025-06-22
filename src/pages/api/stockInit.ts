@@ -1,4 +1,3 @@
-import { CUSTOM_PERCENT } from '@/config';
 import { getQuotes } from '@/lib/api/getQuotes';
 import { getInstrumentsToSubscribe } from '@/lib/db';
 import { getValidInstruments } from '@/lib/socket';
@@ -12,7 +11,7 @@ let cacheInitialized = false;
 const handler: NextApiHandler = async (req, res) => {
   const stock = String(req.query.stock);
   const expiry = String(req.query.expiry);
-  const entryPercent = Number(req.query.entryPercent);
+  const sdMultiplier = Number(req.query.sdMultiplier);
 
   if (!global.ticker) {
     res.status(500).json({ error: 'Ticker not connected' });
@@ -34,12 +33,28 @@ const handler: NextApiHandler = async (req, res) => {
     const ltp = Number(response.lp);
     const prevClose = Number(response.c);
 
-    const effectivePercent = CUSTOM_PERCENT[stock] ?? entryPercent;
-    const lowerBound = ((100 - effectivePercent) * ltp) / 100;
-    const upperBound = ((100 + effectivePercent) * ltp) / 100;
+    // Calculate SD-based bounds instead of percentage-based bounds
+    // We need to get the AV (Annualized Volatility) for the stock to calculate SD
+    const stockWithAV = optionsStocks.find((s) => s.av && s.av > 0);
+    let sdValue = 0;
 
-    // Compute filtered stocks to send to socket client
-    const validInstruments = await getValidInstruments(global.ticker, optionsStocks, ltp, lowerBound, upperBound);
+    if (stockWithAV && stockWithAV.av && stockWithAV.expiry) {
+      try {
+        sdValue = await workingDaysCache.calculateSD(stockWithAV.av, stockWithAV.expiry);
+      } catch (error) {
+        console.error(`Error calculating SD for stock ${stock}:`, error);
+        sdValue = 0;
+      }
+    }
+
+    // Calculate bounds using SD
+    const minusSD = (ltp * (100 - sdValue * sdMultiplier)) / 100;
+    const plusSD = (ltp * (100 + sdValue * sdMultiplier)) / 100;
+
+    console.log(`LTP: ${ltp}, SD: ${sdValue}, sdMultiplier: ${sdMultiplier}, minusSD: ${minusSD}, plusSD: ${plusSD}`);
+
+    // Compute filtered stocks to send to socket client with new SD-based filtering
+    const validInstruments = await getValidInstruments(global.ticker, optionsStocks, ltp, minusSD, plusSD);
 
     const initResponse: StockInitResponse = {
       equity: {

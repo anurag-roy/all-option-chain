@@ -20,7 +20,6 @@ type ButtonState = 'subscribe' | 'subscribing' | 'subscribed';
 const expiryOptions = getExpiryOptions(EXPIRY_OPTION_LENGTH);
 const formSchema = z.object({
   expiry: z.string(),
-  entryPercent: z.number(),
   entryValue: z.number(),
   orderPercent: z.number(),
   sdMultiplier: z.number(),
@@ -41,7 +40,6 @@ export function SubscriptionForm() {
     resolver: zodResolver(formSchema),
     values: {
       expiry: expiryOptions[0],
-      entryPercent: 30,
       entryValue: 99,
       orderPercent: 0.5,
       sdMultiplier: 1.0,
@@ -65,7 +63,7 @@ export function SubscriptionForm() {
       return;
     }
 
-    const { expiry, entryPercent, entryValue, orderPercent } = values;
+    const { expiry, entryValue, orderPercent, sdMultiplier } = values;
     for (const stock of NSE_STOCKS_TO_INCLUDE) {
       if (bannedStocks.includes(stock)) {
         console.log('Skipping banned stock', stock);
@@ -79,7 +77,7 @@ export function SubscriptionForm() {
             searchParams: {
               stock,
               expiry,
-              entryPercent,
+              sdMultiplier,
             },
           })
           .json<StockInitResponse>();
@@ -112,7 +110,6 @@ export function SubscriptionForm() {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className='flex justify-between gap-4 p-4'>
         <SelectFormField form={form} name='expiry' options={expiryOptions} />
-        <NumberInputFormField form={form} name='entryPercent' min={0} max={100} step={1} />
         <NumberInputFormField form={form} name='entryValue' min={0} max={10000} step={0.05} />
         <NumberInputFormField form={form} name='orderPercent' min={0} max={100} step={0.01} />
         <NumberInputFormField form={form} name='sdMultiplier' min={0} max={10} step={0.01} />

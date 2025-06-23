@@ -10,6 +10,7 @@
     "build": "next build",
     "start": "next start",
     "data:prepare": "rimraf src/data/data.db && npx drizzle-kit push && tsx src/data/setup.ts",
+    "db:studio": "npx drizzle-kit studio",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\""
   },
   "devDependencies": {

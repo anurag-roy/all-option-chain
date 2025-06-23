@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils';
 import { UiInstrument } from '@/types';
 import { ColumnDef } from '@tanstack/react-table';
+import { useMemo } from 'react';
 import { DataTableColumnHeader } from './column-header';
 import { RowOrderAction } from './order-action';
 import { useStockStore } from '@/stores/stocks';
@@ -216,11 +217,11 @@ export const asChildCols = ['ltp', 'returnValue', 'strikePosition'];
 // Hook to get columns with current SD multiplier
 export const useColumns = (): ColumnDef<UiInstrument>[] => {
   const sdMultiplier = useStockStore((state) => state.sdMultiplier);
-  return createColumns(sdMultiplier);
+  return useMemo(() => createColumns(sdMultiplier), [sdMultiplier]);
 };
 
 // Hook to get numeric columns with current SD multiplier
 export const useNumericCols = (): string[] => {
   const sdMultiplier = useStockStore((state) => state.sdMultiplier);
-  return getNumericCols(sdMultiplier);
+  return useMemo(() => getNumericCols(sdMultiplier), [sdMultiplier]);
 };

@@ -22,7 +22,7 @@ interface DataTableProps {
   data: UiInstrument[];
 }
 
-export function DataTable({ columns, data }: DataTableProps) {
+export const DataTable = React.memo(function DataTable({ columns, data }: DataTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const numericCols = useNumericCols();
@@ -101,4 +101,4 @@ export function DataTable({ columns, data }: DataTableProps) {
       <DataTablePagination table={table} />
     </>
   );
-}
+});

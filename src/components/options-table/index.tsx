@@ -5,7 +5,7 @@ import { useToast } from '../ui/use-toast';
 import { useColumns } from './columns';
 import { DataTable } from './data-table';
 
-export function OptionsTable() {
+export const OptionsTable = React.memo(function OptionsTable() {
   const instruments = useStockStore((state) => state.instruments);
   const entryValue = useStockStore((state) => state.entryValue);
   const orderPercent = useStockStore((state) => state.orderPercent);
@@ -15,7 +15,10 @@ export function OptionsTable() {
   const { toast } = useToast();
   const columns = useColumns();
 
-  const filteredInstruments = instruments.filter((i) => i.sellValue >= entryValue);
+  const filteredInstruments = React.useMemo(
+    () => instruments.filter((i) => i.sellValue >= entryValue),
+    [instruments, entryValue]
+  );
 
   React.useEffect(() => {
     if (!initComplete) return;
@@ -45,11 +48,11 @@ export function OptionsTable() {
     }, 500);
 
     return () => clearInterval(interval);
-  }, [initComplete]);
+  }, [initComplete, filteredInstruments, orderPercent, updateReturn, toast]);
 
   return (
     <div className='border-t p-4'>
       <DataTable columns={columns} data={filteredInstruments} />
     </div>
   );
-}
+});

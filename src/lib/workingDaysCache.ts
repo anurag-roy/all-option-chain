@@ -128,6 +128,7 @@ class WorkingDaysCache {
     console.log(
       `Expiry cache populated: ${successful.length} successful, ${results.length - successful.length} failed`
     );
+    console.log(this.expiryWorkingDaysMap);
   }
 
   /**

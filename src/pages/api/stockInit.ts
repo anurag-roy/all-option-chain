@@ -51,7 +51,9 @@ const handler: NextApiHandler = async (req, res) => {
     const minusSD = (ltp * (100 - sdValue * sdMultiplier)) / 100;
     const plusSD = (ltp * (100 + sdValue * sdMultiplier)) / 100;
 
-    console.log(`LTP: ${ltp}, SD: ${sdValue}, sdMultiplier: ${sdMultiplier}, minusSD: ${minusSD}, plusSD: ${plusSD}`);
+    console.log(
+      `LTP: ${ltp}, AV: ${stockWithAV?.av}, SD: ${sdValue}, sdMultiplier: ${sdMultiplier}, minusSD: ${minusSD}, plusSD: ${plusSD}`
+    );
 
     // Compute filtered stocks to send to socket client with new SD-based filtering
     const validInstruments = await getValidInstruments(global.ticker, optionsStocks, ltp, minusSD, plusSD);

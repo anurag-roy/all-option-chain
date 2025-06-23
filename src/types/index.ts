@@ -13,7 +13,11 @@ export type UiInstrument = Instrument & {
   returnValue: number;
   strikePosition: number;
   sellValue: number;
-  sd?: number; // Standard Deviation calculation
+  sd?: number; // Standard Deviation calculation (legacy)
+  // New sigma calculations
+  sigmaN?: number; // σₙ = sdMultiplier * Annual Volatility
+  sigmaX?: number; // σₓ = σₙ / sqrt(T/N) - Error Deviation
+  sigmaXI?: number; // σₓᵢ = σₙ ± σₓ - Confidence Deviation (different for CE/PE)
   // UI variables to store increase/decrease from previous values
   ltpChange?: number;
   returnValueChange?: number;

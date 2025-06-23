@@ -44,14 +44,14 @@ export const getValidInstruments = async (
   ws: WebSocket,
   instruments: Instrument[],
   ltp: number,
-  minusSD: number,
-  plusSD: number
+  peFloorBound: number,
+  ceCeilingBound: number
 ) =>
   new Promise<UiInstrument[]>((resolve) => {
     let responseReceived = 0;
     const validInstruments: UiInstrument[] = [];
 
-    // New SD-based filtering logic
+    // New asymmetric sigma-based filtering logic
     // Get all available strikes for PUTs and CALLs
     const putStrikes = instruments
       .filter((s) => s.optionType === 'PE')
@@ -63,17 +63,18 @@ export const getValidInstruments = async (
       .map((s) => s.strikePrice)
       .sort((a, b) => a - b); // Sort ascending for CALLs
 
-    // Find closest floor strike to minusSD value
-    const closestFloorStrike = putStrikes.find((strike) => strike <= minusSD) || putStrikes[putStrikes.length - 1];
+    // Find closest floor strike to PE floor bound
+    const closestFloorStrike = putStrikes.find((strike) => strike <= peFloorBound) || putStrikes[putStrikes.length - 1];
 
-    // Find closest ceiling strike to plusSD value
-    const closestCeilingStrike = callStrikes.find((strike) => strike >= plusSD) || callStrikes[callStrikes.length - 1];
+    // Find closest ceiling strike to CE ceiling bound
+    const closestCeilingStrike =
+      callStrikes.find((strike) => strike >= ceCeilingBound) || callStrikes[callStrikes.length - 1];
 
     console.log(
-      `Filtering logic: minusSD=${minusSD}, plusSD=${plusSD}, closestFloorStrike=${closestFloorStrike}, closestCeilingStrike=${closestCeilingStrike}`
+      `Asymmetric filtering: PE floor=${peFloorBound.toFixed(2)}, CE ceiling=${ceCeilingBound.toFixed(2)}, closestFloorStrike=${closestFloorStrike}, closestCeilingStrike=${closestCeilingStrike}`
     );
 
-    // Filter instruments based on the new logic
+    // Filter instruments based on asymmetric logic
     const filteredInstruments = instruments.filter((s) => {
       if (s.optionType === 'PE') {
         // Get all PUTs with strikes below (and including) the closest floor strike
@@ -108,19 +109,39 @@ export const getValidInstruments = async (
         const sellValue = (Number(messageData.bp1) - 0.05) * foundInstrument.lotSize;
         const strikePosition = (Math.abs(foundInstrument.strikePrice - ltp) * 100) / ltp;
 
-        // Calculate SD using cached working days
-        let sd = 0;
+        // Calculate new sigma values using cached working days
+        let sigmaN = 0;
+        let sigmaX = 0;
+        let sigmaXI = 0;
+        let sd = 0; // Keep legacy SD for backward compatibility
+
         try {
           if (foundInstrument.av && foundInstrument.expiry) {
+            // Calculate legacy SD for backward compatibility
             sd = await workingDaysCache.calculateSD(foundInstrument.av, foundInstrument.expiry);
+
+            // Calculate new sigma values
+            const sigmas = await workingDaysCache.calculateAllSigmas(
+              foundInstrument.av,
+              1, // Use base multiplier of 1 for individual instruments (multiplier applied at bounds level)
+              foundInstrument.expiry,
+              foundInstrument.optionType as 'CE' | 'PE'
+            );
+
+            sigmaN = sigmas.sigmaN;
+            sigmaX = sigmas.sigmaX;
+            sigmaXI = sigmas.sigmaXI;
           }
         } catch (error) {
           console.error(
-            `Error calculating SD for instrument ${foundInstrument.tradingSymbol} with expiry "${foundInstrument.expiry}":`,
+            `Error calculating sigmas for instrument ${foundInstrument.tradingSymbol} with expiry "${foundInstrument.expiry}":`,
             error
           );
-          // Set SD to 0 if calculation fails
+          // Set all values to 0 if calculation fails
           sd = 0;
+          sigmaN = 0;
+          sigmaX = 0;
+          sigmaXI = 0;
         }
 
         validInstruments.push({
@@ -130,7 +151,10 @@ export const getValidInstruments = async (
           sellValue,
           strikePosition,
           returnValue: 0,
-          sd,
+          sd, // Legacy SD
+          sigmaN,
+          sigmaX,
+          sigmaXI,
         });
       }
 

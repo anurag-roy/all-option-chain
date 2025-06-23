@@ -102,75 +102,81 @@ export const createColumns = (sdMultiplier: number): ColumnDef<UiInstrument>[] =
     sortingFn: (rowA, rowsB) => rowA.original.strikePosition - rowsB.original.strikePosition,
   },
   {
-    id: 'minusSD1',
-    header: '-SD1',
+    id: 'sigmaN',
+    header: 'σₙ %',
     cell: ({ row }) => {
-      const { ltp, sd } = row.original;
-      if (!sd || sd <= 0) {
+      const { sigmaN } = row.original;
+      if (!sigmaN || sigmaN <= 0) {
         return (
           <div className='bg-gray-50/60 p-2 text-center text-gray-500 dark:bg-gray-900/20 dark:text-gray-400'>N/A</div>
         );
       }
-      const minusSD1 = (ltp * (100 - sd)) / 100;
       return (
-        <div className='bg-red-50/60 p-2 text-center text-red-800 dark:bg-red-900/20 dark:text-red-500'>
-          {minusSD1.toFixed(2)}
+        <div className='bg-blue-50/60 p-2 text-center text-blue-800 dark:bg-blue-900/20 dark:text-blue-500'>
+          {sigmaN.toFixed(3)}%
         </div>
       );
     },
   },
   {
-    id: 'plusSD1',
-    header: '+SD1',
+    id: 'sigmaX',
+    header: 'σₓ %',
     cell: ({ row }) => {
-      const { ltp, sd } = row.original;
-      if (!sd || sd <= 0) {
+      const { sigmaX } = row.original;
+      if (!sigmaX || sigmaX <= 0) {
         return (
           <div className='bg-gray-50/60 p-2 text-center text-gray-500 dark:bg-gray-900/20 dark:text-gray-400'>N/A</div>
         );
       }
-      const plusSD1 = (ltp * (100 + sd)) / 100;
       return (
-        <div className='bg-green-50/60 p-2 text-center text-green-800 dark:bg-green-900/20 dark:text-green-500'>
-          {plusSD1.toFixed(2)}
+        <div className='bg-purple-50/60 p-2 text-center text-purple-800 dark:bg-purple-900/20 dark:text-purple-500'>
+          {sigmaX.toFixed(3)}%
         </div>
       );
     },
   },
   {
-    id: 'minusSDMultiplier',
-    header: `-${sdMultiplier}SD`,
+    id: 'sigmaXI',
+    header: 'σₓᵢ %',
     cell: ({ row }) => {
-      const { ltp, sd } = row.original;
-      if (!sd || sd <= 0) {
+      const { sigmaXI } = row.original;
+      if (!sigmaXI || sigmaXI <= 0) {
         return (
           <div className='bg-gray-50/60 p-2 text-center text-gray-500 dark:bg-gray-900/20 dark:text-gray-400'>N/A</div>
         );
       }
-      const minusSD = (ltp * (100 - sd * sdMultiplier)) / 100;
       return (
-        <div className='bg-red-50/60 p-2 text-center text-red-800 dark:bg-red-900/20 dark:text-red-500'>
-          {minusSD.toFixed(2)}
+        <div className='bg-indigo-50/60 p-2 text-center text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-500'>
+          {sigmaXI.toFixed(3)}%
         </div>
       );
     },
   },
   {
-    id: 'plusSDMultiplier',
-    header: `+${sdMultiplier}SD`,
+    id: 'sigmaXIBound',
+    header: 'σₓᵢ Bound',
     cell: ({ row }) => {
-      const { ltp, sd } = row.original;
-      if (!sd || sd <= 0) {
+      const { ltp, sigmaXI, optionType } = row.original;
+      if (!sigmaXI || sigmaXI <= 0) {
         return (
           <div className='bg-gray-50/60 p-2 text-center text-gray-500 dark:bg-gray-900/20 dark:text-gray-400'>N/A</div>
         );
       }
-      const plusSD = (ltp * (100 + sd * sdMultiplier)) / 100;
-      return (
-        <div className='bg-green-50/60 p-2 text-center text-green-800 dark:bg-green-900/20 dark:text-green-500'>
-          {plusSD.toFixed(2)}
-        </div>
-      );
+
+      let bound: number;
+      let colorClass: string;
+
+      if (optionType === 'CE') {
+        // For calls: ceiling bound
+        bound = ltp + (ltp * sigmaXI) / 100;
+        colorClass = 'bg-green-50/60 text-green-800 dark:bg-green-900/20 dark:text-green-500';
+      } else {
+        // For puts: floor bound
+        bound = ltp - (ltp * sigmaXI) / 100;
+        colorClass = 'bg-red-50/60 text-red-800 dark:bg-red-900/20 dark:text-red-500';
+      }
+
+      return <div className={cn('p-2 text-center', colorClass)}>{bound.toFixed(2)}</div>;
     },
   },
   {
@@ -191,10 +197,10 @@ export const numericCols = [
   'sellValue',
   'minusAV',
   'plusAV',
-  'minusSD1',
-  'plusSD1',
-  'minusSDMultiplier',
-  'plusSDMultiplier',
+  'sigmaN',
+  'sigmaX',
+  'sigmaXI',
+  'sigmaXIBound',
 ];
 
 export const getNumericCols = (sdMultiplier: number) => [
@@ -206,10 +212,10 @@ export const getNumericCols = (sdMultiplier: number) => [
   'sellValue',
   'minusAV',
   'plusAV',
-  'minusSD1',
-  'plusSD1',
-  'minusSDMultiplier',
-  'plusSDMultiplier',
+  'sigmaN',
+  'sigmaX',
+  'sigmaXI',
+  'sigmaXIBound',
 ];
 
 export const asChildCols = ['ltp', 'returnValue', 'strikePosition'];

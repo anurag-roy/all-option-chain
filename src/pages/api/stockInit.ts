@@ -33,30 +33,51 @@ const handler: NextApiHandler = async (req, res) => {
     const ltp = Number(response.lp);
     const prevClose = Number(response.c);
 
-    // Calculate SD-based bounds instead of percentage-based bounds
-    // We need to get the AV (Annualized Volatility) for the stock to calculate SD
+    // Calculate SD-based bounds using new sigma method
+    // We need to get the AV (Annualized Volatility) for the stock to calculate sigmas
     const stockWithAV = optionsStocks.find((s) => s.av && s.av > 0);
-    let sdValue = 0;
+    let ceBound = ltp; // Ceiling bound for CE options
+    let peBound = ltp; // Floor bound for PE options
 
     if (stockWithAV && stockWithAV.av && stockWithAV.expiry) {
       try {
-        sdValue = await workingDaysCache.calculateSD(stockWithAV.av, stockWithAV.expiry);
+        // Calculate sigmas for both CE and PE
+        const ceSigmas = await workingDaysCache.calculateAllSigmas(
+          stockWithAV.av,
+          sdMultiplier,
+          stockWithAV.expiry,
+          'CE'
+        );
+        const peSigmas = await workingDaysCache.calculateAllSigmas(
+          stockWithAV.av,
+          sdMultiplier,
+          stockWithAV.expiry,
+          'PE'
+        );
+
+        // Calculate asymmetric bounds
+        // For CE: Ceiling = LTP + (σₓᵢ %)
+        ceBound = ltp + (ltp * ceSigmas.sigmaXI) / 100;
+
+        // For PE: Floor = LTP - (σₓᵢ %)
+        peBound = ltp - (ltp * peSigmas.sigmaXI) / 100;
+
+        console.log(
+          `LTP: ${ltp}, AV: ${stockWithAV.av}, sdMultiplier: ${sdMultiplier}`,
+          `\nCE Sigmas: σₙ=${ceSigmas.sigmaN.toFixed(3)}, σₓ=${ceSigmas.sigmaX.toFixed(3)}, σₓᵢ=${ceSigmas.sigmaXI.toFixed(3)}`,
+          `\nPE Sigmas: σₙ=${peSigmas.sigmaN.toFixed(3)}, σₓ=${peSigmas.sigmaX.toFixed(3)}, σₓᵢ=${peSigmas.sigmaXI.toFixed(3)}`,
+          `\nCE Bound (ceiling): ${ceBound.toFixed(2)}, PE Bound (floor): ${peBound.toFixed(2)}`
+        );
       } catch (error) {
-        console.error(`Error calculating SD for stock ${stock}:`, error);
-        sdValue = 0;
+        console.error(`Error calculating sigmas for stock ${stock}:`, error);
+        // Fallback to LTP if calculation fails
+        ceBound = ltp;
+        peBound = ltp;
       }
     }
 
-    // Calculate bounds using SD
-    const minusSD = (ltp * (100 - sdValue * sdMultiplier)) / 100;
-    const plusSD = (ltp * (100 + sdValue * sdMultiplier)) / 100;
-
-    console.log(
-      `LTP: ${ltp}, AV: ${stockWithAV?.av}, SD: ${sdValue}, sdMultiplier: ${sdMultiplier}, minusSD: ${minusSD}, plusSD: ${plusSD}`
-    );
-
-    // Compute filtered stocks to send to socket client with new SD-based filtering
-    const validInstruments = await getValidInstruments(global.ticker, optionsStocks, ltp, minusSD, plusSD);
+    // Compute filtered stocks to send to socket client with new asymmetric bounds
+    const validInstruments = await getValidInstruments(global.ticker, optionsStocks, ltp, peBound, ceBound);
 
     const initResponse: StockInitResponse = {
       equity: {

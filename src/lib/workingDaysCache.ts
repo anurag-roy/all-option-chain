@@ -132,19 +132,93 @@ class WorkingDaysCache {
   }
 
   /**
-   * Calculate Standard Deviation using cached values
+   * Calculate Standard Deviation using cached values (LEGACY)
    * SD = AV / sqrt(T/N)
    * where T = working days in last year, N = working days till expiry
    */
   async calculateSD(av: number, expiryDate: string): Promise<number> {
-    if (!av || av <= 0) return 0;
-
     const T = await this.getWorkingDaysInLastYear();
     const N = await this.getWorkingDaysTillExpiry(expiryDate);
 
     if (N === 0 || T === 0) return 0; // Avoid division by zero
 
     return av / Math.sqrt(T / N);
+  }
+
+  /**
+   * Step 1: Calculate σₙ (Sigma N)
+   * σₙ = sdMultiplier * Annual Volatility
+   * @param av Annual Volatility from NSE data
+   * @param sdMultiplier User-defined multiplier
+   * @returns σₙ value
+   */
+  calculateSigmaN(sigma: number, sdMultiplier: number): number {
+    return sigma * sdMultiplier;
+  }
+
+  /**
+   * Step 2: Calculate σₓ (Error Deviation)
+   * σₓ = σₙ / sqrt(T/N)
+   * @param sigmaN σₙ value from step 1
+   * @param expiryDate Expiry date string
+   * @returns σₓ value
+   */
+  async calculateSigmaX(sigmaN: number, expiryDate: string): Promise<number> {
+    if (!sigmaN || sigmaN <= 0) return 0;
+
+    const T = await this.getWorkingDaysInLastYear();
+    const N = await this.getWorkingDaysTillExpiry(expiryDate);
+
+    if (N === 0 || T === 0) return 0; // Avoid division by zero
+
+    return sigmaN / Math.sqrt(T / N);
+  }
+
+  /**
+   * Step 3: Calculate σₓᵢ (Confidence Deviation)
+   * For CE: σₓᵢ = σₙ + σₓ
+   * For PE: σₓᵢ = σₙ - σₓ
+   * @param sigmaN σₙ value from step 1
+   * @param sigmaX σₓ value from step 2
+   * @param optionType 'CE' for call options, 'PE' for put options
+   * @returns σₓᵢ value
+   */
+  calculateSigmaXI(sigmaN: number, sigmaX: number, optionType: 'CE' | 'PE'): number {
+    if (!sigmaN || sigmaN < 0 || !sigmaX || sigmaX < 0) return 0;
+
+    if (optionType === 'CE') {
+      return sigmaN + sigmaX; // Ceiling calculation for calls
+    } else if (optionType === 'PE') {
+      return sigmaN - sigmaX; // Floor calculation for puts
+    }
+
+    return 0;
+  }
+
+  /**
+   * Complete calculation for all sigma values
+   * @param av Annual Volatility
+   * @param sdMultiplier User multiplier
+   * @param expiryDate Expiry date
+   * @param optionType Option type
+   * @returns Object with all sigma values
+   */
+  async calculateAllSigmas(
+    av: number,
+    sdMultiplier: number,
+    expiryDate: string,
+    optionType: 'CE' | 'PE'
+  ): Promise<{
+    sigmaN: number;
+    sigmaX: number;
+    sigmaXI: number;
+  }> {
+    const sigma = await this.calculateSD(av, expiryDate);
+    const sigmaN = this.calculateSigmaN(sigma, sdMultiplier);
+    const sigmaX = await this.calculateSigmaX(sigmaN, expiryDate);
+    const sigmaXI = this.calculateSigmaXI(sigmaN, sigmaX, optionType);
+
+    return { sigmaN, sigmaX, sigmaXI };
   }
 
   /**

@@ -183,16 +183,9 @@ class WorkingDaysCache {
    * @param optionType 'CE' for call options, 'PE' for put options
    * @returns σₓᵢ value
    */
-  calculateSigmaXI(sigmaN: number, sigmaX: number, optionType: 'CE' | 'PE'): number {
+  calculateSigmaXI(sigmaN: number, sigmaX: number): number {
     if (!sigmaN || sigmaN < 0 || !sigmaX || sigmaX < 0) return 0;
-
-    if (optionType === 'CE') {
-      return sigmaN + sigmaX; // Ceiling calculation for calls
-    } else if (optionType === 'PE') {
-      return sigmaN - sigmaX; // Floor calculation for puts
-    }
-
-    return 0;
+    return sigmaN + sigmaX;
   }
 
   /**
@@ -206,8 +199,7 @@ class WorkingDaysCache {
   async calculateAllSigmas(
     av: number,
     sdMultiplier: number,
-    expiryDate: string,
-    optionType: 'CE' | 'PE'
+    expiryDate: string
   ): Promise<{
     sigmaN: number;
     sigmaX: number;
@@ -216,7 +208,7 @@ class WorkingDaysCache {
     const sigma = await this.calculateSD(av, expiryDate);
     const sigmaN = this.calculateSigmaN(sigma, sdMultiplier);
     const sigmaX = await this.calculateSigmaX(sigmaN, expiryDate);
-    const sigmaXI = this.calculateSigmaXI(sigmaN, sigmaX, optionType);
+    const sigmaXI = this.calculateSigmaXI(sigmaN, sigmaX);
 
     return { sigmaN, sigmaX, sigmaXI };
   }

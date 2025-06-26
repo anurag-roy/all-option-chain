@@ -226,3 +226,6 @@ export const BSE_STOCKS_TO_INCLUDE = ['NTPCGREEN', 'PTC'];
 
 // Number of months to show in the expiry dropdown
 export const EXPIRY_OPTION_LENGTH = 3;
+
+// Risk-free rate for options calculations (as decimal, e.g., 0.06 for 6%)
+export const RISK_FREE_RATE = 0.07;

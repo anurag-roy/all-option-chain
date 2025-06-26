@@ -18,6 +18,8 @@ export type UiInstrument = Instrument & {
   sigmaN?: number; // σₙ = sdMultiplier * Annual Volatility
   sigmaX?: number; // σₓ = σₙ / sqrt(T/N) - Error Deviation
   sigmaXI?: number; // σₓᵢ = σₙ ± σₓ - Confidence Deviation (different for CE/PE)
+  // Black-Scholes calculations
+  delta?: number; // Delta value for option pricing
   // UI variables to store increase/decrease from previous values
   ltpChange?: number;
   returnValueChange?: number;

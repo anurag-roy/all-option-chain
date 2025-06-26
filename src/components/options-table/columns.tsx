@@ -102,37 +102,25 @@ export const createColumns = (sdMultiplier: number): ColumnDef<UiInstrument>[] =
     sortingFn: (rowA, rowsB) => rowA.original.strikePosition - rowsB.original.strikePosition,
   },
   {
-    id: 'sigmaN',
-    header: 'σₙ %',
+    id: 'delta',
+    header: ({ table, column }) => <DataTableColumnHeader table={table} column={column} title='Delta (Δ)' />,
     cell: ({ row }) => {
-      const { sigmaN } = row.original;
-      if (!sigmaN || sigmaN <= 0) {
+      // Delta calculation will be moved to server-side processing
+      // For now, show N/A as a placeholder
+      const { delta } = row.original;
+
+      if (!delta || isNaN(delta)) {
         return (
           <div className='bg-gray-50/60 p-2 text-center text-gray-500 dark:bg-gray-900/20 dark:text-gray-400'>N/A</div>
         );
       }
-      return (
-        <div className='bg-blue-50/60 p-2 text-center text-blue-800 dark:bg-blue-900/20 dark:text-blue-500'>
-          {sigmaN.toFixed(3)}%
-        </div>
-      );
-    },
-  },
-  {
-    id: 'sigmaX',
-    header: 'σₓ %',
-    cell: ({ row }) => {
-      const { sigmaX } = row.original;
-      if (!sigmaX || sigmaX <= 0) {
-        return (
-          <div className='bg-gray-50/60 p-2 text-center text-gray-500 dark:bg-gray-900/20 dark:text-gray-400'>N/A</div>
-        );
-      }
-      return (
-        <div className='bg-purple-50/60 p-2 text-center text-purple-800 dark:bg-purple-900/20 dark:text-purple-500'>
-          {sigmaX.toFixed(3)}%
-        </div>
-      );
+
+      const deltaColor =
+        delta >= 0
+          ? 'bg-emerald-50/60 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-500'
+          : 'bg-red-50/60 text-red-800 dark:bg-red-900/20 dark:text-red-500';
+
+      return <div className={cn('p-2 text-center font-medium', deltaColor)}>{delta.toFixed(4)}</div>;
     },
   },
   {
@@ -153,33 +141,6 @@ export const createColumns = (sdMultiplier: number): ColumnDef<UiInstrument>[] =
     },
   },
   {
-    id: 'sigmaXIBound',
-    header: 'σₓᵢ Bound',
-    cell: ({ row }) => {
-      const { ltp, sigmaXI, optionType } = row.original;
-      if (!sigmaXI || sigmaXI <= 0) {
-        return (
-          <div className='bg-gray-50/60 p-2 text-center text-gray-500 dark:bg-gray-900/20 dark:text-gray-400'>N/A</div>
-        );
-      }
-
-      let bound: number;
-      let colorClass: string;
-
-      if (optionType === 'CE') {
-        // For calls: ceiling bound
-        bound = ltp + (ltp * sigmaXI) / 100;
-        colorClass = 'bg-green-50/60 text-green-800 dark:bg-green-900/20 dark:text-green-500';
-      } else {
-        // For puts: floor bound
-        bound = ltp - (ltp * sigmaXI) / 100;
-        colorClass = 'bg-red-50/60 text-red-800 dark:bg-red-900/20 dark:text-red-500';
-      }
-
-      return <div className={cn('p-2 text-center', colorClass)}>{bound.toFixed(2)}</div>;
-    },
-  },
-  {
     accessorKey: 'sellValue',
     header: 'Sell Value',
     cell: ({ row }) => row.original.sellValue.toFixed(2),
@@ -188,8 +149,6 @@ export const createColumns = (sdMultiplier: number): ColumnDef<UiInstrument>[] =
 
 export const numericCols = [
   'ltp',
-  // 'peLimit',
-  // 'ceLimit',
   'bid',
   'returnValue',
   'strikePrice',
@@ -201,6 +160,7 @@ export const numericCols = [
   'sigmaX',
   'sigmaXI',
   'sigmaXIBound',
+  'delta',
 ];
 
 export const getNumericCols = (sdMultiplier: number) => [
@@ -216,6 +176,7 @@ export const getNumericCols = (sdMultiplier: number) => [
   'sigmaX',
   'sigmaXI',
   'sigmaXIBound',
+  'delta',
 ];
 
 export const asChildCols = ['ltp', 'returnValue', 'strikePosition'];

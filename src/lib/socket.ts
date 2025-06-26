@@ -2,7 +2,55 @@ import env from '@/env.json';
 import { Instrument, UiInstrument } from '@/types';
 import type { TouchlineResponse } from '@/types/shoonya';
 import { workingDaysCache } from './workingDaysCache';
+import { RISK_FREE_RATE } from '@/config';
 import { WebSocket, type MessageEvent } from 'ws';
+
+// Normal distribution cumulative density function
+const normalCDF = (x: number): number => {
+  const a1 = 0.254829592;
+  const a2 = -0.284496736;
+  const a3 = 1.421413741;
+  const a4 = -1.453152027;
+  const a5 = 1.061405429;
+  const p = 0.3275911;
+
+  const sign = x < 0 ? -1 : 1;
+  x = Math.abs(x) / Math.sqrt(2.0);
+
+  const t = 1.0 / (1.0 + p * x);
+  const y = 1.0 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+
+  return 0.5 * (1.0 + sign * y);
+};
+
+// Calculate Black-Scholes Delta
+const calculateDelta = (
+  underlyingPrice: number,
+  strikePrice: number,
+  timeToExpiry: number,
+  volatility: number,
+  riskFreeRate: number,
+  optionType: 'CE' | 'PE'
+): number => {
+  if (timeToExpiry <= 0 || volatility <= 0 || underlyingPrice <= 0 || strikePrice <= 0) {
+    return 0;
+  }
+
+  // Convert volatility from percentage to decimal if needed
+  const vol = volatility > 1 ? volatility / 100 : volatility;
+
+  // Calculate d1
+  const d1 =
+    (Math.log(underlyingPrice / strikePrice) + (riskFreeRate + (vol * vol) / 2) * timeToExpiry) /
+    (vol * Math.sqrt(timeToExpiry));
+
+  // Calculate delta based on option type
+  if (optionType === 'CE') {
+    return normalCDF(d1);
+  } else {
+    return normalCDF(d1) - 1;
+  }
+};
 
 export const getNewTicker = async () =>
   new Promise<WebSocket>((resolve, reject) => {
@@ -114,6 +162,7 @@ export const getValidInstruments = async (
         let sigmaX = 0;
         let sigmaXI = 0;
         let sd = 0; // Keep legacy SD for backward compatibility
+        let delta = 0; // Delta calculation
 
         try {
           if (foundInstrument.av && foundInstrument.expiry) {
@@ -130,10 +179,24 @@ export const getValidInstruments = async (
             sigmaN = sigmas.sigmaN;
             sigmaX = sigmas.sigmaX;
             sigmaXI = sigmas.sigmaXI;
+
+            // Calculate delta using Black-Scholes
+            const workingDaysTillExpiry = await workingDaysCache.getWorkingDaysTillExpiry(foundInstrument.expiry);
+            const workingDaysInLastYear = await workingDaysCache.getWorkingDaysInLastYear();
+            const T = workingDaysTillExpiry / workingDaysInLastYear;
+
+            delta = calculateDelta(
+              ltp, // underlying stock price
+              foundInstrument.strikePrice,
+              T,
+              foundInstrument.av,
+              RISK_FREE_RATE,
+              foundInstrument.optionType as 'CE' | 'PE'
+            );
           }
         } catch (error) {
           console.error(
-            `Error calculating sigmas for instrument ${foundInstrument.tradingSymbol} with expiry "${foundInstrument.expiry}":`,
+            `Error calculating sigmas/delta for instrument ${foundInstrument.tradingSymbol} with expiry "${foundInstrument.expiry}":`,
             error
           );
           // Set all values to 0 if calculation fails
@@ -141,6 +204,7 @@ export const getValidInstruments = async (
           sigmaN = 0;
           sigmaX = 0;
           sigmaXI = 0;
+          delta = 0;
         }
 
         validInstruments.push({
@@ -154,6 +218,7 @@ export const getValidInstruments = async (
           sigmaN,
           sigmaX,
           sigmaXI,
+          delta, // Add delta to the UiInstrument
         });
       }
 

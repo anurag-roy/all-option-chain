@@ -142,7 +142,7 @@ export async function calculateWorkingDaysToExpiry(expiryDate: Date | string): P
 
   // If expiry is today, return 0
   if (isSameDay(today, indiaExpiry)) {
-    return 0;
+    return 1;
   }
 
   // If expiry is in the past, return 0

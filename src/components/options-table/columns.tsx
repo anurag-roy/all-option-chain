@@ -120,7 +120,7 @@ export const createColumns = (sdMultiplier: number): ColumnDef<UiInstrument>[] =
           ? 'bg-emerald-50/60 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-500'
           : 'bg-red-50/60 text-red-800 dark:bg-red-900/20 dark:text-red-500';
 
-      return <div className={cn('p-2 text-center font-medium', deltaColor)}>{delta.toFixed(4)}</div>;
+      return <div className={cn('p-2 text-center font-medium', deltaColor)}>{(delta * 100).toFixed(2)}</div>;
     },
   },
   {

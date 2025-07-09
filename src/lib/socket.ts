@@ -173,7 +173,8 @@ export const getValidInstruments = async (
             const sigmas = await workingDaysCache.calculateAllSigmas(
               foundInstrument.av,
               1, // Use base multiplier of 1 for individual instruments (multiplier applied at bounds level)
-              foundInstrument.expiry
+              foundInstrument.expiry,
+              foundInstrument.optionType as 'CE' | 'PE'
             );
 
             sigmaN = sigmas.sigmaN;

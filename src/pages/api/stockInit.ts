@@ -48,24 +48,24 @@ const handler: NextApiHandler = async (req, res) => {
           stockWithAV.expiry,
           'CE'
         );
-        const peSigmas = await workingDaysCache.calculateAllSigmas(
-          stockWithAV.av,
-          sdMultiplier,
-          stockWithAV.expiry,
-          'PE'
-        );
+        // const peSigmas = await workingDaysCache.calculateAllSigmas(
+        //   stockWithAV.av,
+        //   sdMultiplier,
+        //   stockWithAV.expiry,
+        //   'PE'
+        // );
 
         // Calculate asymmetric bounds
         // For CE: Ceiling = LTP + (σₓᵢ %)
         ceBound = ltp + (ltp * ceSigmas.sigmaXI) / 100;
 
         // For PE: Floor = LTP - (σₓᵢ %)
-        peBound = ltp - (ltp * peSigmas.sigmaXI) / 100;
+        peBound = ltp - (ltp * ceSigmas.sigmaXI) / 100;
 
         console.log(
           `LTP: ${ltp}, AV: ${stockWithAV.av}, sdMultiplier: ${sdMultiplier}`,
           `\nCE Sigmas: σₙ=${ceSigmas.sigmaN.toFixed(3)}, σₓ=${ceSigmas.sigmaX.toFixed(3)}, σₓᵢ=${ceSigmas.sigmaXI.toFixed(3)}`,
-          `\nPE Sigmas: σₙ=${peSigmas.sigmaN.toFixed(3)}, σₓ=${peSigmas.sigmaX.toFixed(3)}, σₓᵢ=${peSigmas.sigmaXI.toFixed(3)}`,
+          `\nPE Sigmas: σₙ=${ceSigmas.sigmaN.toFixed(3)}, σₓ=${ceSigmas.sigmaX.toFixed(3)}, σₓᵢ=${ceSigmas.sigmaXI.toFixed(3)}`,
           `\nCE Bound (ceiling): ${ceBound.toFixed(2)}, PE Bound (floor): ${peBound.toFixed(2)}`
         );
       } catch (error) {

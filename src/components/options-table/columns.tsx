@@ -14,13 +14,9 @@ export const createColumns = (sdMultiplier: number): ColumnDef<UiInstrument>[] =
   {
     id: 'optionStrike',
     header: 'Option Strike',
+    accessorFn: (row) => `${row.symbol} ${row.strikePrice} ${row.optionType}`,
     cell: ({ row }) => {
-      const { symbol, strikePrice, optionType } = row.original;
-      return (
-        <div className='p-2 pl-4'>
-          {symbol} {strikePrice} {optionType}
-        </div>
-      );
+      return <div className='p-2 pl-4'>{row.getValue('optionStrike')}</div>;
     },
   },
   {
@@ -120,7 +116,7 @@ export const createColumns = (sdMultiplier: number): ColumnDef<UiInstrument>[] =
           ? 'bg-emerald-50/60 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-500'
           : 'bg-red-50/60 text-red-800 dark:bg-red-900/20 dark:text-red-500';
 
-      return <div className={cn('p-2 text-center font-medium', deltaColor)}>{(delta * 100).toFixed(2)}</div>;
+      return <div className={cn('p-2 text-center font-medium', deltaColor)}>{(delta * 100).toFixed(4)}</div>;
     },
   },
   {

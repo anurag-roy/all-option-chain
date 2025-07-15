@@ -24,7 +24,7 @@ const normalCDF = (x: number): number => {
 };
 
 // Calculate Black-Scholes Delta
-const calculateDelta = (
+export const calculateDelta = (
   underlyingPrice: number,
   strikePrice: number,
   timeToExpiry: number,

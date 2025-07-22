@@ -23,7 +23,63 @@ const normalCDF = (x: number): number => {
   return 0.5 * (1.0 + sign * y);
 };
 
-// Calculate Black-Scholes Delta
+// Calculate Black-Scholes Call and Put Deltas using exact Excel formulas
+// Returns both Call Delta (E6) and Put Delta (F6) values
+export const calculateBlackScholesDeltas = (
+  spotPrice: number, // 'Black-Scholes'!SpotPrice
+  strikePrice: number, // B6
+  riskFreeRate: number, // 'Black-Scholes'!RiskFreeRate
+  sigma: number, // 'Black-Scholes'!sigma
+  timeToMaturity: number, // 'Black-Scholes'!TimeToMaturity
+  dividendYield?: number | null // 'Black-Scholes'!DividendYield
+): { callDelta: number; putDelta: number } => {
+  // Input validation
+  if (timeToMaturity <= 0 || sigma <= 0 || spotPrice <= 0 || strikePrice <= 0) {
+    return { callDelta: 0, putDelta: 0 };
+  }
+
+  // Check if dividend yield is blank/null/undefined (equivalent to ISBLANK in Excel)
+  const isDividendYieldBlank = dividendYield == null || dividendYield === undefined;
+  const effectiveDividendYield = isDividendYieldBlank ? 0 : dividendYield;
+
+  // Calculate d1 (H5)
+  let d1Numerator: number;
+  if (isDividendYieldBlank) {
+    // H5 formula when dividend yield is blank
+    d1Numerator = Math.log(spotPrice / strikePrice) + (riskFreeRate + 0.5 * (sigma * sigma)) * timeToMaturity;
+  } else {
+    // H5 formula when dividend yield is not blank
+    d1Numerator =
+      Math.log(spotPrice / strikePrice) + (riskFreeRate - dividendYield + 0.5 * (sigma * sigma)) * timeToMaturity;
+  }
+  const d1 = d1Numerator / (sigma * Math.sqrt(timeToMaturity));
+
+  // Calculate d2 (I5)
+  // I5 = H5 - sigma * sqrt(timeToMaturity)
+  // const d2 = d1 - sigma * Math.sqrt(timeToMaturity);
+
+  // Calculate N(d1) (J5)
+  // J5 = NORMSDIST(H5)
+  const nd1 = normalCDF(d1);
+
+  // Calculate N(d2) (K5) - not used in final formulas but included for completeness
+  // const nd2 = normalCDF(d2);
+
+  // Calculate Call Delta (E6)
+  // E6 = J5 * EXP(-DividendYield * TimeToMaturity)
+  const callDelta = nd1 * Math.exp(-effectiveDividendYield * timeToMaturity);
+
+  // Calculate Put Delta (F6)
+  // F6 = (J5-1) * EXP(-DividendYield * TimeToMaturity)
+  const putDelta = (nd1 - 1) * Math.exp(-effectiveDividendYield * timeToMaturity);
+
+  return {
+    callDelta,
+    putDelta,
+  };
+};
+
+// Legacy function for backward compatibility
 export const calculateDelta = (
   underlyingPrice: number,
   strikePrice: number,
@@ -32,24 +88,16 @@ export const calculateDelta = (
   riskFreeRate: number,
   optionType: 'CE' | 'PE'
 ): number => {
-  if (timeToExpiry <= 0 || volatility <= 0 || underlyingPrice <= 0 || strikePrice <= 0) {
-    return 0;
-  }
+  const deltas = calculateBlackScholesDeltas(
+    underlyingPrice,
+    strikePrice,
+    riskFreeRate,
+    volatility,
+    timeToExpiry,
+    0 // No dividend yield for backward compatibility
+  );
 
-  // Convert volatility from percentage to decimal if needed
-  const vol = volatility > 1 ? volatility / 100 : volatility;
-
-  // Calculate d1
-  const d1 =
-    (Math.log(underlyingPrice / strikePrice) + (riskFreeRate + (vol * vol) / 2) * timeToExpiry) /
-    (vol * Math.sqrt(timeToExpiry));
-
-  // Calculate delta based on option type
-  if (optionType === 'CE') {
-    return normalCDF(d1);
-  } else {
-    return normalCDF(d1) - 1;
-  }
+  return optionType === 'CE' ? deltas.callDelta : deltas.putDelta;
 };
 
 export const getNewTicker = async () =>

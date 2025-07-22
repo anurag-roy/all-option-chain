@@ -51,7 +51,7 @@ export const createColumns = (sdMultiplier: number): ColumnDef<UiInstrument>[] =
       }
       return (
         <div className={cn('bg-yellow-50/60 p-2 text-center dark:bg-yellow-900/20', text)}>
-          {row.original.dv?.toFixed(2)}
+          {row.original.dv ? (row.original.dv * 100).toFixed(2) : '-'}
         </div>
       );
     },

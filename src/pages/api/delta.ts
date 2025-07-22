@@ -1,6 +1,5 @@
-import { calculateDelta } from '@/lib/socket';
+import { calculateDeltas } from '@/lib/delta';
 import { workingDaysCache } from '@/lib/workingDaysCache';
-import { RISK_FREE_RATE } from '@/config';
 import { NextApiHandler } from 'next';
 
 const handler: NextApiHandler = async (req, res) => {
@@ -22,14 +21,7 @@ const handler: NextApiHandler = async (req, res) => {
     const workingDaysInLastYear = await workingDaysCache.getWorkingDaysInLastYear();
     const T = workingDaysTillExpiry / workingDaysInLastYear;
 
-    const delta = calculateDelta(
-      Number(ltp),
-      Number(strikePrice),
-      T,
-      Number(av),
-      RISK_FREE_RATE,
-      optionType as 'CE' | 'PE'
-    );
+    const delta = calculateDeltas(Number(ltp), Number(strikePrice), Number(av), T, optionType as 'CE' | 'PE');
 
     res.json({ delta });
   } catch (error) {

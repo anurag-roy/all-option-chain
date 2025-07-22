@@ -142,7 +142,7 @@ class WorkingDaysCache {
 
     if (N === 0 || T === 0) return 0; // Avoid division by zero
 
-    return av / Math.sqrt(T / N);
+    return (av * 100) / Math.sqrt(T / N);
   }
 
   /**

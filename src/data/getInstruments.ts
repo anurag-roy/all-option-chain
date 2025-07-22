@@ -128,8 +128,8 @@ export const getVolatilityData = async () => {
         const cols = row.split(',');
         return {
           symbol: cols[1],
-          dv: Number(cols[6]) * 100,
-          av: Number(cols[7]) * 100,
+          dv: Number(cols[6]),
+          av: Number(cols[7]),
         };
       });
   } catch (error) {

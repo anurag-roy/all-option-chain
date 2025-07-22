@@ -35,7 +35,7 @@ const handler: NextApiHandler = async (req, res) => {
 
     // Calculate SD-based bounds using new sigma method
     // We need to get the AV (Annualized Volatility) for the stock to calculate sigmas
-    const stockWithAV = optionsStocks.find((s) => s.av && s.av > 0);
+    const stockWithAV = optionsStocks.find((s) => s.av && s.av * 100 > 0);
     let ceBound = ltp; // Ceiling bound for CE options
     let peBound = ltp; // Floor bound for PE options
 

@@ -2,103 +2,8 @@ import env from '@/env.json';
 import { Instrument, UiInstrument } from '@/types';
 import type { TouchlineResponse } from '@/types/shoonya';
 import { workingDaysCache } from './workingDaysCache';
-import { RISK_FREE_RATE } from '@/config';
 import { WebSocket, type MessageEvent } from 'ws';
-
-// Normal distribution cumulative density function
-const normalCDF = (x: number): number => {
-  const a1 = 0.254829592;
-  const a2 = -0.284496736;
-  const a3 = 1.421413741;
-  const a4 = -1.453152027;
-  const a5 = 1.061405429;
-  const p = 0.3275911;
-
-  const sign = x < 0 ? -1 : 1;
-  x = Math.abs(x) / Math.sqrt(2.0);
-
-  const t = 1.0 / (1.0 + p * x);
-  const y = 1.0 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
-
-  return 0.5 * (1.0 + sign * y);
-};
-
-// Calculate Black-Scholes Call and Put Deltas using exact Excel formulas
-// Returns both Call Delta (E6) and Put Delta (F6) values
-export const calculateBlackScholesDeltas = (
-  spotPrice: number, // 'Black-Scholes'!SpotPrice
-  strikePrice: number, // B6
-  riskFreeRate: number, // 'Black-Scholes'!RiskFreeRate
-  sigma: number, // 'Black-Scholes'!sigma
-  timeToMaturity: number, // 'Black-Scholes'!TimeToMaturity
-  dividendYield?: number | null // 'Black-Scholes'!DividendYield
-): { callDelta: number; putDelta: number } => {
-  // Input validation
-  if (timeToMaturity <= 0 || sigma <= 0 || spotPrice <= 0 || strikePrice <= 0) {
-    return { callDelta: 0, putDelta: 0 };
-  }
-
-  // Check if dividend yield is blank/null/undefined (equivalent to ISBLANK in Excel)
-  const isDividendYieldBlank = dividendYield == null || dividendYield === undefined;
-  const effectiveDividendYield = isDividendYieldBlank ? 0 : dividendYield;
-
-  // Calculate d1 (H5)
-  let d1Numerator: number;
-  if (isDividendYieldBlank) {
-    // H5 formula when dividend yield is blank
-    d1Numerator = Math.log(spotPrice / strikePrice) + (riskFreeRate + 0.5 * (sigma * sigma)) * timeToMaturity;
-  } else {
-    // H5 formula when dividend yield is not blank
-    d1Numerator =
-      Math.log(spotPrice / strikePrice) + (riskFreeRate - dividendYield + 0.5 * (sigma * sigma)) * timeToMaturity;
-  }
-  const d1 = d1Numerator / (sigma * Math.sqrt(timeToMaturity));
-
-  // Calculate d2 (I5)
-  // I5 = H5 - sigma * sqrt(timeToMaturity)
-  // const d2 = d1 - sigma * Math.sqrt(timeToMaturity);
-
-  // Calculate N(d1) (J5)
-  // J5 = NORMSDIST(H5)
-  const nd1 = normalCDF(d1);
-
-  // Calculate N(d2) (K5) - not used in final formulas but included for completeness
-  // const nd2 = normalCDF(d2);
-
-  // Calculate Call Delta (E6)
-  // E6 = J5 * EXP(-DividendYield * TimeToMaturity)
-  const callDelta = nd1 * Math.exp(-effectiveDividendYield * timeToMaturity);
-
-  // Calculate Put Delta (F6)
-  // F6 = (J5-1) * EXP(-DividendYield * TimeToMaturity)
-  const putDelta = (nd1 - 1) * Math.exp(-effectiveDividendYield * timeToMaturity);
-
-  return {
-    callDelta,
-    putDelta,
-  };
-};
-
-// Legacy function for backward compatibility
-export const calculateDelta = (
-  underlyingPrice: number,
-  strikePrice: number,
-  timeToExpiry: number,
-  volatility: number,
-  riskFreeRate: number,
-  optionType: 'CE' | 'PE'
-): number => {
-  const deltas = calculateBlackScholesDeltas(
-    underlyingPrice,
-    strikePrice,
-    riskFreeRate,
-    volatility,
-    timeToExpiry,
-    0 // No dividend yield for backward compatibility
-  );
-
-  return optionType === 'CE' ? deltas.callDelta : deltas.putDelta;
-};
+import { calculateDeltas } from '@/lib/delta';
 
 export const getNewTicker = async () =>
   new Promise<WebSocket>((resolve, reject) => {
@@ -234,12 +139,11 @@ export const getValidInstruments = async (
             const workingDaysInLastYear = await workingDaysCache.getWorkingDaysInLastYear();
             const T = workingDaysTillExpiry / workingDaysInLastYear;
 
-            delta = calculateDelta(
+            delta = calculateDeltas(
               ltp, // underlying stock price
               foundInstrument.strikePrice,
-              T,
               foundInstrument.av,
-              RISK_FREE_RATE,
+              T,
               foundInstrument.optionType as 'CE' | 'PE'
             );
           }

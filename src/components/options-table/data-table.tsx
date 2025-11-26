@@ -13,7 +13,7 @@ import {
 } from '@tanstack/react-table';
 import * as React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
-import { numericCols } from './columns';
+import { useNumericCols } from './columns';
 import { DataTablePagination } from './pagination';
 import { DataTableToolbar } from './toolbar';
 
@@ -22,9 +22,10 @@ interface DataTableProps {
   data: UiInstrument[];
 }
 
-export function DataTable({ columns, data }: DataTableProps) {
+export const DataTable = React.memo(function DataTable({ columns, data }: DataTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const numericCols = useNumericCols();
 
   const table = useReactTable({
     data,
@@ -100,4 +101,4 @@ export function DataTable({ columns, data }: DataTableProps) {
       <DataTablePagination table={table} />
     </>
   );
-}
+});

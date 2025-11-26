@@ -11,6 +11,8 @@ interface StockState {
   setEntryValue: (entryValue: number) => void;
   orderPercent: number;
   setOrderPercent: (orderPercent: number) => void;
+  sdMultiplier: number;
+  setSdMultiplier: (sdMultiplier: number) => void;
   initComplete: boolean;
   setInitComplete: (initComplete: boolean) => void;
   equities: UiEquity[];
@@ -22,6 +24,7 @@ interface StockState {
   updateBid: (socketResponse: TouchlineResponse) => void;
   updateReturn: (token: string, returnValue: number) => void;
   updateReturnFromMargin: (token: string, margin: Margin) => void;
+  updateDelta: (token: string, delta: number) => void;
   resetInstruments: () => void;
   socket: WebSocket | null;
   initSocket: () => void;
@@ -34,6 +37,8 @@ export const useStockStore = create<StockState>()((set) => ({
   setEntryValue: (entryValue) => set({ entryValue }),
   orderPercent: 0,
   setOrderPercent: (orderPercent) => set({ orderPercent }),
+  sdMultiplier: 1,
+  setSdMultiplier: (sdMultiplier) => set({ sdMultiplier }),
   initComplete: false,
   setInitComplete: (initComplete) => set({ initComplete }),
   equities: [],
@@ -69,6 +74,29 @@ export const useStockStore = create<StockState>()((set) => ({
       const instruments = state.instruments.map((instrument) => {
         if (instrument.symbol === foundEquity.symbol) {
           const newStrikePosition = (Math.abs(instrument.strikePrice - ltp) * 100) / ltp;
+
+          // Trigger delta recalculation for this instrument
+          if (instrument.av && instrument.expiry) {
+            fetch('/api/delta', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                ltp,
+                strikePrice: instrument.strikePrice,
+                expiry: instrument.expiry,
+                av: instrument.av,
+                optionType: instrument.optionType,
+              }),
+            })
+              .then((res) => res.json())
+              .then(({ delta }) => {
+                // Update the instrument with new delta
+                state.updateDelta(instrument.token, delta);
+              })
+              .catch((error) => {
+                console.error(`Failed to calculate delta for ${instrument.tradingSymbol}:`, error);
+              });
+          }
 
           return {
             ...instrument,
@@ -139,6 +167,19 @@ export const useStockStore = create<StockState>()((set) => ({
             ...i,
             returnValue: newReturn,
             returnValueChange: newReturn - i.returnValue || i.returnValueChange,
+          };
+        }
+        return i;
+      });
+      return { instruments };
+    }),
+  updateDelta: (token: string, delta: number) =>
+    set((state) => {
+      const instruments = state.instruments.map((i) => {
+        if (i.token === token) {
+          return {
+            ...i,
+            delta,
           };
         }
         return i;

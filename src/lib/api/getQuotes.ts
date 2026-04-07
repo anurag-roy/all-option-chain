@@ -2,7 +2,7 @@ import env from '@/env.json';
 import type { Quote } from '@/types/shoonya';
 
 export const getQuotes = async (exchange: 'NSE' | 'NFO', instrumentToken: string) => {
-  const res = await fetch('https://api.shoonya.com/NorenWClientTP/GetQuotes', {
+  const res = await fetch('https://api.shoonya.com/NorenWClientAPI/GetQuotes', {
     method: 'POST',
     body:
       'jData=' +

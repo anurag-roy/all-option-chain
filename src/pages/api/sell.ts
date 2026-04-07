@@ -4,7 +4,7 @@ import { NextApiHandler } from 'next';
 const handler: NextApiHandler = async (req, res) => {
   const { price, quantity, tradingSymbol } = req.body;
 
-  const orderRes = await fetch('https://api.shoonya.com/NorenWClientTP/PlaceOrder', {
+  const orderRes = await fetch('https://api.shoonya.com/NorenWClientAPI/PlaceOrder', {
     method: 'POST',
     body:
       'jData=' +

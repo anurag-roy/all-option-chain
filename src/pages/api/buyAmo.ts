@@ -6,7 +6,7 @@ const handler: NextApiHandler = async (req, res) => {
   const { price, quantity, tradingSymbol } = req.body;
   const exchange = BSE_STOCKS_TO_INCLUDE.includes(tradingSymbol) ? 'BSE' : 'NSE';
 
-  const orderRes = await fetch('https://api.shoonya.com/NorenWClientTP/PlaceOrder', {
+  const orderRes = await fetch('https://api.shoonya.com/NorenWClientAPI/PlaceOrder', {
     method: 'POST',
     body:
       'jData=' +

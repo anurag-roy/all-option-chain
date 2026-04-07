@@ -4,7 +4,7 @@ import { NextApiHandler } from 'next';
 const handler: NextApiHandler = async (req, res) => {
   const { price, quantity, tradingSymbol } = req.query;
 
-  const marginRes = await fetch('https://api.shoonya.com/NorenWClientTP/GetOrderMargin', {
+  const marginRes = await fetch('https://api.shoonya.com/NorenWClientAPI/GetOrderMargin', {
     method: 'POST',
     body:
       'jData=' +

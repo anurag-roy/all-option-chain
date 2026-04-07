@@ -2,7 +2,7 @@ import env from '@/env.json';
 import type { ShoonyaError, UserDetails } from '@/types/shoonya';
 
 export const getUserDetails = async () => {
-  const res = await fetch('https://api.shoonya.com/NorenWClientTP/UserDetails', {
+  const res = await fetch('https://api.shoonya.com/NorenWClientAPI/UserDetails', {
     method: 'POST',
     body:
       'jData=' +

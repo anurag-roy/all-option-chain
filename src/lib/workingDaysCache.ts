@@ -64,7 +64,7 @@ class WorkingDaysCache {
         const { parseISO } = await import('date-fns');
         parsed = parseISO(trimmed);
       }
-      // Try Shoonya format (DD-MMM-YYYY)
+      // Noren contract style (DD-MMM-YYYY)
       else if (trimmed.match(/^\d{2}-[A-Z]{3}-\d{4}$/)) {
         const { parse } = await import('date-fns');
         parsed = parse(trimmed, 'dd-MMM-yyyy', new Date());

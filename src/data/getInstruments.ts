@@ -1,6 +1,24 @@
 import { NSE_STOCKS_TO_INCLUDE } from '@/config';
-import { ShoonyaInstrument } from '@/types/shoonya';
-import JSZip from 'jszip';
+import type { ContractInstrument } from '@/types/piConnect';
+import { parse } from 'date-fns';
+
+/**
+ * Flattrade scrip master location (CSV files).
+ * Override this if you mirror the same file names in a private bucket.
+ */
+const FLATTRADE_SCRIPMASTER_BASE = (() => {
+  const base =
+    process.env.FLATTRADE_SCRIPMASTER_BASE?.trim() || 'https://flattrade.s3.ap-south-1.amazonaws.com/scripmaster/';
+  return base.endsWith('/') ? base : `${base}/`;
+})();
+
+const SCRIPMASTER_FILES = {
+  NSE: ['NSE_Equity.csv'],
+  BSE: ['BSE_Equity.csv'],
+  NFO: ['Nfo_Equity_Derivatives.csv', 'Nfo_Index_Derivatives.csv'],
+} as const;
+
+const DEFAULT_TICK_SIZE = '0.05';
 
 type DailyReport = {
   name: string;
@@ -146,61 +164,125 @@ export const getNifty500Stocks = async () => {
   return rows.map((row) => row.split(',')[2]);
 };
 
-export const getInstruments = async (forExchange: 'BSE' | 'NSE' | 'NFO') => {
-  const txtFileName = forExchange + '_symbols.txt';
-  const zipFileName = txtFileName + '.zip';
+type ScripMasterRow = {
+  exchange: string;
+  token: string;
+  lotSize: string;
+  symbol: string;
+  tradingSymbol: string;
+  instrument: string;
+  expiry: string;
+  strike: string;
+  optionType: string;
+};
 
-  const res = await fetch('https://api.shoonya.com/' + zipFileName);
-  const arrayBuffer = await res.arrayBuffer();
-
-  const jsZip = new JSZip();
-  const result = await jsZip.loadAsync(arrayBuffer);
-  const file = result.file(txtFileName);
-  if (!file) {
-    ('Did not find the expected .txt file. Exiting...');
-    process.exit(1);
-  }
-
-  const output: ShoonyaInstrument[] = [];
-
-  const fileContents = await file.async('text');
-  const rows = fileContents.split('\n').slice(1);
+const parseScripMasterCsv = (fileContents: string): ScripMasterRow[] => {
+  const rows = fileContents.split(/\r?\n/).slice(1);
+  const output: ScripMasterRow[] = [];
 
   for (const row of rows) {
-    if (forExchange === 'NSE' || forExchange === 'BSE') {
-      const [exchange, token, lotSize, symbol, tradingSymbol, instrument, tickSize] = row.split(',');
+    if (!row.trim()) continue;
 
-      const validInstrumentType = forExchange === 'NSE' ? 'EQ' : 'B';
-      if (instrument === validInstrumentType) {
+    const cols = row.split(',');
+    if (cols.length < 9) continue;
+
+    const [exchange, token, lotSize, symbol, tradingSymbol, instrument, expiry, strike, optionType] = cols.map((c) =>
+      c.trim()
+    );
+
+    if (!exchange || !token || !symbol || !tradingSymbol) continue;
+    output.push({
+      exchange,
+      token,
+      lotSize,
+      symbol,
+      tradingSymbol,
+      instrument,
+      expiry,
+      strike,
+      optionType,
+    });
+  }
+
+  return output;
+};
+
+const formatExpiry = (rawExpiry: string) => {
+  const trimmed = rawExpiry.trim();
+  if (!trimmed) return '';
+
+  if (/^\d{2}-[A-Z]{3}-\d{4}$/.test(trimmed)) return trimmed;
+
+  try {
+    const parsedDate = parse(trimmed, 'dd-MMM-yyyy', new Date());
+    if (!isNaN(parsedDate.getTime())) {
+      return parsedDate
+        .toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        })
+        .replace(/ /g, '-')
+        .toUpperCase();
+    }
+  } catch {
+    // Fall through to the unmodified value.
+  }
+
+  return trimmed;
+};
+
+export const getInstruments = async (forExchange: 'BSE' | 'NSE' | 'NFO') => {
+  const fileNames = SCRIPMASTER_FILES[forExchange];
+  const output: ContractInstrument[] = [];
+
+  for (const fileName of fileNames) {
+    const fileUrl = `${FLATTRADE_SCRIPMASTER_BASE}${fileName}`;
+    const res = await fetch(fileUrl);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch scrip master ${fileName}: ${res.status} ${res.statusText}`);
+    }
+    const fileContents = await res.text();
+    const rows = parseScripMasterCsv(fileContents);
+
+    for (const row of rows) {
+      const lotSize = Number(row.lotSize);
+      if (!Number.isFinite(lotSize) || lotSize <= 0) continue;
+
+      if (forExchange === 'NSE' || forExchange === 'BSE') {
+        const validInstrument = forExchange === 'NSE' ? 'EQ' : 'B';
+        if (row.exchange !== forExchange || row.instrument !== validInstrument) continue;
         output.push({
-          exchange,
-          token,
-          lotSize: Number(lotSize),
-          symbol,
-          tradingSymbol,
+          exchange: row.exchange,
+          token: row.token,
+          lotSize,
+          symbol: row.symbol,
+          tradingSymbol: row.tradingSymbol,
           expiry: '',
-          instrument: 'EQ',
+          instrument: row.instrument,
           optionType: 'XX',
           strikePrice: 0,
-          tickSize,
+          tickSize: DEFAULT_TICK_SIZE,
         });
-      }
-    } else if (forExchange === 'NFO') {
-      const [exchange, token, lotSize, symbol, tradingSymbol, expiry, instrument, optionType, strikePrice, tickSize] =
-        row.split(',');
+      } else if (forExchange === 'NFO') {
+        if (row.exchange !== 'NFO') continue;
+        if (row.optionType !== 'CE' && row.optionType !== 'PE') continue;
+        if (!NSE_STOCKS_TO_INCLUDE.includes(row.symbol)) continue;
 
-      if ((optionType === 'CE' || optionType === 'PE') && NSE_STOCKS_TO_INCLUDE.includes(symbol)) {
+        const strikePrice = Number(row.strike);
+        if (!Number.isFinite(strikePrice)) continue;
+
         output.push({
-          exchange,
-          token,
-          lotSize: Number(lotSize),
-          symbol,
-          tradingSymbol,
-          expiry,
-          instrument,
-          optionType,
-          strikePrice: Number(strikePrice),
-          tickSize,
+          exchange: row.exchange,
+          token: row.token,
+          lotSize,
+          symbol: row.symbol,
+          tradingSymbol: row.tradingSymbol,
+          expiry: formatExpiry(row.expiry),
+          instrument: row.instrument,
+          optionType: row.optionType,
+          strikePrice,
+          tickSize: DEFAULT_TICK_SIZE,
         });
       }
     }

@@ -2,7 +2,7 @@
 
 # Option Chain
 
-Live Option Chain for Equity Derivatives using Finvasia (Shoonya) APIs and Next.js
+Live Option Chain for Equity Derivatives using [Flattrade Pi](https://piconnect.flattrade.in) APIs and Next.js
 
 ![Screenshot](https://github.com/anurag-roy/all-option-chain/assets/53750093/fb25ea44-e3cd-40e4-87a1-bf4de3a27406)
 
@@ -99,7 +99,6 @@ The app was developed based on this wireframe:
 
 ## Related
 
-- [Shoonya Option Chain](https://github.com/anurag-roy/shoonya-option-chain)
 - [Kite Option Chain](https://github.com/anurag-roy/kite-option-chain)
 
 ## Contact

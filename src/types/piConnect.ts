@@ -1,15 +1,11 @@
-export type ShoonyaError = {
-  /**
-   * User details success or failure indication.
-   */
+/** PiConnect / Noren-style API error envelope (Flattrade Pi). */
+export type PiConnectApiError = {
   stat: 'Not_Ok';
-  /**
-   * Error message
-   */
   emsg: string;
 };
 
-export type ShoonyaInstrument = {
+/** One row from the Noren-format contract master (CSV in zip). Same token IDs as Flattrade Pi for NSE segments. */
+export type ContractInstrument = {
   exchange: string;
   token: string;
   lotSize: number;
@@ -22,72 +18,28 @@ export type ShoonyaInstrument = {
   tickSize: string;
 };
 
+/** PiConnect `UserDetails` success payload ([Flattrade Pi](https://piconnect.flattrade.in)). */
 export type UserDetails = {
-  /**
-   * User details success or failure indication.
-   */
   stat: 'Ok';
-  /**
-   * Json array of strings with enabled exchange names
-   */
+  request_time: string;
+  uname: string;
+  m_num: string;
+  email: string;
+  /** Flattrade Pi: channels the account can use (e.g. WEB, API). */
+  access_type?: string[];
+  /** Enabled exchanges; Pi may include a blank placeholder entry `" "`. */
   exarr: string[];
-  /**
-   * Json array of strings with enabled price types for user
-   */
   orarr: string[];
-  /**
-   * Json array of Product Obj with enabled products, as defined below.
-   */
   prarr: Array<{
-    /**
-     * Product name
-     */
     prd: string;
-    /**
-     * Product display name
-     */
     s_prdt_ali: string;
-    /**
-     * Json array of strings with enabled, allowed exchange names
-     */
     exch: string[];
   }>;
-  /**
-   * Broker id
-   */
   brkname: string;
-  /**
-   * Branch id
-   */
   brnchid: string;
-  /**
-   * Email id
-   */
-  email: string;
-  /**
-   * Account id
-   */
   actid: string;
-  /**
-   * User id
-   */
   uid: string;
-  /**
-   * User name
-   */
-  uname: string;
-  /**
-   * Mobile Number
-   */
-  m_num: string;
-  /**
-   * Always it will be an INVESTOR, other types of user not allowed to login using this API.
-   */
-  uprev: 'INVESTOR';
-  /**
-   * It will be present only in a successful response.
-   */
-  request_time: string;
+  uprev: string;
 };
 
 export type Margin = {
@@ -107,10 +59,8 @@ export type Margin = {
    * Total margin used.
    */
   marginused: string;
-  /**
-   * This field will be available only on success.
-   */
-  remarks: 'Insufficient Balance' | 'Order Success';
+  /** Pi may return other strings; treat as opaque. */
+  remarks: string;
   /**
    * Previously used margin.
    */
@@ -130,10 +80,8 @@ export type Quote = {
    * Market watch success or failure indication
    */
   stat: 'Ok';
-  /**
-   * Exchange
-   */
-  exch: 'NSE' | 'NFO' | 'CDS' | 'MCX' | 'BSE';
+  /** Exchange segment (see `UserDetails.exarr`). */
+  exch: string;
   /**
    * Trading Symbol
    */
@@ -352,16 +300,12 @@ export type Quote = {
   so5: string;
 };
 
-export type TouchlineResponse = {
-  /**
-   * ‘tk’ represents connect acknowledgement
-   * ‘tf’ represents touchline feed
-   */
-  t: 'tk' | 'tf';
-  /**
-   * Exchange name
-   */
-  e: 'NSE' | 'NFO' | 'CDS' | 'MCX' | 'BSE';
+/** WebSocket touchline / tick packet from PiConnectWSAPI (Noren-style). */
+export type PiTouchlineResponse = {
+  /** e.g. `tk` touchline, `tf` feed (client may also see other opcodes). */
+  t: string;
+  /** Exchange id */
+  e: string;
   /**
    * Scrip Token
    */
@@ -443,3 +387,6 @@ export type TouchlineResponse = {
    */
   sp1: string;
 };
+
+/** @deprecated Use `PiTouchlineResponse` */
+export type TouchlineResponse = PiTouchlineResponse;

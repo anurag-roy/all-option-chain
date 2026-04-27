@@ -5,6 +5,7 @@
   "author": "Anurag Roy <anuragroy@duck.com> (https://anuragroy.dev)",
   "license": "MIT",
   "scripts": {
+    "login": "npx tsx login.ts",
     "dev": "next dev",
     "typecheck": "tsc --noEmit",
     "build": "next build",

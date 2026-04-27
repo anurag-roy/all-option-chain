@@ -1,13 +1,15 @@
 import env from '@/env.json';
 import { Instrument, UiInstrument } from '@/types';
-import type { TouchlineResponse } from '@/types/shoonya';
+import { PI_CONNECT_WS_URL } from '@/lib/piConnectUrls';
+import type { PiTouchlineResponse } from '@/types/piConnect';
+import { getSessionKey } from '@/lib/api/getSessionKey';
 import { workingDaysCache } from './workingDaysCache';
 import { WebSocket, type MessageEvent } from 'ws';
 import { calculateDeltas } from '@/lib/delta';
 
 export const getNewTicker = async () =>
   new Promise<WebSocket>((resolve, reject) => {
-    const ws = new WebSocket('wss://api.shoonya.com/NorenWSTP/');
+    const ws = new WebSocket(PI_CONNECT_WS_URL);
 
     const timeout = setTimeout(() => {
       ws.close();
@@ -21,10 +23,10 @@ export const getNewTicker = async () =>
     ws.onopen = () => {
       ws.send(
         JSON.stringify({
-          t: 'c',
+          t: 'a',
           uid: env.USER_ID,
           actid: env.USER_ID,
-          susertoken: process.env.token,
+          accesstoken: getSessionKey(),
           source: 'API',
         })
       );
@@ -32,7 +34,14 @@ export const getNewTicker = async () =>
 
     ws.onmessage = (messageEvent: MessageEvent) => {
       const messageData = JSON.parse(messageEvent.data as string);
-      if (messageData.t === 'ck' && messageData.s === 'OK') {
+      if (messageData.t === 'ak' || messageData.t === 'ck') {
+        if (messageData.s !== 'OK') {
+          clearTimeout(timeout);
+          ws.close();
+          reject(`Ticker auth failed: ${JSON.stringify(messageData)}`);
+          return;
+        }
+
         console.log(`Ticker connected successfully!`);
         clearTimeout(timeout);
         ws.onerror = null;
@@ -91,7 +100,7 @@ export const getValidInstruments = async (
 
     const tokensToSubscribe = filteredInstruments.map((s) => `NFO|${s.token}`).join('#');
 
-    // Timeout after 3 seconds, because sometimes Shoonya doesn't return an acknowledgement
+    // Timeout after 3 seconds if the feed does not send acknowledgements in time
     const timeout = setTimeout(() => {
       ws.send(
         JSON.stringify({
@@ -103,7 +112,7 @@ export const getValidInstruments = async (
     }, 3000);
 
     ws.onmessage = async (messageEvent: MessageEvent) => {
-      const messageData = JSON.parse(messageEvent.data as string) as TouchlineResponse;
+      const messageData = JSON.parse(messageEvent.data as string) as PiTouchlineResponse;
 
       if (messageData.t === 'tk' && 'oi' in messageData && messageData.bp1) {
         const foundInstrument = instruments.find((i) => i.token === messageData.tk)!;

@@ -1,7 +1,8 @@
 import env from '@/env.json';
+import { PI_CONNECT_WS_URL } from '@/lib/piConnectUrls';
 import { getReturnValue, playAlert } from '@/lib/utils';
 import type { UiEquity, UiInstrument } from '@/types';
-import type { Margin, TouchlineResponse } from '@/types/shoonya';
+import type { Margin, PiTouchlineResponse } from '@/types/piConnect';
 import { create } from 'zustand';
 
 interface StockState {
@@ -17,11 +18,11 @@ interface StockState {
   setInitComplete: (initComplete: boolean) => void;
   equities: UiEquity[];
   addEquity: (equities: UiEquity) => void;
-  updateLtp: (socketResponse: TouchlineResponse) => void;
+  updateLtp: (socketResponse: PiTouchlineResponse) => void;
   resetEquities: () => void;
   instruments: UiInstrument[];
   addInstruments: (instruments: UiInstrument[]) => void;
-  updateBid: (socketResponse: TouchlineResponse) => void;
+  updateBid: (socketResponse: PiTouchlineResponse) => void;
   updateReturn: (token: string, returnValue: number) => void;
   updateReturnFromMargin: (token: string, margin: Margin) => void;
   updateDelta: (token: string, delta: number) => void;
@@ -189,7 +190,7 @@ export const useStockStore = create<StockState>()((set) => ({
   socket: null,
   initSocket: () =>
     set((state) => {
-      const socket = new WebSocket('wss://api.shoonya.com/NorenWSTP/');
+      const socket = new WebSocket(PI_CONNECT_WS_URL);
 
       socket.onerror = (error) => {
         console.log('Socket error:', error);
@@ -202,10 +203,10 @@ export const useStockStore = create<StockState>()((set) => ({
       socket.onopen = () => {
         socket.send(
           JSON.stringify({
-            t: 'c',
+            t: 'a',
             uid: env.USER_ID,
             actid: env.USER_ID,
-            susertoken: state.token,
+            accesstoken: state.token,
             source: 'API',
           })
         );
@@ -213,14 +214,19 @@ export const useStockStore = create<StockState>()((set) => ({
 
       socket.onmessage = (messageEvent) => {
         const messageData = JSON.parse(messageEvent.data as string);
-        if (messageData.t === 'ck' && messageData.s === 'OK') {
+        if (messageData.t === 'ak' || messageData.t === 'ck') {
+          if (messageData.s !== 'OK') {
+            console.error('Socket auth failed', messageData);
+            return;
+          }
+
           console.log('Socket connected successfully!');
 
           socket.onmessage = (event) => {
             const messageData = JSON.parse(event.data as string);
             if (messageData.t !== 'tf') return;
 
-            const data = messageData as TouchlineResponse;
+            const data = messageData as PiTouchlineResponse;
             if (data.e === 'NSE' && 'lp' in data) {
               state.updateLtp(data);
             } else if (data.e === 'NFO' && 'bp1' in data) {

@@ -79,7 +79,7 @@ const calculateOrders = (values: FormObject) => {
 };
 
 export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
-  const [broker, setBroker] = React.useState<'shoonya' | 'zerodha'>('shoonya');
+  const [broker, setBroker] = React.useState<'flattrade' | 'zerodha'>('flattrade');
   const [buttonState, setButtonState] = React.useState<'order' | 'ordering'>('order');
   const { toast } = useToast();
   const form = useForm<z.infer<typeof formSchema>>({
@@ -100,7 +100,7 @@ export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     const ordersArray = values.stocks.map((s) => calculateOrders(s));
 
-    if (broker === 'shoonya') {
+    if (broker === 'flattrade') {
       setButtonState('ordering');
       const orders = ordersArray.flat();
       const queue = new pQueue({ concurrency: 1, intervalCap: 1, interval: 300 });
@@ -138,12 +138,12 @@ export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
     <>
       <div className='mb-4 flex items-center justify-between'>
         <h1 className='ml-1 text-xl font-bold'>Place After Market Order</h1>
-        <Select value={broker} onValueChange={(value) => setBroker(value as 'shoonya' | 'zerodha')}>
+        <Select value={broker} onValueChange={(value) => setBroker(value as 'flattrade' | 'zerodha')}>
           <SelectTrigger className='w-[180px]'>
             <SelectValue placeholder='Broker' />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value='shoonya'>Shoonya</SelectItem>
+            <SelectItem value='flattrade'>Flattrade Pi</SelectItem>
             <SelectItem value='zerodha'>Zerodha</SelectItem>
           </SelectContent>
         </Select>
@@ -346,7 +346,7 @@ export function AmoOrderForm({ equityStockOptions }: AmoOrderFormProps) {
               {buttonState === 'order'
                 ? broker === 'zerodha'
                   ? 'Place orders on Zerodha'
-                  : 'Place orders on Shoonya'
+                  : 'Place orders on Flattrade Pi'
                 : null}
               {buttonState === 'ordering' ? (
                 <>

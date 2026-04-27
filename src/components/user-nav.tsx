@@ -1,4 +1,4 @@
-import type { UserDetails } from '@/types/shoonya';
+import type { UserDetails } from '@/types/piConnect';
 import { ArrowTopRightIcon } from '@radix-ui/react-icons';
 import ky from 'ky';
 import Link from 'next/link';

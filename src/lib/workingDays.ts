@@ -96,7 +96,7 @@ export async function calculateWorkingDays(startDate: Date | string, endDate: Da
 
 /**
  * Parse expiry date string to Date object
- * Handles both ISO format (YYYY-MM-DD) and Shoonya format (DD-MMM-YYYY)
+ * Handles both ISO format (YYYY-MM-DD) and Noren contract style (DD-MMM-YYYY)
  */
 function parseExpiryDate(expiryDate: string): Date {
   if (!expiryDate || typeof expiryDate !== 'string') {
@@ -113,7 +113,7 @@ function parseExpiryDate(expiryDate: string): Date {
     }
   }
 
-  // Try Shoonya format (DD-MMM-YYYY)
+  // Noren / contract master style (DD-MMM-YYYY)
   if (trimmed.match(/^\d{2}-[A-Z]{3}-\d{4}$/)) {
     const parsed = parse(trimmed, 'dd-MMM-yyyy', new Date());
     if (!isNaN(parsed.getTime())) {

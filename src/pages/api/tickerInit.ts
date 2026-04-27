@@ -9,7 +9,7 @@ const handler: NextApiHandler = async (req, res) => {
     res.json({ message: 'Ticker connected successfully!' });
   } catch (error: any) {
     console.error(error);
-    res.setHeader('Retry-After', 2).status(503).json({ error: 'Failed to connect to Shoonya' });
+    res.setHeader('Retry-After', 2).status(503).json({ error: 'Failed to connect to PiConnect WebSocket' });
     return;
   }
 };

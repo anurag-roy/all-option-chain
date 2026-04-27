@@ -1,5 +1,5 @@
 import type { UiInstrument } from '@/types';
-import { Margin } from '@/types/shoonya';
+import type { Margin } from '@/types/piConnect';
 import { clsx, type ClassValue } from 'clsx';
 import ky from 'ky';
 import { twMerge } from 'tailwind-merge';
@@ -53,7 +53,7 @@ export const getReturnValue = async (i: UiInstrument) => {
       searchParams: {
         price: bid,
         quantity: lotSize,
-        tradingSymbol: encodeURIComponent(tradingSymbol),
+        tradingSymbol,
       },
     })
     .json<Margin>();

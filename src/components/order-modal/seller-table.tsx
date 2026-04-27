@@ -1,4 +1,4 @@
-import { Quote } from '@/types/shoonya';
+import type { Quote } from '@/types/piConnect';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 
 interface Props {

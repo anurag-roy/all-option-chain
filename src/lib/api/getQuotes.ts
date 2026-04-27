@@ -1,8 +1,10 @@
 import env from '@/env.json';
-import type { Quote } from '@/types/shoonya';
+import { PI_CONNECT_API_BASE } from '@/lib/piConnectUrls';
+import type { Quote } from '@/types/piConnect';
+import { getSessionKey } from './getSessionKey';
 
 export const getQuotes = async (exchange: 'NSE' | 'NFO', instrumentToken: string) => {
-  const res = await fetch('https://api.shoonya.com/NorenWClientAPI/GetQuotes', {
+  const res = await fetch(`${PI_CONNECT_API_BASE}/GetQuotes`, {
     method: 'POST',
     body:
       'jData=' +
@@ -11,7 +13,7 @@ export const getQuotes = async (exchange: 'NSE' | 'NFO', instrumentToken: string
         exch: exchange,
         token: instrumentToken,
       }) +
-      `&jKey=${process.env.token}`,
+      `&jKey=${getSessionKey()}`,
   });
   if (!res.ok) {
     throw new Error(await res.text());

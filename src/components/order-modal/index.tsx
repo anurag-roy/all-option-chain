@@ -1,6 +1,6 @@
 import { displayInr } from '@/lib/utils';
 import { UiInstrument } from '@/types';
-import { Margin, Quote } from '@/types/shoonya';
+import type { Margin, Quote } from '@/types/piConnect';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { InfoCircledIcon, PlusCircledIcon } from '@radix-ui/react-icons';
 import ky from 'ky';

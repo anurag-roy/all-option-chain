@@ -1,11 +1,13 @@
 import env from '@/env.json';
 import { getSessionKey } from '@/lib/api/getSessionKey';
+import { normalizeTradingSymbol } from '@/lib/api/normalizeTradingSymbol';
 import { PI_CONNECT_API_BASE } from '@/lib/piConnectUrls';
 import { NextApiHandler } from 'next';
 
 const handler: NextApiHandler = async (req, res) => {
   const { price, quantity, tradingSymbol } = req.body;
-  const tsym = encodeURIComponent(String(tradingSymbol));
+  const normalizedTradingSymbol = normalizeTradingSymbol(String(tradingSymbol));
+  const tsym = encodeURIComponent(normalizedTradingSymbol);
 
   const orderRes = await fetch(`${PI_CONNECT_API_BASE}/PlaceOrder`, {
     method: 'POST',

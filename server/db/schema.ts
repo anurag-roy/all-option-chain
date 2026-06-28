@@ -36,3 +36,17 @@ export const holidaysTable = sqliteTable(
     index('holidays_year_month_idx').on(table.year, table.month),
   ]
 );
+
+export const stockBansTable = sqliteTable(
+  'stock_bans',
+  {
+    name: text().primaryKey().notNull(),
+    type: text().$type<'nse' | 'custom'>().notNull(),
+    banDate: text().notNull(),
+    createdAt: text().notNull(),
+  },
+  (table) => [
+    index('stock_bans_type_idx').on(table.type),
+    index('stock_bans_ban_date_idx').on(table.banDate),
+  ]
+);

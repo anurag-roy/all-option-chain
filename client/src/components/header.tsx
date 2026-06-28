@@ -1,7 +1,7 @@
 import { NotificationCenter } from '@client/components/notification-center';
 import { UserButton } from '@client/components/user-button';
 import { useWebSocketContext } from '@client/contexts/websocket-context';
-import { useChainStatus } from '@client/hooks/use-chain-status';
+import { useBans } from '@client/hooks/use-bans';
 import { useUserMargin } from '@client/hooks/use-user-margin';
 import { cn } from '@client/lib/utils';
 import { Link } from '@tanstack/react-router';
@@ -23,10 +23,10 @@ function formatMargin(value: number): string {
 
 export function Header() {
   const { isConnected } = useWebSocketContext();
-  const { data: chainStatus } = useChainStatus();
+  const { data: bansData } = useBans();
   const { data: marginData } = useUserMargin();
 
-  const sdMultiplier = chainStatus?.filter?.sdMultiplier;
+  const bannedCount = bansData?.totalCount ?? 0;
 
   return (
     <div className='border-border bg-background sticky top-0 z-10 border-b py-4'>
@@ -44,15 +44,12 @@ export function Header() {
         </div>
 
         <div className='flex items-center gap-4'>
-          {sdMultiplier !== undefined ? (
-            <Link
-              to='/settings'
-              className='bg-primary/10 text-primary hover:bg-primary/20 dark:bg-muted/80 dark:text-foreground dark:hover:bg-muted inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium transition-colors'
-            >
-              <span className='text-primary/70 dark:text-foreground/70'>SD</span>
-              <span>{sdMultiplier}</span>
-            </Link>
-          ) : null}
+          <Link
+            to='/settings'
+            className='bg-primary/10 text-primary hover:bg-primary/20 dark:bg-muted/80 dark:text-foreground dark:hover:bg-muted inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium transition-colors'
+          >
+            <span>{bannedCount} banned</span>
+          </Link>
 
           {marginData?.net !== undefined ? (
             <div

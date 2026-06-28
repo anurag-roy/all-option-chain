@@ -104,7 +104,7 @@ React SPA ◄──WebSocket────────► /api/ws
 Important methods:
 
 - `init()` — warm working-days cache, connect Kite ticker, start intervals
-- `applyFilter(filter)` — full pipeline: plan → quote → OI filter → subscribe → rows
+- `applyFilter(filter)` — full pipeline: plan → quote → OI filter → subscribe → rows. **Auto-excludes** NSE + custom banned symbols server-side.
 - `getSnapshot()` — returns **all** loaded rows (no entry-value filter)
 - `getVisibleRowCount()` — rows where `sellValue >= entryValue` (for status UI)
 - `updateSdMultiplier(value)` — re-runs `applyFilter` with new multiplier
@@ -137,6 +137,14 @@ Caches margins per tradingsymbol. Refreshes stale entries (>60s). Does not block
 
 Manages websocket clients. Validates inbound messages with `wsClientMessageSchema`. Fans out `optionChain` + `status` messages. Per-client symbol filtering if client sends `subscribe` with symbol list.
 
+### `server/lib/services/bans-service.ts`
+
+NSE F&O ban list + user custom bans (SQLite `stock_bans`):
+
+- `ensureTodayNseBans()` — fetches `fo_secban.csv` once per IST day, replaces stale NSE rows
+- `getBannedNames()` — `Set<string>` used by coordinator to auto-exclude symbols
+- `toggleCustomBan(name)` — add/remove custom ban (persists until removed; NSE bans cannot be toggled)
+
 ### `server/lib/services/instrument-catalog.ts`
 
 Canonical DB access (prefer over `lib/utils/db.ts`):
@@ -165,6 +173,8 @@ Sigma and delta depend on working days till expiry vs last year. Holidays from `
 | GET | `/api/chain/status` | Coordinator status + row counts |
 | GET | `/api/chain/expiries` | Upcoming option expiry dates (ISO `YYYY-MM-DD`) |
 | GET | `/api/chain/symbols` | All equity names in DB |
+| GET | `/api/bans` | NSE + custom banned stocks (NSE list cached per IST day) |
+| POST | `/api/bans/toggle` | Toggle custom ban `{ name }` — rejects NSE-banned symbols |
 | POST | `/api/chain/filter` | Apply filter, returns `{ status, data }` |
 | WS | `/api/ws` | Live option chain + status stream |
 
@@ -210,6 +220,7 @@ Sigma and delta depend on working days till expiry vs last year. Holidays from `
 
 - `instruments` — Kite instruments + NSE volatility (`av`, `dv`). Keyed by `instrumentToken`. Use `name` + `expiry` for options lookup.
 - `holidays` — NSE holidays for working-day calculations
+- `stock_bans` — NSE daily bans (`type='nse'`, `ban_date` = IST today) + custom bans (`type='custom'`, persist until removed)
 
 **Seed:** `server/scripts/seed.ts` — downloads Kite instruments (NSE/BSE/NFO), Nifty 500 + `NSE_STOCKS_TO_INCLUDE`, NSE volatility CSV, holidays.
 
@@ -241,7 +252,9 @@ Minimal SPA. **Server-side calculations are done; UI needs polish.**
 | `client/src/contexts/websocket-context.tsx` | React context wrapping the hook |
 | `client/src/components/chain-filter-form.tsx` | Filter form → POST `/api/chain/filter`, loads data into context |
 | `client/src/components/options-table.tsx` | TanStack table; **client-side** `sellValue >= entryValue` filter |
-| `client/src/components/header.tsx` | User name + account margin |
+| `client/src/components/header.tsx` | Ban count pill → `/settings`, account margin |
+| `client/src/components/bans-management.tsx` | Settings: NSE + custom ban tables, edit dialog |
+| `client/src/hooks/use-bans.ts` | React Query: GET `/api/bans`, toggle mutation |
 | `client/src/components/ui/*` | shadcn-style primitives (button, input, select, table, label) |
 
 **UI conventions (follow when extending):**
@@ -253,7 +266,7 @@ Minimal SPA. **Server-side calculations are done; UI needs polish.**
 
 ### UI gaps / next work
 
-- Port features from legacy app: column sorting UI, order modal, bans, movers, AMO orders, alerts/toasts on return threshold
+- Port features from legacy app: column sorting UI, order modal, movers, alerts/toasts on return threshold
 - Dark mode toggle
 - Better expiry date formatting (DB stores ISO, display as `DD-MMM-YYYY`)
 - Order placement flow (Kite basket or direct API)

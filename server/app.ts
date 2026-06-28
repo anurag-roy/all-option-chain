@@ -4,6 +4,7 @@ import { logger } from '@server/lib/logger';
 import { clientBroadcaster } from '@server/lib/services/client-broadcaster';
 import { optionChainCoordinator } from '@server/lib/services/option-chain-coordinator';
 import { httpLogger } from '@server/middlewares/http-logger';
+import { bansRoute } from '@server/routes/bans';
 import { chainRoute } from '@server/routes/chain';
 import { ordersRoute } from '@server/routes/orders';
 import { userRoute } from '@server/routes/user';
@@ -38,6 +39,7 @@ const apiRoutes = app
   .route('/user', userRoute)
   .route('/chain', chainRoute)
   .route('/orders', ordersRoute)
+  .route('/bans', bansRoute)
   .get(
     '/ws',
     upgradeWebSocket(() => {

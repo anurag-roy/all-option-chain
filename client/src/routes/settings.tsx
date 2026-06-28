@@ -1,5 +1,5 @@
+import { BansManagement } from '@client/components/bans-management';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@client/components/ui/card';
-import { useChainStatus } from '@client/hooks/use-chain-status';
 import { createFileRoute } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/settings')({
@@ -7,26 +7,15 @@ export const Route = createFileRoute('/settings')({
 });
 
 function SettingsPage() {
-  const { data: chainStatus } = useChainStatus();
-
   return (
-    <section className='px-4'>
-      <Card>
+    <section className='w-full px-4'>
+      <Card className='w-full'>
         <CardHeader>
           <CardTitle>Settings</CardTitle>
-          <CardDescription>Application preferences and defaults.</CardDescription>
+          <CardDescription>Manage banned stocks and application preferences.</CardDescription>
         </CardHeader>
-        <CardContent className='space-y-4 text-sm'>
-          <div className='flex items-center justify-between rounded-md border p-4'>
-            <div>
-              <p className='font-medium'>SD Multiplier</p>
-              <p className='text-muted-foreground text-xs'>Current value from the active chain filter</p>
-            </div>
-            <span className='font-mono text-lg'>{chainStatus?.filter?.sdMultiplier ?? '—'}</span>
-          </div>
-          <p className='text-muted-foreground'>
-            More settings (persisted defaults, symbol lists) will be added here.
-          </p>
+        <CardContent className='w-full'>
+          <BansManagement />
         </CardContent>
       </Card>
     </section>

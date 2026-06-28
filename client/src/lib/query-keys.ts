@@ -8,6 +8,9 @@ export const queryKeys = {
     status: ['chainStatus'] as const,
     equities: ['chainEquities'] as const,
   },
+  bans: {
+    list: ['bans'] as const,
+  },
   orders: {
     quote: (instrumentToken: number) => ['orderQuote', instrumentToken] as const,
     margin: (tradingsymbol: string, price: number, quantity: number) =>

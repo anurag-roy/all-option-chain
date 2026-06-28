@@ -23,7 +23,9 @@ import {
   planInstrumentsForSymbol,
   type PlannedInstrument,
 } from '@server/lib/services/subscription-planner';
+import { ensureTodayNseBans, getBannedNames } from '@server/lib/services/bans-service';
 import { workingDaysCache } from '@server/lib/services/working-days-cache';
+import { logger } from '@server/lib/logger';
 import { NSE_STOCKS_TO_INCLUDE } from '@server/shared/config';
 import { accessToken } from '@server/lib/services/access-token';
 import type { ChainFilter } from '@server/shared/schemas/chain-filter';
@@ -126,7 +128,16 @@ export class OptionChainCoordinator {
     this.filter = filter;
     this.setStatus('warming', 'Applying filter');
 
-    const symbols = filter.symbols?.length ? filter.symbols : [...NSE_STOCKS_TO_INCLUDE];
+    await ensureTodayNseBans();
+    const bannedNames = await getBannedNames();
+    const baseSymbols = filter.symbols?.length ? filter.symbols : [...NSE_STOCKS_TO_INCLUDE];
+    const symbols = baseSymbols.filter((symbol) => {
+      if (bannedNames.has(symbol)) {
+        logger.debug(`Skipping banned symbol: ${symbol}`);
+        return false;
+      }
+      return true;
+    });
     const planned: PlannedInstrument[] = [];
 
     this.setStatus('fetching_quotes', 'Fetching underlying quotes');

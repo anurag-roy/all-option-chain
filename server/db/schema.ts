@@ -45,8 +45,5 @@ export const stockBansTable = sqliteTable(
     banDate: text().notNull(),
     createdAt: text().notNull(),
   },
-  (table) => [
-    index('stock_bans_type_idx').on(table.type),
-    index('stock_bans_ban_date_idx').on(table.banDate),
-  ]
+  (table) => [index('stock_bans_type_idx').on(table.type), index('stock_bans_ban_date_idx').on(table.banDate)]
 );

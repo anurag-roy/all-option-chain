@@ -1,6 +1,6 @@
 import { db } from '@server/db';
-import { instrumentsTable } from '@server/db/schema';
 import type { instrumentsTable as instrumentsTableType } from '@server/db/schema';
+import { instrumentsTable } from '@server/db/schema';
 import { and, asc, eq, gt, inArray, sql } from 'drizzle-orm';
 
 export type DbInstrument = typeof instrumentsTableType.$inferSelect;
@@ -39,7 +39,13 @@ export const getFuturesForName = async (name: string) => {
   return db
     .select()
     .from(instrumentsTable)
-    .where(and(eq(instrumentsTable.name, name), eq(instrumentsTable.instrumentType, 'FUT'), sql`${instrumentsTable.expiry} IS NOT NULL`))
+    .where(
+      and(
+        eq(instrumentsTable.name, name),
+        eq(instrumentsTable.instrumentType, 'FUT'),
+        sql`${instrumentsTable.expiry} IS NOT NULL`
+      )
+    )
     .orderBy(asc(instrumentsTable.expiry));
 };
 

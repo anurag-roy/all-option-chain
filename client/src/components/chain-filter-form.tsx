@@ -79,8 +79,7 @@ export function ChainFilterForm() {
     applyFilterMutation.mutate(values);
   };
 
-  const isBusy =
-    applyFilterMutation.isPending || ['warming', 'fetching_quotes', 'subscribing'].includes(chainStatus);
+  const isBusy = applyFilterMutation.isPending || ['warming', 'fetching_quotes', 'subscribing'].includes(chainStatus);
   const selectedExpiry = form.watch('expiry') || expiries[0] || '';
 
   return (

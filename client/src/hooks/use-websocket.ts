@@ -1,5 +1,5 @@
-import type { ChainEngineStatus, OptionChainData } from '@shared/types/types';
 import type { WsServerMessage } from '@server/shared/schemas/websocket';
+import type { ChainEngineStatus, OptionChainData } from '@shared/types/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 

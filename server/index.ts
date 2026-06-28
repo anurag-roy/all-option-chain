@@ -1,9 +1,9 @@
+import { serve } from '@hono/node-server';
 import app, { injectWebSocket } from '@server/app';
 import { env } from '@server/lib/env';
 import { logger } from '@server/lib/logger';
 import { accessToken } from '@server/lib/services/access-token';
 import { optionChainCoordinator } from '@server/lib/services/option-chain-coordinator';
-import { serve } from '@hono/node-server';
 
 async function bootstrap() {
   logger.info('Starting option chain server');

@@ -1,15 +1,9 @@
 import { calculateDelta } from '@server/lib/calculators/delta';
-import {
-  calculateReturnValue,
-  calculateSellValue,
-  calculateStrikePosition,
-} from '@server/lib/calculators/returns';
-import {
-  calculateSd,
-  calculateSigmaN,
-  calculateSigmaXi,
-  calculateSigmaX,
-} from '@server/lib/calculators/sigma';
+import { calculateReturnValue, calculateSellValue, calculateStrikePosition } from '@server/lib/calculators/returns';
+import { calculateSd, calculateSigmaN, calculateSigmaX, calculateSigmaXi } from '@server/lib/calculators/sigma';
+import { logger } from '@server/lib/logger';
+import { accessToken } from '@server/lib/services/access-token';
+import { ensureTodayNseBans, getBannedNames } from '@server/lib/services/bans-service';
 import {
   getEquityByName,
   getFuturesForName,
@@ -23,11 +17,8 @@ import {
   planInstrumentsForSymbol,
   type PlannedInstrument,
 } from '@server/lib/services/subscription-planner';
-import { ensureTodayNseBans, getBannedNames } from '@server/lib/services/bans-service';
 import { workingDaysCache } from '@server/lib/services/working-days-cache';
-import { logger } from '@server/lib/logger';
 import { NSE_STOCKS_TO_INCLUDE } from '@server/shared/config';
-import { accessToken } from '@server/lib/services/access-token';
 import type { ChainFilter } from '@server/shared/schemas/chain-filter';
 import type { ChainEngineStatus, OptionChainData, OptionChainRow } from '@shared/types/types';
 import type { TickFull } from 'kiteconnect-ts';
@@ -311,8 +302,7 @@ export class OptionChainCoordinator {
 
       const prevStrikePosition = row.strikePosition;
       row.strikePosition = calculateStrikePosition(row.strike, equityLtp);
-      row.strikePositionChange =
-        prevStrikePosition > 0 ? row.strikePosition - prevStrikePosition : 0;
+      row.strikePositionChange = prevStrikePosition > 0 ? row.strikePosition - prevStrikePosition : 0;
       row.sellValue = calculateSellValue(row.bid, row.lotSize);
 
       if (row.av > 0) {

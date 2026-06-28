@@ -1,12 +1,12 @@
-import type { DbInstrument } from '@server/lib/services/instrument-catalog';
 import {
   calculateAsymmetricBounds,
   calculateSd,
   calculateSigmaN,
-  calculateSigmaXi,
   calculateSigmaX,
+  calculateSigmaXi,
   filterStrikesByBounds,
 } from '@server/lib/calculators/sigma';
+import type { DbInstrument } from '@server/lib/services/instrument-catalog';
 import { workingDaysCache } from '@server/lib/services/working-days-cache';
 import type { OptionType } from '@shared/types/types';
 
@@ -56,12 +56,7 @@ export async function planInstrumentsForSymbol(
     .map((option) => option.strike!)
     .sort((a, b) => a - b);
 
-  const { closestFloorStrike, closestCeilingStrike } = filterStrikesByBounds(
-    putStrikes,
-    callStrikes,
-    peBound,
-    ceBound
-  );
+  const { closestFloorStrike, closestCeilingStrike } = filterStrikesByBounds(putStrikes, callStrikes, peBound, ceBound);
 
   const filtered = options.filter((option) => {
     if (option.instrumentType === 'PE') {

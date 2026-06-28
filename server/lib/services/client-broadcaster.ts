@@ -1,7 +1,7 @@
 import { logger } from '@server/lib/logger';
-import type { ChainEngineStatus, OptionChainData } from '@shared/types/types';
 import type { WsClientMessage, WsServerMessage } from '@server/shared/schemas/websocket';
 import { wsClientMessageSchema } from '@server/shared/schemas/websocket';
+import type { ChainEngineStatus, OptionChainData } from '@shared/types/types';
 import type { WSContext } from 'hono/ws';
 import { randomUUID } from 'node:crypto';
 

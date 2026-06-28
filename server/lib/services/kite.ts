@@ -1,11 +1,11 @@
 import { env } from '@server/lib/env';
 import { logger } from '@server/lib/logger';
 import { accessToken } from '@server/lib/services/access-token';
+import { BSE_STOCKS_TO_INCLUDE } from '@server/shared/config';
+import type { AmoOrderItem } from '@shared/schemas/amo';
 import { chunk } from 'es-toolkit';
 import { KiteConnect, type CompactMargin, type Exchange } from 'kiteconnect-ts';
 import PQueue from 'p-queue';
-import { BSE_STOCKS_TO_INCLUDE } from '@server/shared/config';
-import type { AmoOrderItem } from '@shared/schemas/amo';
 
 const queue = new PQueue({
   interval: 1000,
@@ -188,12 +188,7 @@ const getEquityExchange = (tradingsymbol: string): Exchange => {
   return BSE_STOCKS_TO_INCLUDE.includes(symbol) ? 'BSE' : 'NSE';
 };
 
-export const placeBuyOrder = async (
-  tradingsymbol: string,
-  price: number,
-  quantity: number,
-  isAmo: boolean
-) => {
+export const placeBuyOrder = async (tradingsymbol: string, price: number, quantity: number, isAmo: boolean) => {
   const exchange = getEquityExchange(tradingsymbol);
   const symbol = tradingsymbol.replace('-EQ', '');
 

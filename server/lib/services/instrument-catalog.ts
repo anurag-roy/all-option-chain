@@ -23,6 +23,18 @@ export const getAllEquityNames = async () => {
   return rows.map((row) => row.name);
 };
 
+export const getAllEquityTradingSymbols = async () => {
+  return db
+    .select({
+      tradingsymbol: instrumentsTable.tradingsymbol,
+      name: instrumentsTable.name,
+      exchange: instrumentsTable.exchange,
+    })
+    .from(instrumentsTable)
+    .where(eq(instrumentsTable.instrumentType, 'EQ'))
+    .orderBy(asc(instrumentsTable.tradingsymbol));
+};
+
 export const getFuturesForName = async (name: string) => {
   return db
     .select()

@@ -2,8 +2,10 @@ import { env } from '@server/lib/env';
 import { logger } from '@server/lib/logger';
 import { accessToken } from '@server/lib/services/access-token';
 import { chunk } from 'es-toolkit';
-import { KiteConnect, type CompactMargin } from 'kiteconnect-ts';
+import { KiteConnect, type CompactMargin, type Exchange } from 'kiteconnect-ts';
 import PQueue from 'p-queue';
+import { BSE_STOCKS_TO_INCLUDE } from '@server/shared/config';
+import type { AmoOrderItem } from '@shared/schemas/amo';
 
 const queue = new PQueue({
   interval: 1000,
@@ -15,6 +17,12 @@ const quoteQueue = new PQueue({
   interval: 1000,
   intervalCap: 3,
   carryoverIntervalCount: true,
+});
+
+const orderQueue = new PQueue({
+  concurrency: 1,
+  interval: 300,
+  intervalCap: 1,
 });
 
 export const kiteService = new KiteConnect({
@@ -173,4 +181,66 @@ export const placeSellOrder = async (tradingsymbol: string, price: number, quant
     validity: 'DAY',
     price,
   });
+};
+
+const getEquityExchange = (tradingsymbol: string): Exchange => {
+  const symbol = tradingsymbol.replace('-EQ', '');
+  return BSE_STOCKS_TO_INCLUDE.includes(symbol) ? 'BSE' : 'NSE';
+};
+
+export const placeBuyOrder = async (
+  tradingsymbol: string,
+  price: number,
+  quantity: number,
+  isAmo: boolean
+) => {
+  const exchange = getEquityExchange(tradingsymbol);
+  const symbol = tradingsymbol.replace('-EQ', '');
+
+  return kiteService.placeOrder(isAmo ? 'amo' : 'regular', {
+    exchange,
+    tradingsymbol: symbol,
+    transaction_type: 'BUY',
+    quantity,
+    product: 'CNC',
+    order_type: 'LIMIT',
+    validity: 'DAY',
+    price,
+  });
+};
+
+export type PlaceBuyOrderResult = {
+  tradingsymbol: string;
+  price: number;
+  quantity: number;
+  isAmo: boolean;
+  success: boolean;
+  orderId?: string;
+  error?: string;
+};
+
+export const placeBuyOrdersBatch = async (orders: AmoOrderItem[]) => {
+  const results: PlaceBuyOrderResult[] = [];
+
+  for (const order of orders) {
+    try {
+      const response = await orderQueue.add(() =>
+        placeBuyOrder(order.tradingsymbol, order.price, order.quantity, order.isAmo)
+      );
+      results.push({
+        ...order,
+        success: true,
+        orderId: response.order_id,
+      });
+    } catch (error) {
+      logger.error(`Failed to place buy order for ${order.tradingsymbol} @ ${order.price}:`, error);
+      results.push({
+        ...order,
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  return results;
 };

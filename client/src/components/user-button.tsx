@@ -19,6 +19,7 @@ import { useUserProfile } from '@client/hooks/use-user-profile';
 import { useNavigate } from '@tanstack/react-router';
 import {
   AlertCircleIcon,
+  ArrowUpRightIcon,
   Loader2Icon,
   MonitorIcon,
   MoonIcon,
@@ -138,6 +139,10 @@ export function UserButton({ isConnected }: UserButtonProps) {
             </DropdownMenuSubContent>
           </DropdownMenuPortal>
         </DropdownMenuSub>
+        <DropdownMenuItem className='gap-2' onClick={() => navigate({ to: '/amo' })}>
+          <ArrowUpRightIcon className='text-muted-foreground size-4' />
+          Place AMO
+        </DropdownMenuItem>
         <DropdownMenuItem className='gap-2' onClick={() => navigate({ to: '/settings' })}>
           <SettingsIcon className='text-muted-foreground size-4' />
           Settings

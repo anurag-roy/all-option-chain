@@ -6,6 +6,7 @@ export const queryKeys = {
   chain: {
     expiries: ['chainExpiries'] as const,
     status: ['chainStatus'] as const,
+    equities: ['chainEquities'] as const,
   },
   orders: {
     quote: (instrumentToken: number) => ['orderQuote', instrumentToken] as const,

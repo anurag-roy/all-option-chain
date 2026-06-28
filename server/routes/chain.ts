@@ -2,6 +2,7 @@ import { routeValidator } from '@server/middlewares/validator';
 import { optionChainCoordinator } from '@server/lib/services/option-chain-coordinator';
 import {
   getAllEquityNames,
+  getAllEquityTradingSymbols,
   getUpcomingOptionExpiries,
 } from '@server/lib/services/instrument-catalog';
 import { accessToken } from '@server/lib/services/access-token';
@@ -18,6 +19,10 @@ export const chainRoute = new Hono()
   .get('/symbols', async (c) => {
     const symbols = await getAllEquityNames();
     return c.json({ symbols });
+  })
+  .get('/equities', async (c) => {
+    const equities = await getAllEquityTradingSymbols();
+    return c.json({ equities });
   })
   .post('/filter', routeValidator('json', chainFilterSchema), async (c) => {
     if (!accessToken) {

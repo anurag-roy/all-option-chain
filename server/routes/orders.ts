@@ -1,7 +1,8 @@
 import { logger } from '@server/lib/logger';
 import { getInstrumentByToken } from '@server/lib/services/instrument-catalog';
-import { getMarginForOrder, getQuoteDepth, placeSellOrder } from '@server/lib/services/kite';
+import { getMarginForOrder, getQuoteDepth, placeBuyOrdersBatch, placeSellOrder } from '@server/lib/services/kite';
 import { routeValidator } from '@server/middlewares/validator';
+import { amoBatchRequestSchema } from '@shared/schemas/amo';
 import { orderMarginRequestSchema, orderSellRequestSchema } from '@shared/schemas/orders';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -59,5 +60,19 @@ export const ordersRoute = new Hono()
     } catch (error) {
       logger.error('Error placing sell order:', error);
       throw new HTTPException(500, { message: 'Failed to place sell order', cause: error });
+    }
+  })
+  .post('/amo', routeValidator('json', amoBatchRequestSchema), async (c) => {
+    const { orders } = c.req.valid('json');
+
+    try {
+      const results = await placeBuyOrdersBatch(orders);
+      const placed = results.filter((result) => result.success).length;
+      const failed = results.length - placed;
+
+      return c.json({ placed, failed, results });
+    } catch (error) {
+      logger.error('Error placing AMO orders:', error);
+      throw new HTTPException(500, { message: 'Failed to place AMO orders', cause: error });
     }
   });

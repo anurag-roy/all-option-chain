@@ -1,0 +1,115 @@
+import { env } from '@server/lib/env';
+import { logger } from '@server/lib/logger';
+import { accessToken } from '@server/lib/services/access-token';
+import { chunk } from 'es-toolkit';
+import { KiteConnect, type CompactMargin } from 'kiteconnect-ts';
+import PQueue from 'p-queue';
+
+const queue = new PQueue({
+  interval: 1000,
+  intervalCap: 8,
+  carryoverIntervalCount: true,
+});
+
+const quoteQueue = new PQueue({
+  interval: 1000,
+  intervalCap: 3,
+  carryoverIntervalCount: true,
+});
+
+export const kiteService = new KiteConnect({
+  api_key: env.KITE_API_KEY,
+  access_token: accessToken,
+});
+
+export type KiteFullQuote = {
+  instrument_token: number;
+  last_price: number;
+  oi?: number;
+  depth?: {
+    buy: Array<{ price: number; quantity: number; orders: number }>;
+    sell: Array<{ price: number; quantity: number; orders: number }>;
+  };
+  ohlc?: {
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+  };
+};
+
+export const getFullQuotes = async (instruments: string[]) => {
+  const quotes: Record<string, KiteFullQuote> = {};
+
+  for (const instrumentChunk of chunk(instruments, 500)) {
+    const batch = await quoteQueue.add(() => kiteService.getQuote(instrumentChunk));
+    Object.assign(quotes, batch);
+  }
+
+  return quotes;
+};
+
+export const getLtpQuotes = async (instruments: string[]) => {
+  const quotes: Record<string, { instrument_token: number; last_price: number }> = {};
+
+  for (const instrumentChunk of chunk(instruments, 1000)) {
+    const batch = await quoteQueue.add(() => kiteService.getLTP(instrumentChunk));
+    Object.assign(quotes, batch);
+  }
+
+  return quotes;
+};
+
+const MAX_RETRIES = 3;
+const MARGIN_CHUNK_SIZE = 500;
+
+const mapTsToMarginOrder = (tradingsymbol: string) => ({
+  exchange: 'NFO' as const,
+  order_type: 'LIMIT' as const,
+  product: 'MIS' as const,
+  quantity: 1,
+  tradingsymbol,
+  transaction_type: 'SELL' as const,
+  variety: 'regular' as const,
+});
+
+export const getOrderMargins = async (tradingsymbols: string[]) => {
+  const allMargins: CompactMargin[] = [];
+
+  for (const symbolChunk of chunk(tradingsymbols, MARGIN_CHUNK_SIZE)) {
+    let remainingSymbols = symbolChunk;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      if (remainingSymbols.length === 0) {
+        break;
+      }
+
+      try {
+        const orders = remainingSymbols.map(mapTsToMarginOrder);
+        const margins = await queue.add(() => kiteService.orderMargins(orders, 'compact'));
+
+        const fetchedMargins = margins.filter((margin) => margin.total);
+        const fetchedSymbols = new Set(fetchedMargins.map((margin) => margin.tradingsymbol));
+
+        allMargins.push(...fetchedMargins);
+        remainingSymbols = remainingSymbols.filter((symbol) => !fetchedSymbols.has(symbol));
+      } catch (error) {
+        logger.error(
+          `Error fetching margins on attempt ${attempt} (chunk ${symbolChunk.length - remainingSymbols.length}/${symbolChunk.length} done):`,
+          error
+        );
+        if (attempt === MAX_RETRIES) {
+          break;
+        }
+      }
+    }
+
+    if (remainingSymbols.length > 0) {
+      logger.error(
+        `Failed to fetch margins for ${remainingSymbols.length} symbols after ${MAX_RETRIES} attempts: ${remainingSymbols.slice(0, 5).join(', ')}${remainingSymbols.length > 5 ? '...' : ''}`
+      );
+    }
+  }
+
+  return allMargins;
+};

@@ -10,6 +10,7 @@ export function useWebSocket(subscribedSymbols?: string[]) {
   const [rowCount, setRowCount] = useState(0);
   const [visibleRowCount, setVisibleRowCount] = useState(0);
   const [entryValue, setEntryValue] = useState(99);
+  const [orderPercent, setOrderPercent] = useState(0.5);
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
@@ -179,6 +180,8 @@ export function useWebSocket(subscribedSymbols?: string[]) {
     visibleRowCount,
     entryValue,
     setEntryValue,
+    orderPercent,
+    setOrderPercent,
     applyOptionChainData,
     isConnected,
     connect,

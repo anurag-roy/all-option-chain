@@ -29,6 +29,7 @@ export type OptionChainRow = {
   oi: number;
   marginStatus: MarginStatus;
   gainLossPercent?: number;
+  strikePositionChange?: number;
 };
 
 export type OptionChain = OptionChainRow;

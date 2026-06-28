@@ -10,6 +10,8 @@ interface WebSocketContextType {
   visibleRowCount: number;
   entryValue: number;
   setEntryValue: (value: number) => void;
+  orderPercent: number;
+  setOrderPercent: (value: number) => void;
   applyOptionChainData: (data: OptionChainData) => void;
   isConnected: boolean;
   connect: () => void;

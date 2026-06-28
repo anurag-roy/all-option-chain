@@ -5,6 +5,7 @@ import { clientBroadcaster } from '@server/lib/services/client-broadcaster';
 import { optionChainCoordinator } from '@server/lib/services/option-chain-coordinator';
 import { httpLogger } from '@server/middlewares/http-logger';
 import { chainRoute } from '@server/routes/chain';
+import { ordersRoute } from '@server/routes/orders';
 import { userRoute } from '@server/routes/user';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -36,6 +37,7 @@ const apiRoutes = app
   .basePath('/api')
   .route('/user', userRoute)
   .route('/chain', chainRoute)
+  .route('/orders', ordersRoute)
   .get(
     '/ws',
     upgradeWebSocket(() => {

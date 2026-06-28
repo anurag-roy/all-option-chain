@@ -113,3 +113,64 @@ export const getOrderMargins = async (tradingsymbols: string[]) => {
 
   return allMargins;
 };
+
+export const getQuoteDepth = async (exchange: string, tradingsymbol: string) => {
+  const key = `${exchange}:${tradingsymbol}`;
+  const quotes = await getFullQuotes([key]);
+  const quote = quotes[key];
+
+  if (!quote) {
+    return null;
+  }
+
+  return {
+    buy: (quote.depth?.buy ?? []).map((level) => ({ price: level.price, quantity: level.quantity })),
+    sell: (quote.depth?.sell ?? []).map((level) => ({ price: level.price, quantity: level.quantity })),
+  };
+};
+
+export const getMarginForOrder = async (tradingsymbol: string, price: number, quantity: number) => {
+  const [margin] = await queue.add(() =>
+    kiteService.orderMargins(
+      [
+        {
+          exchange: 'NFO',
+          order_type: 'LIMIT',
+          product: 'MIS',
+          quantity,
+          tradingsymbol,
+          transaction_type: 'SELL',
+          variety: 'regular',
+          price,
+        },
+      ],
+      'compact'
+    )
+  );
+
+  const userMargins = await kiteService.getMargins('equity');
+  const orderMargin = margin?.total ?? 0;
+  const cash = userMargins.available.cash;
+  const marginUsedPrev = userMargins.utilised.debits;
+  const remainingCash = userMargins.net - orderMargin;
+
+  return {
+    orderMargin,
+    cash,
+    marginUsedPrev,
+    insufficientBalance: remainingCash < 0,
+  };
+};
+
+export const placeSellOrder = async (tradingsymbol: string, price: number, quantity: number) => {
+  return kiteService.placeOrder('regular', {
+    exchange: 'NFO',
+    tradingsymbol,
+    transaction_type: 'SELL',
+    quantity,
+    product: 'MIS',
+    order_type: 'LIMIT',
+    validity: 'DAY',
+    price,
+  });
+};

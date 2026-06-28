@@ -4,8 +4,8 @@ import { Label } from '@client/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@client/components/ui/select';
 import { useWebSocketContext } from '@client/contexts/websocket-context';
 import { api } from '@client/lib/api';
-import { chainFilterSchema } from '@shared/schemas/chain-filter';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { chainFilterSchema } from '@shared/schemas/chain-filter';
 import { Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -15,7 +15,7 @@ import type { z } from 'zod';
 type FilterForm = z.infer<typeof chainFilterSchema>;
 
 export function ChainFilterForm() {
-  const { chainStatus, setEntryValue, applyOptionChainData } = useWebSocketContext();
+  const { chainStatus, setEntryValue, setOrderPercent, applyOptionChainData } = useWebSocketContext();
   const [expiries, setExpiries] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -30,10 +30,15 @@ export function ChainFilterForm() {
   });
 
   const watchedEntryValue = form.watch('entryValue');
+  const watchedOrderPercent = form.watch('orderPercent');
 
   useEffect(() => {
     setEntryValue(watchedEntryValue);
   }, [setEntryValue, watchedEntryValue]);
+
+  useEffect(() => {
+    setOrderPercent(watchedOrderPercent);
+  }, [setOrderPercent, watchedOrderPercent]);
 
   useEffect(() => {
     api.chain.expiries.$get().then(async (response: Response) => {
@@ -59,6 +64,7 @@ export function ChainFilterForm() {
 
       const result = await response.json();
       setEntryValue(values.entryValue);
+      setOrderPercent(values.orderPercent);
       applyOptionChainData(result.data);
       toast.success(
         result.status.rowCount > 0
@@ -75,12 +81,12 @@ export function ChainFilterForm() {
   const isBusy = isSubmitting || ['warming', 'fetching_quotes', 'subscribing'].includes(chainStatus);
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 p-4 md:grid-cols-5">
-      <div className="space-y-2">
-        <Label htmlFor="expiry">Expiry</Label>
-        <Select value={form.watch('expiry')} onValueChange={(value) => form.setValue('expiry', value)}>
-          <SelectTrigger id="expiry">
-            <SelectValue placeholder="Select expiry" />
+    <form onSubmit={form.handleSubmit(onSubmit)} className='grid gap-8 p-4 md:grid-cols-5'>
+      <div className='space-y-2'>
+        <Label htmlFor='expiry'>Expiry</Label>
+        <Select value={form.watch('expiry')} onValueChange={(value) => form.setValue('expiry', value!)}>
+          <SelectTrigger id='expiry'>
+            <SelectValue placeholder='Select expiry' />
           </SelectTrigger>
           <SelectContent>
             {expiries.map((expiry) => (
@@ -92,41 +98,36 @@ export function ChainFilterForm() {
         </Select>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="entryValue">Entry Value</Label>
-        <Input
-          id="entryValue"
-          type="number"
-          step="0.05"
-          {...form.register('entryValue', { valueAsNumber: true })}
-        />
+      <div className='space-y-2'>
+        <Label htmlFor='entryValue'>Entry Value</Label>
+        <Input id='entryValue' type='number' step='0.05' {...form.register('entryValue', { valueAsNumber: true })} />
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="orderPercent">Order %</Label>
+      <div className='space-y-2'>
+        <Label htmlFor='orderPercent'>Order %</Label>
         <Input
-          id="orderPercent"
-          type="number"
-          step="0.01"
+          id='orderPercent'
+          type='number'
+          step='0.01'
           {...form.register('orderPercent', { valueAsNumber: true })}
         />
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="sdMultiplier">SD Multiplier</Label>
+      <div className='space-y-2'>
+        <Label htmlFor='sdMultiplier'>SD Multiplier</Label>
         <Input
-          id="sdMultiplier"
-          type="number"
-          step="0.01"
+          id='sdMultiplier'
+          type='number'
+          step='0.01'
           {...form.register('sdMultiplier', { valueAsNumber: true })}
         />
       </div>
 
-      <div className="flex items-end">
-        <Button type="submit" className="w-full" disabled={isBusy || !form.watch('expiry')}>
+      <div className='flex items-center'>
+        <Button type='submit' className='mt-3 w-full' disabled={isBusy || !form.watch('expiry')}>
           {isBusy ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className='h-4 w-4 animate-spin' />
               Applying...
             </>
           ) : (

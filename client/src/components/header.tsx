@@ -6,7 +6,8 @@ export function Header() {
   const [netMargin, setNetMargin] = useState<number | null>(null);
 
   useEffect(() => {
-    api.user.$get()
+    api.user
+      .$get()
       .then(async (response: Response) => {
         if (response.ok) {
           const data = await response.json();
@@ -17,7 +18,8 @@ export function Header() {
       })
       .catch(() => setUserName('Not logged in'));
 
-    api.user.margin.$get()
+    api.user.margin
+      .$get()
       .then(async (response: Response) => {
         if (response.ok) {
           const data = await response.json();
@@ -28,16 +30,16 @@ export function Header() {
   }, []);
 
   return (
-    <header className="border-border bg-card/50 border-b">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
+    <header className='border-border bg-card/50 border-b'>
+      <div className='mx-auto flex max-w-384 items-center justify-between px-4 py-4'>
         <div>
-          <h1 className="text-xl font-bold">Option Chain</h1>
-          <p className="text-muted-foreground text-sm">NSE F&O via Zerodha Kite</p>
+          <h1 className='text-xl font-bold'>Option Chain</h1>
+          <p className='text-muted-foreground text-sm'>NSE F&O via Zerodha Kite</p>
         </div>
-        <div className="text-right text-sm">
-          <p className="font-medium">{userName}</p>
+        <div className='text-right text-sm'>
+          <p className='font-medium'>{userName}</p>
           {netMargin !== null ? (
-            <p className="text-muted-foreground">Net margin: ₹{netMargin.toLocaleString('en-IN')}</p>
+            <p className='text-muted-foreground'>Net margin: ₹{netMargin.toLocaleString('en-IN')}</p>
           ) : null}
         </div>
       </div>

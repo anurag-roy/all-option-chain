@@ -15,7 +15,7 @@ import {
   getFuturesForName,
   getOptionsForNameAndExpiry,
 } from '@server/lib/services/instrument-catalog';
-import { getFullQuotes, getLtpQuotes } from '@server/lib/services/kite';
+import { getFullQuotes } from '@server/lib/services/kite';
 import { marginBook } from '@server/lib/services/margin-book';
 import { marketDataService } from '@server/lib/services/market-data';
 import {
@@ -36,9 +36,18 @@ type InternalRow = OptionChainRow & {
   futExpiry: string;
 };
 
+type EquitySnapshot = {
+  symbol: string;
+  token: number;
+  prevClose: number;
+  ltp: number;
+  gainLossPercent: number;
+};
+
 export class OptionChainCoordinator {
   private rows = new Map<number, InternalRow>();
   private equityLtps = new Map<string, number>();
+  private equityByToken = new Map<number, EquitySnapshot>();
   private filter: ChainFilter | null = null;
   private status: ChainEngineStatus['status'] = 'idle';
   private statusMessage?: string;
@@ -52,11 +61,23 @@ export class OptionChainCoordinator {
     await marketDataService.connect();
 
     this.tickUnsubscribe = marketDataService.onTick((tick) => {
+      const fullTick = tick as TickFull;
+
+      const equitySnapshot = this.equityByToken.get(fullTick.instrument_token);
+      if (equitySnapshot) {
+        const ltp = fullTick.last_price ?? equitySnapshot.ltp;
+        if (ltp > 0 && equitySnapshot.prevClose > 0) {
+          equitySnapshot.ltp = ltp;
+          equitySnapshot.gainLossPercent = ((ltp - equitySnapshot.prevClose) * 100) / equitySnapshot.prevClose;
+          this.equityLtps.set(equitySnapshot.symbol, ltp);
+        }
+        return;
+      }
+
       if (tick.mode !== 'full') {
         return;
       }
 
-      const fullTick = tick as TickFull;
       const row = this.rows.get(fullTick.instrument_token);
       if (!row) {
         return;
@@ -111,27 +132,48 @@ export class OptionChainCoordinator {
     this.setStatus('fetching_quotes', 'Fetching underlying quotes');
 
     const equityKeys: string[] = [];
+    const equityRecords: Array<{ symbol: string; token: number; key: string }> = [];
     for (const symbol of symbols) {
       const equity = await getEquityByName(symbol);
       if (equity) {
-        equityKeys.push(instrumentQuoteKey(equity));
+        const key = instrumentQuoteKey(equity);
+        equityKeys.push(key);
+        equityRecords.push({ symbol, token: equity.instrumentToken, key });
       }
     }
 
-    const equityQuotes = await getLtpQuotes(equityKeys);
+    const equityQuotes = await getFullQuotes(equityKeys);
+    this.equityByToken.clear();
+
+    for (const { symbol, token, key } of equityRecords) {
+      const quote = equityQuotes[key];
+      const ltp = quote?.last_price ?? 0;
+      const prevClose = quote?.ohlc?.close ?? ltp;
+      if (ltp <= 0) {
+        continue;
+      }
+
+      const gainLossPercent = prevClose > 0 ? ((ltp - prevClose) * 100) / prevClose : 0;
+      this.equityLtps.set(symbol, ltp);
+      this.equityByToken.set(token, {
+        symbol,
+        token,
+        prevClose,
+        ltp,
+        gainLossPercent,
+      });
+    }
+
     for (const symbol of symbols) {
       const equity = await getEquityByName(symbol);
       if (!equity) {
         continue;
       }
 
-      const quote = equityQuotes[instrumentQuoteKey(equity)];
-      const ltp = quote?.last_price ?? 0;
+      const ltp = this.equityLtps.get(symbol) ?? 0;
       if (ltp <= 0) {
         continue;
       }
-
-      this.equityLtps.set(symbol, ltp);
 
       const [options, futures] = await Promise.all([
         getOptionsForNameAndExpiry(symbol, filter.expiry),
@@ -159,13 +201,19 @@ export class OptionChainCoordinator {
       return quote && (quote.oi ?? 0) > 0;
     });
 
-    const newTokens = new Set(withOi.map((instrument) => instrument.instrumentToken));
+    const optionTokens = new Set(withOi.map((instrument) => instrument.instrumentToken));
+    const equityTokens = new Set([...this.equityByToken.keys()]);
+    const newTokens = new Set([...optionTokens, ...equityTokens]);
     const oldTokens = marketDataService.getSubscribedTokens();
     const added = [...newTokens].filter((token) => !oldTokens.has(token));
     const removed = [...oldTokens].filter((token) => !newTokens.has(token));
 
-    this.setStatus('subscribing', `Subscribing to ${newTokens.size} instruments`);
+    this.setStatus('subscribing', `Subscribing to ${optionTokens.size} options and ${equityTokens.size} equities`);
     marketDataService.applyDiff(added, removed);
+
+    if (equityTokens.size > 0) {
+      marketDataService.subscribeLtp([...equityTokens]);
+    }
 
     this.rows.clear();
     for (const instrument of withOi) {
@@ -246,8 +294,14 @@ export class OptionChainCoordinator {
 
     for (const row of this.rows.values()) {
       const equityLtp = this.equityLtps.get(row.name) ?? row.underlyingLtp;
+      const equitySnapshot = [...this.equityByToken.values()].find((snapshot) => snapshot.symbol === row.name);
       row.underlyingLtp = equityLtp;
+      row.gainLossPercent = equitySnapshot?.gainLossPercent;
+
+      const prevStrikePosition = row.strikePosition;
       row.strikePosition = calculateStrikePosition(row.strike, equityLtp);
+      row.strikePositionChange =
+        prevStrikePosition > 0 ? row.strikePosition - prevStrikePosition : 0;
       row.sellValue = calculateSellValue(row.bid, row.lotSize);
 
       if (row.av > 0) {

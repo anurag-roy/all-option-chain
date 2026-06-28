@@ -1,11 +1,11 @@
+import { useNotifications } from '@client/contexts/notification-context';
 import { useWebSocketContext } from '@client/contexts/websocket-context';
-import { playNotificationSound } from '@client/lib/notification-sound';
 import type { OptionChainRow } from '@client/types/option-chain';
 import { memo, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import { DataTable } from './data-table';
 
-function useBidAlert(rows: OptionChainRow[]) {
+function useBidAlert(rows: OptionChainRow[], addNotification: ReturnType<typeof useNotifications>['addNotification']) {
   const previousBidsRef = useRef<Map<number, number>>(new Map());
 
   useEffect(() => {
@@ -20,7 +20,10 @@ function useBidAlert(rows: OptionChainRow[]) {
 
     const previousBid = previousBidsRef.current.get(topRow.instrumentToken);
     if (previousBid !== undefined && previousBid !== topRow.bid) {
-      playNotificationSound();
+      addNotification(
+        `Top bid changed for ${topRow.tradingsymbol}: ${previousBid.toFixed(2)} → ${topRow.bid.toFixed(2)}`,
+        'important'
+      );
     }
 
     const nextBids = new Map<number, number>();
@@ -28,10 +31,15 @@ function useBidAlert(rows: OptionChainRow[]) {
       nextBids.set(row.instrumentToken, row.bid);
     }
     previousBidsRef.current = nextBids;
-  }, [rows]);
+  }, [addNotification, rows]);
 }
 
-function useOrderPercentAlerts(rows: OptionChainRow[], orderPercent: number, chainReady: boolean) {
+function useOrderPercentAlerts(
+  rows: OptionChainRow[],
+  orderPercent: number,
+  chainReady: boolean,
+  addNotification: ReturnType<typeof useNotifications>['addNotification']
+) {
   const triggeredRef = useRef<Set<number>>(new Set());
 
   useEffect(() => {
@@ -48,15 +56,16 @@ function useOrderPercentAlerts(rows: OptionChainRow[], orderPercent: number, cha
         !triggeredRef.current.has(row.instrumentToken)
       ) {
         triggeredRef.current.add(row.instrumentToken);
-        toast('Order Triggered!', {
-          description: `Order triggered for ${row.tradingsymbol} with return ${row.returnValue.toFixed(2)} at price ${row.bid} and quantity ${row.lotSize}`,
-        });
+        const message = `Order triggered for ${row.tradingsymbol} with return ${row.returnValue.toFixed(2)} at price ${row.bid} and quantity ${row.lotSize}`;
+        addNotification(message, 'important');
+        toast('Order Triggered!', { description: message });
       }
     }
-  }, [rows, orderPercent]);
+  }, [addNotification, orderPercent, rows]);
 }
 
 export const OptionsTable = memo(function OptionsTable() {
+  const { addNotification } = useNotifications();
   const { optionChainData, entryValue, orderPercent, rowCount, chainStatus } = useWebSocketContext();
 
   const allRows = useMemo(() => Object.values(optionChainData), [optionChainData]);
@@ -65,8 +74,8 @@ export const OptionsTable = memo(function OptionsTable() {
 
   const chainReady = chainStatus === 'ready';
 
-  useBidAlert(data);
-  useOrderPercentAlerts(data, orderPercent, chainReady);
+  useBidAlert(data, addNotification);
+  useOrderPercentAlerts(data, orderPercent, chainReady, addNotification);
 
   const emptyMessage = useMemo(() => {
     if (allRows.length === 0 && rowCount === 0) {

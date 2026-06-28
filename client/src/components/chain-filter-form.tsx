@@ -3,11 +3,14 @@ import { Input } from '@client/components/ui/input';
 import { Label } from '@client/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@client/components/ui/select';
 import { useWebSocketContext } from '@client/contexts/websocket-context';
+import { useChainExpiries } from '@client/hooks/use-chain-expiries';
 import { api } from '@client/lib/api';
+import { queryKeys } from '@client/lib/query-keys';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { chainFilterSchema } from '@shared/schemas/chain-filter';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import type { z } from 'zod';
@@ -15,9 +18,10 @@ import type { z } from 'zod';
 type FilterForm = z.infer<typeof chainFilterSchema>;
 
 export function ChainFilterForm() {
+  const queryClient = useQueryClient();
   const { chainStatus, setEntryValue, setOrderPercent, applyOptionChainData } = useWebSocketContext();
-  const [expiries, setExpiries] = useState<string[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { data: expiriesData } = useChainExpiries();
+  const expiries = expiriesData?.expiries ?? [];
 
   const form = useForm<FilterForm>({
     resolver: zodResolver(chainFilterSchema),
@@ -41,50 +45,49 @@ export function ChainFilterForm() {
   }, [setOrderPercent, watchedOrderPercent]);
 
   useEffect(() => {
-    api.chain.expiries.$get().then(async (response: Response) => {
-      if (!response.ok) {
-        return;
-      }
-      const data = await response.json();
-      setExpiries(data.expiries);
-      if (data.expiries[0]) {
-        form.setValue('expiry', data.expiries[0]);
-      }
-    });
-  }, [form]);
+    if (expiries[0] && !form.getValues('expiry')) {
+      form.setValue('expiry', expiries[0]);
+    }
+  }, [expiries, form]);
 
-  const onSubmit = async (values: FilterForm) => {
-    setIsSubmitting(true);
-    try {
+  const applyFilterMutation = useMutation({
+    mutationFn: async (values: FilterForm) => {
       const response = await api.chain.filter.$post({ json: values });
       if (!response.ok) {
         const error = await response.json();
         throw new Error('message' in error ? String(error.message) : 'Failed to apply filter');
       }
-
-      const result = await response.json();
+      return response.json();
+    },
+    onSuccess: (result, values) => {
       setEntryValue(values.entryValue);
       setOrderPercent(values.orderPercent);
       applyOptionChainData(result.data);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.chain.status });
       toast.success(
         result.status.rowCount > 0
           ? `Loaded ${result.status.rowCount} instruments (${result.status.visibleRowCount} match entry value)`
           : 'No instruments with OI found for this expiry'
       );
-    } catch (error) {
+    },
+    onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to apply filter');
-    } finally {
-      setIsSubmitting(false);
-    }
+    },
+  });
+
+  const onSubmit = (values: FilterForm) => {
+    applyFilterMutation.mutate(values);
   };
 
-  const isBusy = isSubmitting || ['warming', 'fetching_quotes', 'subscribing'].includes(chainStatus);
+  const isBusy =
+    applyFilterMutation.isPending || ['warming', 'fetching_quotes', 'subscribing'].includes(chainStatus);
+  const selectedExpiry = form.watch('expiry') || expiries[0] || '';
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className='grid gap-8 p-4 md:grid-cols-5'>
       <div className='space-y-2'>
         <Label htmlFor='expiry'>Expiry</Label>
-        <Select value={form.watch('expiry')} onValueChange={(value) => form.setValue('expiry', value!)}>
+        <Select value={selectedExpiry} onValueChange={(value) => form.setValue('expiry', value!)}>
           <SelectTrigger id='expiry'>
             <SelectValue placeholder='Select expiry' />
           </SelectTrigger>
@@ -124,7 +127,7 @@ export function ChainFilterForm() {
       </div>
 
       <div className='flex items-center'>
-        <Button type='submit' className='mt-3 w-full' disabled={isBusy || !form.watch('expiry')}>
+        <Button type='submit' className='mt-3 w-full' disabled={isBusy || !selectedExpiry}>
           {isBusy ? (
             <>
               <Loader2 className='h-4 w-4 animate-spin' />

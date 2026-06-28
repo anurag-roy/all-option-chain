@@ -10,8 +10,9 @@ import {
 } from '@client/components/ui/dialog';
 import { Input } from '@client/components/ui/input';
 import { api } from '@client/lib/api';
+import { queryKeys } from '@client/lib/query-keys';
 import { displayInr } from '@client/lib/utils';
-import type { OrderMarginResponse, OrderQuoteResponse } from '@shared/schemas/orders';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Info, PlusCircle } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
@@ -29,67 +30,65 @@ type OrderModalContentProps = OrderModalProps & {
 
 function OrderModalContent({ row, setOpen }: OrderModalContentProps) {
   const [quantity, setQuantity] = React.useState(1);
-  const [margin, setMargin] = React.useState<OrderMarginResponse | null>(null);
-  const [netReturn, setNetReturn] = React.useState('-');
-  const [quote, setQuote] = React.useState<OrderQuoteResponse | null>(null);
+  const orderQuantity = quantity * row.lotSize;
 
-  React.useEffect(() => {
-    api.orders.quote
-      .$get({ query: { instrumentToken: String(row.instrumentToken) } })
-      .then(async (response: Response) => {
-        if (!response.ok) {
-          return;
-        }
-        setQuote(await response.json());
-      });
-  }, [row.instrumentToken]);
+  const { data: quote } = useQuery({
+    queryKey: queryKeys.orders.quote(row.instrumentToken),
+    queryFn: async () => {
+      const response = await api.orders.quote.$get({ query: { instrumentToken: String(row.instrumentToken) } });
+      if (!response.ok) {
+        throw new Error('Failed to fetch quote');
+      }
+      return response.json();
+    },
+  });
 
-  React.useEffect(() => {
-    api.orders.margin
-      .$post({
+  const { data: margin } = useQuery({
+    queryKey: queryKeys.orders.margin(row.tradingsymbol, row.bid, orderQuantity),
+    queryFn: async () => {
+      const response = await api.orders.margin.$post({
         json: {
           tradingsymbol: row.tradingsymbol,
           price: row.bid,
-          quantity: quantity * row.lotSize,
+          quantity: orderQuantity,
         },
-      })
-      .then(async (response: Response) => {
-        if (!response.ok) {
-          return;
-        }
-        setMargin(await response.json());
       });
-  }, [quantity, row.bid, row.lotSize, row.tradingsymbol]);
+      if (!response.ok) {
+        throw new Error('Failed to fetch margin');
+      }
+      return response.json();
+    },
+  });
 
-  React.useEffect(() => {
+  const netReturn = React.useMemo(() => {
     if (margin && margin.orderMargin > 0) {
-      const returnValue = (((row.bid - 0.05) * row.lotSize * quantity * 100) / margin.orderMargin).toFixed(2) + '%';
-      setNetReturn(returnValue);
-    } else {
-      setNetReturn('-');
+      return (((row.bid - 0.05) * row.lotSize * quantity * 100) / margin.orderMargin).toFixed(2) + '%';
     }
+    return '-';
   }, [margin, quantity, row.bid, row.lotSize]);
 
-  const placeSellOrder = async () => {
-    try {
+  const placeOrderMutation = useMutation({
+    mutationFn: async () => {
       const response = await api.orders.sell.$post({
         json: {
           tradingsymbol: row.tradingsymbol,
           price: row.bid,
-          quantity: row.lotSize * quantity,
+          quantity: orderQuantity,
         },
       });
-
       if (!response.ok) {
         throw new Error('Failed to place order');
       }
-
+      return response.json();
+    },
+    onSuccess: () => {
       toast.success('Order placed successfully!');
       setOpen(false);
-    } catch {
+    },
+    onError: () => {
       toast.error('Error while placing order');
-    }
-  };
+    },
+  });
 
   const remainingCash = margin ? margin.cash - margin.marginUsedPrev - margin.orderMargin : 0;
 
@@ -106,7 +105,7 @@ function OrderModalContent({ row, setOpen }: OrderModalContentProps) {
         </DialogDescription>
       </DialogHeader>
       <div className='mt-8 mb-8 flex items-start gap-12'>
-        <BuyerTable quote={quote} />
+        <BuyerTable quote={quote ?? null} />
         <div className='mx-auto grid max-w-sm grid-cols-[auto_auto] gap-6'>
           <div className='col-span-2 flex items-center gap-1 rounded-md bg-blue-50/50 px-4 py-3 text-blue-800 ring-1 ring-blue-700/20 ring-inset dark:border-blue-500/30 dark:bg-blue-500/5 dark:text-blue-200'>
             <Info className='h-4 w-4 text-blue-600 dark:text-blue-500' aria-hidden='true' />
@@ -134,7 +133,7 @@ function OrderModalContent({ row, setOpen }: OrderModalContentProps) {
             </>
           )}
         </div>
-        <SellerTable quote={quote} />
+        <SellerTable quote={quote ?? null} />
       </div>
       <div className='mx-auto mb-8 grid max-w-sm grid-cols-[repeat(5,auto)] items-center gap-2 px-4'>
         <span className='text-sm font-medium text-zinc-700 dark:text-zinc-300'>Lot Size</span>
@@ -161,8 +160,8 @@ function OrderModalContent({ row, setOpen }: OrderModalContentProps) {
         <Button
           type='button'
           size='lg'
-          disabled={margin?.insufficientBalance || row.strikePosition > 30}
-          onClick={placeSellOrder}
+          disabled={margin?.insufficientBalance || row.strikePosition > 30 || placeOrderMutation.isPending}
+          onClick={() => placeOrderMutation.mutate()}
         >
           Place Sell Order
         </Button>

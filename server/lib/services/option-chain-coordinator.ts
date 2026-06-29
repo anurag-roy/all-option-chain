@@ -318,7 +318,7 @@ export class OptionChainCoordinator {
         row.sigmaXI = sigmaXI;
 
         const timeToExpiry = workingDaysTillExpiry / workingDaysInLastYear;
-        row.delta = calculateDelta(equityLtp, row.strike, row.av / 100, timeToExpiry, row.instrumentType);
+        row.delta = calculateDelta(equityLtp, row.strike, row.av, timeToExpiry, row.instrumentType);
       }
 
       const marginEntry = marginBook.getMargin(row.tradingsymbol);

@@ -102,7 +102,7 @@ export const columns: ColumnDef<OptionChainRow>[] = [
     cell: ({ row }) => {
       const { delta } = row.original;
 
-      if (!delta || Number.isNaN(delta)) {
+      if (delta == null || Number.isNaN(delta)) {
         return (
           <div className='bg-gray-50/60 p-2 text-center text-gray-500 dark:bg-gray-900/20 dark:text-gray-400'>N/A</div>
         );

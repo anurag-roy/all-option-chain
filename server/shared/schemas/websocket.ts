@@ -55,10 +55,17 @@ export const wsSdMultiplierUpdatedSchema = z.object({
   error: z.string().optional(),
 });
 
+export const wsNotificationMessageSchema = z.object({
+  type: z.literal('notification'),
+  message: z.string(),
+  severity: z.enum(['info', 'important']),
+});
+
 export const wsServerMessageSchema = z.discriminatedUnion('type', [
   wsOptionChainMessageSchema,
   wsStatusMessageSchema,
   wsSdMultiplierUpdatedSchema,
+  wsNotificationMessageSchema,
 ]);
 
 export type WsServerMessage = z.infer<typeof wsServerMessageSchema>;

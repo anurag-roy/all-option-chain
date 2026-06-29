@@ -1,4 +1,5 @@
 import { useWebSocket } from '@client/hooks/use-websocket';
+import { useNotifications } from '@client/contexts/notification-context';
 import type { ChainEngineStatus, OptionChainData } from '@shared/types/types';
 import { createContext, useContext, type ReactNode } from 'react';
 
@@ -44,7 +45,8 @@ interface WebSocketProviderProps {
 }
 
 export function WebSocketProvider({ children, symbols }: WebSocketProviderProps) {
-  const webSocketData = useWebSocket(symbols);
+  const { addNotification } = useNotifications();
+  const webSocketData = useWebSocket({ subscribedSymbols: symbols, onNotification: addNotification });
 
   return <WebSocketContext.Provider value={webSocketData}>{children}</WebSocketContext.Provider>;
 }

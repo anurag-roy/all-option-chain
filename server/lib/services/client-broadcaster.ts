@@ -42,6 +42,16 @@ export class ClientBroadcaster {
     }
   }
 
+  publishNotification(message: string, severity: 'info' | 'important') {
+    for (const [clientId, subscription] of this.clients.entries()) {
+      this.sendToClient(clientId, subscription, {
+        type: 'notification',
+        message,
+        severity,
+      });
+    }
+  }
+
   handleOpen(ws: WSContext) {
     const clientId = randomUUID();
     this.clients.set(clientId, { ws, symbols: new Set() });

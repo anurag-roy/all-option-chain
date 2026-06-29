@@ -326,7 +326,8 @@ export class OptionChainCoordinator {
       if (row.av > 0) {
         const workingDaysTillExpiry = await workingDaysCache.getWorkingDaysTillExpiry(row.expiry);
         const sigma = calculateSd(row.av, workingDaysInLastYear, workingDaysTillExpiry);
-        const sigmaN = calculateSigmaN(sigma, this.filter?.sdMultiplier ?? 1);
+        // SD multiplier applies only to strike-selection bounds, not per-row sigma display.
+        const sigmaN = calculateSigmaN(sigma, 1);
         const sigmaX = calculateSigmaX(sigmaN, workingDaysInLastYear, workingDaysTillExpiry);
         const sigmaXI = calculateSigmaXi(sigmaN, sigmaX, row.instrumentType);
 

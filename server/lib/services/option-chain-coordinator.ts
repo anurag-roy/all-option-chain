@@ -340,7 +340,11 @@ export class OptionChainCoordinator {
       }
 
       const marginEntry = marginBook.getMargin(row.tradingsymbol);
-      if (marginEntry?.status === 'ready') {
+      if (
+        marginEntry?.status === 'ready' &&
+        marginEntry.price === row.bid &&
+        marginEntry.quantity === row.lotSize
+      ) {
         row.orderMargin = marginEntry.margin;
         row.marginStatus = 'ready';
         row.returnValue = calculateReturnValue(row.sellValue, marginEntry.margin);
@@ -357,8 +361,12 @@ export class OptionChainCoordinator {
   }
 
   private async refreshMargins() {
-    const tradingsymbols = [...this.rows.values()].map((row) => row.tradingsymbol);
-    await marginBook.refresh(tradingsymbols);
+    const orders = [...this.rows.values()].map((row) => ({
+      tradingsymbol: row.tradingsymbol,
+      quantity: row.lotSize,
+      price: row.bid,
+    }));
+    await marginBook.refresh(orders);
     this.recomputeRows();
     this.publish();
   }

@@ -68,54 +68,36 @@ export const getLtpQuotes = async (instruments: string[]) => {
   return quotes;
 };
 
-const MAX_RETRIES = 3;
-const MARGIN_CHUNK_SIZE = 500;
+export type MarginOrderInput = {
+  tradingsymbol: string;
+  quantity: number;
+  price: number;
+};
 
-const mapTsToMarginOrder = (tradingsymbol: string) => ({
+const mapToMarginOrder = (input: MarginOrderInput) => ({
   exchange: 'NFO' as const,
   order_type: 'LIMIT' as const,
   product: 'MIS' as const,
-  quantity: 1,
-  tradingsymbol,
+  quantity: input.quantity,
+  tradingsymbol: input.tradingsymbol,
   transaction_type: 'SELL' as const,
   variety: 'regular' as const,
+  price: input.price,
 });
 
-export const getOrderMargins = async (tradingsymbols: string[]) => {
+export const getOrderMargins = async (orderInputs: MarginOrderInput[]) => {
   const allMargins: CompactMargin[] = [];
 
-  for (const symbolChunk of chunk(tradingsymbols, MARGIN_CHUNK_SIZE)) {
-    let remainingSymbols = symbolChunk;
-
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      if (remainingSymbols.length === 0) {
-        break;
+  // Kite nets margin across orders in a single batch request (portfolio offset).
+  // Fetch one order per API call so table margins match the order modal.
+  for (const input of orderInputs) {
+    try {
+      const [margin] = await queue.add(() => kiteService.orderMargins([mapToMarginOrder(input)], 'compact'));
+      if (margin?.total) {
+        allMargins.push(margin);
       }
-
-      try {
-        const orders = remainingSymbols.map(mapTsToMarginOrder);
-        const margins = await queue.add(() => kiteService.orderMargins(orders, 'compact'));
-
-        const fetchedMargins = margins.filter((margin) => margin.total);
-        const fetchedSymbols = new Set(fetchedMargins.map((margin) => margin.tradingsymbol));
-
-        allMargins.push(...fetchedMargins);
-        remainingSymbols = remainingSymbols.filter((symbol) => !fetchedSymbols.has(symbol));
-      } catch (error) {
-        logger.error(
-          `Error fetching margins on attempt ${attempt} (chunk ${symbolChunk.length - remainingSymbols.length}/${symbolChunk.length} done):`,
-          error
-        );
-        if (attempt === MAX_RETRIES) {
-          break;
-        }
-      }
-    }
-
-    if (remainingSymbols.length > 0) {
-      logger.error(
-        `Failed to fetch margins for ${remainingSymbols.length} symbols after ${MAX_RETRIES} attempts: ${remainingSymbols.slice(0, 5).join(', ')}${remainingSymbols.length > 5 ? '...' : ''}`
-      );
+    } catch (error) {
+      logger.error(`Error fetching margin for ${input.tradingsymbol}:`, error);
     }
   }
 
@@ -139,21 +121,7 @@ export const getQuoteDepth = async (exchange: string, tradingsymbol: string) => 
 
 export const getMarginForOrder = async (tradingsymbol: string, price: number, quantity: number) => {
   const [margin] = await queue.add(() =>
-    kiteService.orderMargins(
-      [
-        {
-          exchange: 'NFO',
-          order_type: 'LIMIT',
-          product: 'MIS',
-          quantity,
-          tradingsymbol,
-          transaction_type: 'SELL',
-          variety: 'regular',
-          price,
-        },
-      ],
-      'compact'
-    )
+    kiteService.orderMargins([mapToMarginOrder({ tradingsymbol, quantity, price })], 'compact')
   );
 
   const userMargins = await kiteService.getMargins('equity');

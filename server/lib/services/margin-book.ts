@@ -1,10 +1,12 @@
 import { logger } from '@server/lib/logger';
-import { getOrderMargins } from '@server/lib/services/kite';
+import { getOrderMargins, type MarginOrderInput } from '@server/lib/services/kite';
 
 type MarginEntry = {
   margin: number;
   status: 'ready' | 'error' | 'unavailable';
   updatedAt: number;
+  price?: number;
+  quantity?: number;
 };
 
 const STALE_MS = 60_000;
@@ -12,7 +14,6 @@ const STALE_MS = 60_000;
 export class MarginBook {
   private margins = new Map<string, MarginEntry>();
   private isFetching = false;
-  private pendingSymbols = new Set<string>();
 
   getMargin(tradingsymbol: string) {
     return this.margins.get(tradingsymbol);
@@ -20,54 +21,64 @@ export class MarginBook {
 
   markPending(tradingsymbols: string[]) {
     for (const tradingsymbol of tradingsymbols) {
-      this.pendingSymbols.add(tradingsymbol);
       if (!this.margins.has(tradingsymbol)) {
         this.margins.set(tradingsymbol, { margin: 0, status: 'unavailable', updatedAt: 0 });
       }
     }
   }
 
-  getStaleSymbols(tradingsymbols: string[]) {
+  getStaleOrders(orders: MarginOrderInput[]) {
     const now = Date.now();
-    return tradingsymbols.filter((tradingsymbol) => {
-      const entry = this.margins.get(tradingsymbol);
-      if (!entry) {
+    return orders.filter((order) => {
+      const entry = this.margins.get(order.tradingsymbol);
+      if (!entry || entry.status !== 'ready') {
         return true;
       }
-      return now - entry.updatedAt > STALE_MS || entry.status !== 'ready';
+      if (now - entry.updatedAt > STALE_MS) {
+        return true;
+      }
+      return entry.price !== order.price || entry.quantity !== order.quantity;
     });
   }
 
-  async refresh(tradingsymbols: string[]) {
-    const stale = this.getStaleSymbols(tradingsymbols);
-    if (stale.length === 0 || this.isFetching) {
+  async refresh(orders: MarginOrderInput[]) {
+    if (this.isFetching) {
       return;
     }
 
+    const staleOrders = this.getStaleOrders(orders);
+    if (staleOrders.length === 0) {
+      return;
+    }
+
+    const staleSymbols = staleOrders.map((order) => order.tradingsymbol);
+
     this.isFetching = true;
-    this.markPending(stale);
+    this.markPending(staleSymbols);
 
     try {
-      const margins = await getOrderMargins(stale);
+      const margins = await getOrderMargins(staleOrders);
       const fetched = new Set(margins.map((margin) => margin.tradingsymbol));
+      const orderBySymbol = new Map(staleOrders.map((order) => [order.tradingsymbol, order]));
 
       for (const margin of margins) {
+        const order = orderBySymbol.get(margin.tradingsymbol);
         this.margins.set(margin.tradingsymbol, {
           margin: margin.total,
           status: 'ready',
           updatedAt: Date.now(),
+          price: order?.price,
+          quantity: order?.quantity,
         });
-        this.pendingSymbols.delete(margin.tradingsymbol);
       }
 
-      for (const tradingsymbol of stale) {
+      for (const tradingsymbol of staleSymbols) {
         if (!fetched.has(tradingsymbol)) {
           this.margins.set(tradingsymbol, {
             margin: 0,
             status: 'error',
             updatedAt: Date.now(),
           });
-          this.pendingSymbols.delete(tradingsymbol);
         }
       }
     } catch (error) {

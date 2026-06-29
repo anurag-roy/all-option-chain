@@ -115,7 +115,7 @@ export const columns: ColumnDef<OptionChainRow>[] = [
 
       return <div className={cn('p-2 text-center font-medium', deltaColor)}>{(delta * 100).toFixed(7)}</div>;
     },
-    sortingFn: (rowA, rowB) => rowA.original.delta - rowB.original.delta,
+    sortingFn: (rowA, rowB) => Math.abs(rowA.original.delta) - Math.abs(rowB.original.delta),
   },
   {
     id: 'sigmaXI',

@@ -30,7 +30,9 @@ function NotificationItem({ notification }: { notification: Notification }) {
         notification.type === 'important' && 'bg-amber-500/5 dark:bg-amber-500/10'
       )}
     >
-      <span className='text-muted-foreground shrink-0 font-mono text-xs'>[{formatTime(notification.timestamp)}]</span>
+      <span className='text-muted-foreground mt-0.5 shrink-0 font-mono text-xs'>
+        [{formatTime(notification.timestamp)}]
+      </span>
       <p className='text-foreground text-sm'>{notification.message}</p>
     </div>
   );
@@ -64,7 +66,7 @@ export function NotificationCenter() {
         <TooltipTrigger render={<SheetTrigger render={triggerButton} />} />
         <TooltipContent>View notifications</TooltipContent>
       </Tooltip>
-      <SheetContent side='right' className='flex w-[500px] flex-col sm:max-w-[500px]'>
+      <SheetContent side='right' className='flex w-full! max-w-[800px]! flex-col'>
         <SheetHeader className='pr-8'>
           <div className='flex items-center justify-between'>
             <div>
@@ -72,16 +74,10 @@ export function NotificationCenter() {
               <SheetDescription>{notifications.length} notifications</SheetDescription>
             </div>
             {notifications.length > 0 ? (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button variant='ghost' size='icon' onClick={clearNotifications} className='size-8'>
-                      <Trash2 className='size-4' />
-                    </Button>
-                  }
-                />
-                <TooltipContent>Clear all</TooltipContent>
-              </Tooltip>
+              <Button variant='outline' size='sm' className='mr-8' onClick={clearNotifications}>
+                <Trash2 />
+                Clear all
+              </Button>
             ) : null}
           </div>
         </SheetHeader>

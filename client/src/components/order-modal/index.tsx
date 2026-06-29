@@ -190,7 +190,7 @@ export function OrderModal({ row }: OrderModalProps) {
           </Button>
         }
       />
-      <DialogContent className='max-w-5xl'>
+      <DialogContent className='max-w-5xl! w-full!'>
         <OrderModalContent row={row} setOpen={setOpen} />
       </DialogContent>
     </Dialog>

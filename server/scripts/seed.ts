@@ -1,3 +1,4 @@
+import { TZDate } from '@date-fns/tz';
 import { db } from '@server/db';
 import { holidaysTable, instrumentsTable } from '@server/db/schema';
 import { logger } from '@server/lib/logger';
@@ -9,6 +10,12 @@ import { chunk } from 'es-toolkit';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+const INDIA_TIMEZONE = 'Asia/Kolkata';
+
+function toIstDateString(date: Date) {
+  return format(new TZDate(date, INDIA_TIMEZONE), 'yyyy-MM-dd');
+}
+
 async function seedInstruments() {
   // Fetch all instrument data
   const bseInstruments = await kiteService.getInstruments(['BSE']);
@@ -18,6 +25,7 @@ async function seedInstruments() {
   const nifty500 = await getNifty500Stocks();
   const equityStocksToInclude = new Set([...nifty500, ...NSE_STOCKS_TO_INCLUDE]);
   const nfoInstrumentTypes = ['FUT', 'CE', 'PE'];
+  const todayIst = toIstDateString(new Date());
   const instrumentsData = [
     ...nseInstruments.filter((i) => i.name && equityStocksToInclude.has(i.name)),
     ...bseInstruments.filter((i) => i.name && BSE_STOCKS_TO_INCLUDE.includes(i.name)),
@@ -27,7 +35,7 @@ async function seedInstruments() {
         NSE_STOCKS_TO_INCLUDE.includes(i.name) &&
         nfoInstrumentTypes.includes(i.instrument_type) &&
         i.expiry &&
-        i.expiry > new Date()
+        toIstDateString(i.expiry) >= todayIst
     ),
   ];
 
@@ -47,7 +55,7 @@ async function seedInstruments() {
       exchangeToken: instrument.exchange_token,
       tradingsymbol: instrument.tradingsymbol,
       name: instrument.name,
-      expiry: instrument.expiry ? instrument.expiry.toISOString().split('T')[0] : null,
+      expiry: instrument.expiry ? toIstDateString(instrument.expiry) : null,
       strike: instrument.strike,
       tickSize: instrument.tick_size,
       lotSize: instrument.lot_size,

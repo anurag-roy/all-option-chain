@@ -4,7 +4,7 @@ import ky from 'ky';
 
 const kyInstance = ky.create({
   retry: { limit: 0 },
-  timeout: 30_000,
+  timeout: 300_000,
   hooks: {
     beforeError: [
       async (error) => {

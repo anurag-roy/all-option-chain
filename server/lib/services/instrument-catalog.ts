@@ -1,7 +1,11 @@
+import { TZDate } from '@date-fns/tz';
 import { db } from '@server/db';
 import type { instrumentsTable as instrumentsTableType } from '@server/db/schema';
 import { instrumentsTable } from '@server/db/schema';
-import { and, asc, eq, gt, inArray, sql } from 'drizzle-orm';
+import { format } from 'date-fns';
+import { and, asc, eq, gte, inArray, sql } from 'drizzle-orm';
+
+const INDIA_TIMEZONE = 'Asia/Kolkata';
 
 export type DbInstrument = typeof instrumentsTableType.$inferSelect;
 
@@ -65,7 +69,7 @@ export const getOptionsForNameAndExpiry = async (name: string, expiry: string) =
 };
 
 export const getUpcomingOptionExpiries = async (limit = 3) => {
-  const today = new Date().toISOString().split('T')[0]!;
+  const today = format(new TZDate(Date.now(), INDIA_TIMEZONE), 'yyyy-MM-dd');
   const rows = await db
     .selectDistinct({ expiry: instrumentsTable.expiry })
     .from(instrumentsTable)
@@ -73,7 +77,7 @@ export const getUpcomingOptionExpiries = async (limit = 3) => {
       and(
         eq(instrumentsTable.exchange, 'NFO'),
         inArray(instrumentsTable.instrumentType, ['CE', 'PE']),
-        gt(instrumentsTable.expiry, today)
+        gte(instrumentsTable.expiry, today)
       )
     )
     .orderBy(asc(instrumentsTable.expiry))

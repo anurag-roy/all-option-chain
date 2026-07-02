@@ -7,6 +7,20 @@ import { RowOrderAction } from './order-action';
 const green = 'bg-emerald-50/60 text-emerald-800 ring-emerald-100 dark:bg-emerald-900/10 dark:text-emerald-500';
 const red = 'bg-red-50/60 text-red-800 ring-red-100 dark:bg-red-900/10 dark:text-red-500';
 
+export const DEFAULT_DELTA_FILTER = 5;
+
+const deltaColumnFilterFn: ColumnDef<OptionChainRow>['filterFn'] = (row, _columnId, filterValue) => {
+  const threshold =
+    typeof filterValue === 'number' && !Number.isNaN(filterValue) ? filterValue : DEFAULT_DELTA_FILTER;
+  const { delta } = row.original;
+
+  if (delta == null || Number.isNaN(delta)) {
+    return false;
+  }
+
+  return Math.abs(delta * 100) < threshold;
+};
+
 export const columns: ColumnDef<OptionChainRow>[] = [
   {
     id: 'optionStrike',
@@ -98,6 +112,7 @@ export const columns: ColumnDef<OptionChainRow>[] = [
   {
     id: 'delta',
     accessorKey: 'delta',
+    filterFn: deltaColumnFilterFn,
     header: ({ column }) => <DataTableColumnHeader column={column} title='Delta (Δ)' />,
     cell: ({ row }) => {
       const { delta } = row.original;

@@ -12,7 +12,7 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 import { memo, useState } from 'react';
-import { columns, fillHeightCols, numericCols } from './columns';
+import { columns, DEFAULT_DELTA_FILTER, fillHeightCols, numericCols } from './columns';
 import { DataTableToolbar } from './toolbar';
 
 interface DataTableProps {
@@ -23,7 +23,9 @@ interface DataTableProps {
 
 export const DataTable = memo(function DataTable({ data, emptyMessage, summaryText }: DataTableProps) {
   const [sorting, setSorting] = useState<SortingState>([{ id: 'returnValue', desc: true }]);
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([
+    { id: 'delta', value: DEFAULT_DELTA_FILTER },
+  ]);
 
   const table = useReactTable({
     data,

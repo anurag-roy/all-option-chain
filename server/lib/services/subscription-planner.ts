@@ -6,7 +6,7 @@ import {
   calculateSigmaXi,
 } from '@server/lib/calculators/sigma';
 import type { DbInstrument } from '@server/lib/services/instrument-catalog';
-import { workingDaysCache } from '@server/lib/services/working-days-cache';
+import { marketMinutesCache } from '@server/lib/services/market-minutes-cache';
 import type { OptionType } from '@shared/types/types';
 
 export type PlannedInstrument = DbInstrument & {
@@ -36,11 +36,11 @@ export async function planInstrumentsForSymbol(
   let peBound = underlyingLtp;
 
   if (stockWithAv?.av && stockWithAv.expiry) {
-    const workingDaysInLastYear = await workingDaysCache.getWorkingDaysInLastYear();
-    const workingDaysTillExpiry = await workingDaysCache.getWorkingDaysTillExpiry(expiry);
-    const sigma = calculateSd(stockWithAv.av, workingDaysInLastYear, workingDaysTillExpiry);
+    const marketMinutesInLastYear = marketMinutesCache.getMarketMinutesInLastYear();
+    const marketMinutesTillExpiry = marketMinutesCache.getMarketMinutesTillExpiry(expiry);
+    const sigma = calculateSd(stockWithAv.av, marketMinutesInLastYear, marketMinutesTillExpiry);
     const sigmaN = calculateSigmaN(sigma, sdMultiplier);
-    const sigmaX = calculateSigmaX(sigmaN, workingDaysInLastYear, workingDaysTillExpiry);
+    const sigmaX = calculateSigmaX(sigmaN, marketMinutesInLastYear, marketMinutesTillExpiry);
     const sigmaXi = calculateSigmaXi(sigmaN, sigmaX, 'CE');
     ({ ceBound, peBound } = calculateAsymmetricBounds(underlyingLtp, sigmaXi));
   }

@@ -2,11 +2,11 @@ import type { OptionType } from '@shared/types/types';
 
 export const calculateSigmaN = (sigma: number, sdMultiplier: number) => sigma * sdMultiplier;
 
-export const calculateSigmaX = (sigmaN: number, workingDaysInLastYear: number, workingDaysTillExpiry: number) => {
-  if (!sigmaN || sigmaN <= 0 || workingDaysTillExpiry === 0 || workingDaysInLastYear === 0) {
+export const calculateSigmaX = (sigmaN: number, marketMinutesInLastYear: number, marketMinutesTillExpiry: number) => {
+  if (!sigmaN || sigmaN <= 0 || marketMinutesTillExpiry === 0 || marketMinutesInLastYear === 0) {
     return 0;
   }
-  return sigmaN / Math.sqrt(workingDaysInLastYear / workingDaysTillExpiry);
+  return sigmaN / Math.sqrt(marketMinutesInLastYear / marketMinutesTillExpiry);
 };
 
 export const calculateSigmaXi = (sigmaN: number, sigmaX: number, optionType: OptionType) => {
@@ -16,11 +16,11 @@ export const calculateSigmaXi = (sigmaN: number, sigmaX: number, optionType: Opt
   return optionType === 'CE' ? sigmaN + sigmaX : sigmaN - sigmaX;
 };
 
-export const calculateSd = (av: number, workingDaysInLastYear: number, workingDaysTillExpiry: number) => {
-  if (workingDaysTillExpiry === 0 || workingDaysInLastYear === 0) {
+export const calculateSd = (av: number, marketMinutesInLastYear: number, marketMinutesTillExpiry: number) => {
+  if (marketMinutesTillExpiry === 0 || marketMinutesInLastYear === 0) {
     return 0;
   }
-  return (av * 100) / Math.sqrt(workingDaysInLastYear / workingDaysTillExpiry);
+  return (av * 100) / Math.sqrt(marketMinutesInLastYear / marketMinutesTillExpiry);
 };
 
 export const calculateAsymmetricBounds = (ltp: number, sigmaXi: number) => ({

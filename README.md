@@ -1,6 +1,6 @@
 # NSE Option Chain
 
-Real-time NSE F&O option chain dashboard for ~200 stocks, powered by [Zerodha Kite](https://kite.trade/). The server selects strikes via asymmetric sigma bounds, streams live bids over Kite's ticker websocket, computes delta/returns/margins, pushes alerts, and serves a React SPA for chain monitoring, order placement, and ban management.
+Real-time NSE F&O option chain dashboard for ~200 stocks, powered by [Zerodha Kite](https://kite.trade/). The server selects strikes via asymmetric sigma bounds, streams live bids over Kite's ticker websocket, computes delta/returns/margins using **NSE trading-minute** math, pushes alerts, and serves a React SPA for chain monitoring, order placement, and ban management.
 
 **All broker I/O runs server-side** — the browser never talks to Kite directly.
 
@@ -8,6 +8,7 @@ Real-time NSE F&O option chain dashboard for ~200 stocks, powered by [Zerodha Ki
 
 - **Live option chain** — bid, sell value, return %, delta, sigma metrics, margin status, underlying gain/loss
 - **Asymmetric sigma strike selection** — CE ceiling / PE floor with configurable SD multiplier
+- **Intraday-aware time math** — sigma and delta use NSE market minutes (9:15–15:30 IST), not calendar days
 - **Sortable table** — sort by return value, strike position, delta; search by strike
 - **Real-time notifications** — order-trigger alerts (when return % crosses `orderPercent`) and top-bid changes; toast + sound + history sheet
 - **Option sell orders** — NFO MIS SELL LIMIT from the chain table with depth view and margin check
@@ -15,7 +16,7 @@ Real-time NSE F&O option chain dashboard for ~200 stocks, powered by [Zerodha Ki
 - **Ban management** — auto-fetched NSE F&O ban list + persistent custom bans; banned symbols excluded from chain load
 - **Dark mode** — light / dark / system theme toggle
 - **Batch margin lookups** — Kite `orderMargins` with rate limiting
-- **SQLite instrument catalog** — Kite instruments + NSE volatility, holiday-aware working-day math
+- **SQLite instrument catalog** — Kite instruments + NSE volatility, holiday-aware market-minute math
 - **Typed Hono RPC + WebSocket** — real-time chain, status, and notification stream
 
 ## Tech stack
@@ -39,7 +40,7 @@ Real-time NSE F&O option chain dashboard for ~200 stocks, powered by [Zerodha Ki
 ```bash
 # Clone and install
 git clone https://github.com/anurag-roy/all-option-chain.git
-cd all-option-chain/proposed_structure
+cd all-option-chain
 npm install
 
 # Configure environment
@@ -129,12 +130,23 @@ React SPA ◄──WebSocket────────► /api/ws
                         OptionChainCoordinator
                          ├── InstrumentCatalog (DB)
                          ├── SubscriptionPlanner (sigma strikes)
+                         ├── MarketMinutesCache (T/N for sigma + delta)
                          ├── BansService (NSE + custom bans)
                          ├── Kite REST (quotes, margins, orders)
                          ├── MarketDataService (KiteTicker)
                          ├── MarginBook (cached margins)
                          └── calculators/ (delta, sigma, returns)
 ```
+
+### Market minutes
+
+Sigma bounds and Black-Scholes delta use **NSE trading minutes**, not working days:
+
+- **Session:** 9:15 AM – 3:30 PM IST (375 minutes per full trading day)
+- **Skipped:** weekends and NSE holidays (from `holidays` table, seeded via `.data/nse_holidays.csv`)
+- **`T`** — market minutes in the last year (cached at startup)
+- **`N`** — market minutes from now until expiry (60s cache TTL; decays during the session)
+- **Delta** uses year fraction `N / T`; sigma formulas use `sqrt(T / N)` as before
 
 ### API endpoints
 
@@ -190,7 +202,8 @@ Notifications fire when a row's return % crosses `orderPercent` (with margin rea
 │   ├── routes/             # user, chain, orders, bans
 │   ├── lib/
 │   │   ├── calculators/    # delta, sigma, returns
-│   │   └── services/       # coordinator, kite, market-data, bans, etc.
+│   │   ├── market-minutes.ts       # NSE session minute math
+│   │   └── services/       # coordinator, kite, market-data, market-minutes-cache, bans, etc.
 │   ├── shared/             # Zod schemas, types, config, amo helper
 │   └── scripts/            # seed, login, build
 └── client/
@@ -216,6 +229,8 @@ Notifications fire when a row's return % crosses `orderPercent` (with margin rea
 7. **Rate limits.** Quote, margin, and order requests are queued (`p-queue`). Don't remove these queues.
 
 8. **Vite proxy port.** Ensure the dev proxy target matches your server `PORT` (see Quick start note).
+
+9. **Sigma/delta shift intraday.** `minutesTillExpiry` decreases during market hours (refreshed every 60s), so bounds and delta update through the session.
 
 ## Development
 

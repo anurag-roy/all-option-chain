@@ -21,7 +21,7 @@ import {
   planInstrumentsForSymbol,
   type PlannedInstrument,
 } from '@server/lib/services/subscription-planner';
-import { workingDaysCache } from '@server/lib/services/working-days-cache';
+import { marketMinutesCache } from '@server/lib/services/market-minutes-cache';
 import { NSE_STOCKS_TO_INCLUDE } from '@server/shared/config';
 import type { ChainFilter } from '@server/shared/schemas/chain-filter';
 import type { ChainEngineStatus, OptionChainData, OptionChainRow } from '@shared/types/types';
@@ -54,7 +54,7 @@ export class OptionChainCoordinator {
   private tickUnsubscribe: (() => void) | null = null;
 
   async init() {
-    await workingDaysCache.initializeRuntimeCache();
+    await marketMinutesCache.initializeRuntimeCache();
     await marketDataService.connect();
 
     this.tickUnsubscribe = marketDataService.onTick((tick) => {
@@ -289,12 +289,12 @@ export class OptionChainCoordinator {
     };
   }
 
-  private async recomputeRows() {
+  private recomputeRows() {
     if (this.rows.size === 0) {
       return;
     }
 
-    const workingDaysInLastYear = await workingDaysCache.getWorkingDaysInLastYear();
+    const marketMinutesInLastYear = marketMinutesCache.getMarketMinutesInLastYear();
 
     for (const row of this.rows.values()) {
       const equityLtp = this.equityLtps.get(row.name) ?? row.underlyingLtp;
@@ -308,11 +308,11 @@ export class OptionChainCoordinator {
       row.sellValue = calculateSellValue(row.bid, row.lotSize);
 
       if (row.av > 0) {
-        const workingDaysTillExpiry = await workingDaysCache.getWorkingDaysTillExpiry(row.expiry);
-        const sigma = calculateSd(row.av, workingDaysInLastYear, workingDaysTillExpiry);
+        const marketMinutesTillExpiry = marketMinutesCache.getMarketMinutesTillExpiry(row.expiry);
+        const sigma = calculateSd(row.av, marketMinutesInLastYear, marketMinutesTillExpiry);
         // SD multiplier applies only to strike-selection bounds, not per-row sigma display.
         const sigmaN = calculateSigmaN(sigma, 1);
-        const sigmaX = calculateSigmaX(sigmaN, workingDaysInLastYear, workingDaysTillExpiry);
+        const sigmaX = calculateSigmaX(sigmaN, marketMinutesInLastYear, marketMinutesTillExpiry);
         const sigmaXI = calculateSigmaXi(sigmaN, sigmaX, row.instrumentType);
 
         row.sd = sigma;
@@ -320,7 +320,7 @@ export class OptionChainCoordinator {
         row.sigmaX = sigmaX;
         row.sigmaXI = sigmaXI;
 
-        const timeToExpiry = workingDaysTillExpiry / workingDaysInLastYear;
+        const timeToExpiry = marketMinutesTillExpiry / marketMinutesInLastYear;
         row.delta = calculateDelta(equityLtp, row.strike, row.av, timeToExpiry, row.instrumentType);
       }
 

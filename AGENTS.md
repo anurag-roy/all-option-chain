@@ -1,6 +1,6 @@
 # AGENTS.md — NSE Option Chain (Kite rewrite)
 
-Context for AI agents working on this codebase. The **active rewrite** lives in `proposed_structure/`. The parent repo (`../src/`) is a legacy Next.js 14 + Shoonya app kept for reference only — do not extend it unless explicitly asked.
+Context for AI agents working on this codebase. The **active app** lives at the repo root (`server/`, `client/`). The parent repo (`../src/`) is a legacy Next.js 14 + Shoonya app kept for reference only — do not extend it unless explicitly asked.
 
 ## What this app does
 
@@ -35,12 +35,11 @@ The client provides a sortable option chain table, option **sell** orders (NFO M
 ## Directory layout
 
 ```
-proposed_structure/
 ├── .env                    # Root env (PORT, DATABASE_URL, KITE_*)
 ├── .data/
 │   ├── accessToken.txt     # Kite access token (written by login scripts)
 │   ├── database.db         # SQLite (gitignored)
-│   └── nse_holidays.csv    # NSE holiday list for working-days calc
+│   └── nse_holidays.csv    # NSE holiday list for market-minutes calc
 ├── server/
 │   ├── index.ts            # Bootstrap: coordinator init, HTTP + WS server
 │   ├── app.ts              # Hono app, routes, websocket, static SPA serve
@@ -51,7 +50,7 @@ proposed_structure/
 │   │   ├── calculators/    # Pure math: delta, sigma, returns
 │   │   ├── services/       # Core business logic (see below)
 │   │   ├── utils/          # NSE scraping, legacy db helpers
-│   │   ├── working-days.ts # Holiday-aware working day math
+│   │   ├── market-minutes.ts # NSE trading-minute math (9:15–15:30 IST)
 │   │   └── env.ts          # Zod-validated env
 │   ├── shared/
 │   │   ├── config.ts       # NSE_STOCKS_TO_INCLUDE, BSE_STOCKS_TO_INCLUDE, RISK_FREE_RATE
@@ -76,7 +75,7 @@ proposed_structure/
 | `@shared/*` | `server/shared/*` | Server + client |
 | `@client/*` | `client/src/*` | Client |
 
-- Server tsconfig: `proposed_structure/tsconfig.json` (server only)
+- Server tsconfig: `tsconfig.json` (server only)
 - Client tsconfig: `client/tsconfig.json` (also resolves `@server` for `import type { ApiRoutes }`)
 
 **Convention:** kebab-case file names for new files.
@@ -98,6 +97,7 @@ React SPA ◄──WebSocket────────► /api/ws
           OptionChainCoordinator  ◄── central orchestrator
            ├── InstrumentCatalog (DB queries)
            ├── SubscriptionPlanner (sigma strike selection)
+           ├── MarketMinutesCache (T/N for sigma + delta)
            ├── BansService (NSE + custom bans → auto-exclude)
            ├── Kite REST (quotes, margins, orders) via kite.ts
            ├── MarketDataService (KiteTicker websocket)
@@ -113,7 +113,7 @@ React SPA ◄──WebSocket────────► /api/ws
 
 Important methods:
 
-- `init()` — warm working-days cache, connect Kite ticker, start intervals
+- `init()` — warm market-minutes cache, connect Kite ticker, start intervals
 - `applyFilter(filter)` — full pipeline: plan → quote → OI filter → subscribe → rows. **Auto-excludes** NSE + custom banned symbols server-side.
 - `getSnapshot()` — returns **all** loaded rows (no entry-value filter)
 - `getVisibleRowCount()` — rows where `sellValue >= entryValue` (for status UI)
@@ -183,13 +183,35 @@ Canonical DB access (prefer over `lib/utils/db.ts`):
 
 | File | Purpose |
 |------|---------|
-| `delta.ts` | Black-Scholes delta (uses `RISK_FREE_RATE` from config) |
-| `sigma.ts` | σₙ, σₓ, σₓᵢ, asymmetric bounds, strike filtering helpers |
+| `delta.ts` | Black-Scholes delta; `timeToExpiry` is year fraction `N/T` (market minutes) |
+| `sigma.ts` | σₙ, σₓ, σₓᵢ, asymmetric bounds; uses market-minute `T` and `N` |
 | `returns.ts` | `sellValue = (bid - 0.05) * lotSize`, `returnValue = sellValue * 100 / margin`, `shouldTriggerOrder()` |
 
-### Working days (`server/lib/working-days.ts` + `working-days-cache.ts`)
+### Market minutes (`server/lib/market-minutes.ts` + `market-minutes-cache.ts`)
 
-Sigma and delta depend on working days till expiry vs last year. Holidays from `holidaysTable` (seeded from `.data/nse_holidays.csv`).
+Sigma and delta use **NSE trading minutes**, not calendar or working days.
+
+**Session:** 9:15 AM – 3:30 PM IST (`375` minutes per full trading day). Weekends and rows in `holidaysTable` (seeded from `.data/nse_holidays.csv`) are skipped.
+
+**`calculateMarketMinutesTillExpiry(expiry)`** (intraday-aware):
+
+- Before open on a trading day: today counts full `375` minutes
+- During session: remaining minutes until 15:30
+- After close: `0` for today
+- Future trading days until expiry: `375` each (holiday/weekend = `0`)
+- Expiry day: minutes only until market close
+
+**Cache** (`marketMinutesCache`):
+
+- `getMarketMinutesInLastYear()` — `T` in formulas; cached until restart
+- `getMarketMinutesTillExpiry(expiry)` — `N` in formulas; 60s TTL so values decay intraday
+- Expiry dates validated at startup from DB; unknown expiries return `0`
+
+**Formulas** (same shape as before, but `T` and `N` are minutes):
+
+- `SD = (av * 100) / sqrt(T / N)`
+- `σₓ = σₙ / sqrt(T / N)`
+- Delta: `timeToExpiry = N / T` (year fraction for Black-Scholes); volatility input is `av` as decimal
 
 ### AMO helper (`server/shared/lib/calculate-amo-orders.ts`)
 
@@ -260,7 +282,7 @@ Converts form leg prices + value/LTP into batched `{ tradingsymbol, price, quant
 **Schema:** `server/db/schema.ts`
 
 - `instruments` — Kite instruments + NSE volatility (`av`, `dv`). Keyed by `instrumentToken`. Use `name` + `expiry` for options lookup.
-- `holidays` — NSE holidays for working-day calculations
+- `holidays` — NSE holidays for market-minute calculations
 - `stock_bans` — NSE daily bans (`type='nse'`, `ban_date` = IST today) + custom bans (`type='custom'`, persist until removed)
 
 **Seed:** `server/scripts/seed.ts` — downloads Kite instruments (NSE/BSE/NFO), Nifty 500 + `NSE_STOCKS_TO_INCLUDE`, NSE volatility CSV, holidays.
@@ -342,7 +364,6 @@ Root layout (`routes/__root.tsx`): `Header`, `StatusBanner`, `NotificationProvid
 ## Dev workflow
 
 ```bash
-cd proposed_structure
 npm install          # installs root + client workspace
 
 # Terminal 1
@@ -378,6 +399,8 @@ Production: `npm run build && npm start` — Hono serves `client/dist` as static
 
 11. **Ban edit lock.** Custom ban editing is disabled in the UI while the chain is `ready` (subscribed). Stop/reload chain before bulk ban changes.
 
+12. **Market minutes decay intraday.** `minutesTillExpiry` is not a static day count — it updates during the session via a 60s cache TTL. Sigma and delta shift as the clock moves.
+
 ## Legacy app reference (`../src/`)
 
 The old app used Next.js 14 pages router + Shoonya websocket from the **browser**. Key pain points that motivated this rewrite:
@@ -389,7 +412,7 @@ The old app used Next.js 14 pages router + Shoonya websocket from the **browser*
 
 Useful reference files for **business logic parity**:
 
-- `../src/lib/delta.ts`, `../src/lib/workingDaysCache.ts` — calculations (ported to `server/lib/calculators/`)
+- `../src/lib/delta.ts`, `../src/lib/workingDaysCache.ts` — day-based calculations (rewritten as market minutes in `server/lib/market-minutes.ts` + `market-minutes-cache.ts`)
 - `../src/lib/socket.ts` — asymmetric sigma strike selection (ported to `subscription-planner.ts`)
 - `../src/components/options-table/columns.tsx` — column definitions (ported to `client/src/components/options-table/columns.tsx`)
 - `../src/components/subscription-form.tsx` — old filter UX

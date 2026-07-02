@@ -21,6 +21,7 @@ export const calculateDelta = (
   spotPrice: number,
   strikePrice: number,
   volatility: number,
+  /** Year fraction: marketMinutesTillExpiry / marketMinutesInLastYear */
   timeToExpiry: number,
   optionType: 'CE' | 'PE'
 ): number => {

@@ -19,6 +19,12 @@ Real-time NSE F&O option chain dashboard for ~200 stocks, powered by [Zerodha Ki
 - **SQLite instrument catalog** — Kite instruments + NSE volatility, holiday-aware market-minute math
 - **Typed Hono RPC + WebSocket** — real-time chain, status, and notification stream
 
+## Demo
+
+Load the chain with SD multiplier 2, switch theme, and open the sell order modal from the return column.
+
+<video src="docs/demo/demo.webm" controls width="100%"></video>
+
 ## Tech stack
 
 | Layer | Stack |

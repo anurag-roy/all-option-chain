@@ -3,7 +3,6 @@ import {
   calculateReturnValue,
   calculateSellValue,
   calculateStrikePosition,
-  shouldTriggerOrder,
 } from '@server/lib/calculators/returns';
 import { calculateSd, calculateSigmaN, calculateSigmaX, calculateSigmaXi } from '@server/lib/calculators/sigma';
 import { logger } from '@server/lib/logger';
@@ -55,9 +54,6 @@ export class OptionChainCoordinator {
   private computeTimer: ReturnType<typeof setInterval> | null = null;
   private marginTimer: ReturnType<typeof setInterval> | null = null;
   private tickUnsubscribe: (() => void) | null = null;
-  private triggeredOrderTokens = new Set<number>();
-  private baselineTokens = new Set<number>();
-  private loadingAtPrime = new Set<number>();
   private alertsPrimed = false;
   private topBidToken: number | null = null;
   private topBidValue: number | null = null;
@@ -122,7 +118,6 @@ export class OptionChainCoordinator {
             expiry: this.filter.expiry,
             sdMultiplier: this.filter.sdMultiplier,
             entryValue: this.filter.entryValue,
-            orderPercent: this.filter.orderPercent,
           }
         : null,
       subscribedTokenCount: marketDataService.getSubscribedTokens().size,
@@ -383,9 +378,6 @@ export class OptionChainCoordinator {
   }
 
   private resetAlertState() {
-    this.triggeredOrderTokens.clear();
-    this.baselineTokens.clear();
-    this.loadingAtPrime.clear();
     this.alertsPrimed = false;
     this.topBidToken = null;
     this.topBidValue = null;
@@ -404,71 +396,24 @@ export class OptionChainCoordinator {
     return topRow;
   }
 
-  private formatOrderTriggerMessage(rows: InternalRow[]): string {
-    if (rows.length === 1) {
-      const row = rows[0]!;
-      return `Order triggered for ${row.tradingsymbol} — return ${row.returnValue.toFixed(2)}, bid ${row.bid}, qty ${row.lotSize}`;
-    }
-
-    const preview = rows
-      .slice(0, 3)
-      .map((row) => row.tradingsymbol)
-      .join(', ');
-    const remaining = rows.length - 3;
-    const suffix = remaining > 0 ? ` (+${remaining} more)` : '';
-    return `${rows.length} new order triggers: ${preview}${suffix}`;
-  }
-
   private detectAlerts() {
     if (!this.filter || this.rows.size === 0) {
       return;
     }
 
-    const orderPercent = this.filter.orderPercent;
+    const topRow = this.getTopReturnRow();
+    if (!topRow) {
+      return;
+    }
 
     if (!this.alertsPrimed) {
-      for (const row of this.rows.values()) {
-        this.baselineTokens.add(row.instrumentToken);
-        if (row.marginStatus === 'loading') {
-          this.loadingAtPrime.add(row.instrumentToken);
-        }
-        if (shouldTriggerOrder(row.returnValue, orderPercent, row.marginStatus)) {
-          this.triggeredOrderTokens.add(row.instrumentToken);
-        }
-      }
-
-      const topRow = this.getTopReturnRow();
-      if (topRow) {
-        this.topBidToken = topRow.instrumentToken;
-        this.topBidValue = topRow.bid;
-      }
-
+      this.topBidToken = topRow.instrumentToken;
+      this.topBidValue = topRow.bid;
       this.alertsPrimed = true;
       return;
     }
 
-    const newlyTriggered: InternalRow[] = [];
-
-    for (const row of this.rows.values()) {
-      if (this.triggeredOrderTokens.has(row.instrumentToken)) {
-        continue;
-      }
-      if (!shouldTriggerOrder(row.returnValue, orderPercent, row.marginStatus)) {
-        continue;
-      }
-
-      this.triggeredOrderTokens.add(row.instrumentToken);
-      if (!this.loadingAtPrime.has(row.instrumentToken)) {
-        newlyTriggered.push(row);
-      }
-    }
-
-    if (newlyTriggered.length > 0) {
-      this.notificationHandler?.(this.formatOrderTriggerMessage(newlyTriggered), 'important');
-    }
-
-    const topRow = this.getTopReturnRow();
-    if (topRow && this.topBidToken === topRow.instrumentToken && this.topBidValue !== null) {
+    if (this.topBidToken === topRow.instrumentToken && this.topBidValue !== null) {
       if (topRow.bid !== this.topBidValue) {
         this.notificationHandler?.(
           `Top bid changed for ${topRow.tradingsymbol}: ${this.topBidValue.toFixed(2)} → ${topRow.bid.toFixed(2)}`,
@@ -477,10 +422,8 @@ export class OptionChainCoordinator {
       }
     }
 
-    if (topRow) {
-      this.topBidToken = topRow.instrumentToken;
-      this.topBidValue = topRow.bid;
-    }
+    this.topBidToken = topRow.instrumentToken;
+    this.topBidValue = topRow.bid;
   }
 
   async shutdown() {

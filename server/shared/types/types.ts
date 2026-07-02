@@ -51,7 +51,6 @@ export type ChainEngineStatus = {
     expiry: string;
     sdMultiplier: number;
     entryValue: number;
-    orderPercent: number;
   } | null;
   subscribedTokenCount: number;
   rowCount: number;

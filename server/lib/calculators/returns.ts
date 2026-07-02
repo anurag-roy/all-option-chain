@@ -10,6 +10,3 @@ export const calculateReturnValue = (sellValue: number, orderMargin: number) => 
   }
   return (sellValue * 100) / orderMargin;
 };
-
-export const shouldTriggerOrder = (returnValue: number, orderPercent: number, marginStatus: string) =>
-  returnValue >= orderPercent && marginStatus === 'ready';

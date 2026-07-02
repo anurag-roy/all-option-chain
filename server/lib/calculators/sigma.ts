@@ -27,15 +27,3 @@ export const calculateAsymmetricBounds = (ltp: number, sigmaXi: number) => ({
   ceBound: ltp + (ltp * sigmaXi) / 100,
   peBound: ltp - (ltp * sigmaXi) / 100,
 });
-
-export const filterStrikesByBounds = (
-  putStrikes: number[],
-  callStrikes: number[],
-  peBound: number,
-  ceBound: number
-) => {
-  const closestFloorStrike = putStrikes.find((strike) => strike <= peBound) ?? putStrikes.at(-1);
-  const closestCeilingStrike = callStrikes.find((strike) => strike >= ceBound) ?? callStrikes.at(-1);
-
-  return { closestFloorStrike, closestCeilingStrike };
-};

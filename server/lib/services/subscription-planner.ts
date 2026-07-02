@@ -4,7 +4,6 @@ import {
   calculateSigmaN,
   calculateSigmaX,
   calculateSigmaXi,
-  filterStrikesByBounds,
 } from '@server/lib/calculators/sigma';
 import type { DbInstrument } from '@server/lib/services/instrument-catalog';
 import { workingDaysCache } from '@server/lib/services/working-days-cache';
@@ -25,7 +24,7 @@ export async function planInstrumentsForSymbol(
 ): Promise<PlannedInstrument[]> {
   const [futExpiry] = futures
     .map((future) => future.expiry!)
-    .filter((futureExpiry) => futureExpiry > expiry)
+    .filter((futureExpiry) => futureExpiry >= expiry)
     .sort();
 
   if (!futExpiry) {
@@ -46,24 +45,12 @@ export async function planInstrumentsForSymbol(
     ({ ceBound, peBound } = calculateAsymmetricBounds(underlyingLtp, sigmaXi));
   }
 
-  const putStrikes = options
-    .filter((option) => option.instrumentType === 'PE')
-    .map((option) => option.strike!)
-    .sort((a, b) => b - a);
-
-  const callStrikes = options
-    .filter((option) => option.instrumentType === 'CE')
-    .map((option) => option.strike!)
-    .sort((a, b) => a - b);
-
-  const { closestFloorStrike, closestCeilingStrike } = filterStrikesByBounds(putStrikes, callStrikes, peBound, ceBound);
-
   const filtered = options.filter((option) => {
     if (option.instrumentType === 'PE') {
-      return closestFloorStrike ? option.strike! <= closestFloorStrike : false;
+      return option.strike! <= peBound;
     }
     if (option.instrumentType === 'CE') {
-      return closestCeilingStrike ? option.strike! >= closestCeilingStrike : false;
+      return option.strike! >= ceBound;
     }
     return false;
   });

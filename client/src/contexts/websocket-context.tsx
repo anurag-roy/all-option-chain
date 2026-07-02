@@ -1,5 +1,5 @@
 import { useWebSocket } from '@client/hooks/use-websocket';
-import { useNotifications } from '@client/contexts/notification-context';
+import { useTopDeltaSound } from '@client/hooks/use-top-delta-sound';
 import type { ChainEngineStatus, OptionChainData } from '@shared/types/types';
 import { createContext, useContext, type ReactNode } from 'react';
 
@@ -42,8 +42,8 @@ interface WebSocketProviderProps {
 }
 
 export function WebSocketProvider({ children, symbols }: WebSocketProviderProps) {
-  const { addNotification } = useNotifications();
-  const webSocketData = useWebSocket({ subscribedSymbols: symbols, onNotification: addNotification });
+  const webSocketData = useWebSocket({ subscribedSymbols: symbols });
+  useTopDeltaSound(webSocketData.optionChainData, webSocketData.chainStatus);
 
   return <WebSocketContext.Provider value={webSocketData}>{children}</WebSocketContext.Provider>;
 }

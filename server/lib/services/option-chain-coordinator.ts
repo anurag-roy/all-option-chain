@@ -28,7 +28,6 @@ import type { ChainEngineStatus, OptionChainData, OptionChainRow } from '@shared
 import type { TickFull } from 'kiteconnect-ts';
 
 type ChainUpdateHandler = (data: OptionChainData, status: ChainEngineStatus) => void;
-type NotificationHandler = (message: string, severity: 'info' | 'important') => void;
 
 type InternalRow = OptionChainRow & {
   futExpiry: string;
@@ -50,13 +49,9 @@ export class OptionChainCoordinator {
   private status: ChainEngineStatus['status'] = 'idle';
   private statusMessage?: string;
   private updateHandler: ChainUpdateHandler | null = null;
-  private notificationHandler: NotificationHandler | null = null;
   private computeTimer: ReturnType<typeof setInterval> | null = null;
   private marginTimer: ReturnType<typeof setInterval> | null = null;
   private tickUnsubscribe: (() => void) | null = null;
-  private alertsPrimed = false;
-  private topBidToken: number | null = null;
-  private topBidValue: number | null = null;
 
   async init() {
     await workingDaysCache.initializeRuntimeCache();
@@ -105,10 +100,6 @@ export class OptionChainCoordinator {
     this.updateHandler = handler;
   }
 
-  onNotification(handler: NotificationHandler) {
-    this.notificationHandler = handler;
-  }
-
   getStatus(): ChainEngineStatus {
     return {
       status: this.status,
@@ -128,7 +119,6 @@ export class OptionChainCoordinator {
   }
 
   async applyFilter(filter: ChainFilter) {
-    this.resetAlertState();
     this.filter = filter;
     this.setStatus('warming', 'Applying filter');
 
@@ -243,7 +233,6 @@ export class OptionChainCoordinator {
     this.recomputeRows();
 
     this.setStatus('ready');
-    this.detectAlerts();
   }
 
   async updateSdMultiplier(value: number) {
@@ -351,9 +340,6 @@ export class OptionChainCoordinator {
       }
     }
 
-    if (this.status === 'ready') {
-      this.detectAlerts();
-    }
   }
 
   private async refreshMargins() {
@@ -375,55 +361,6 @@ export class OptionChainCoordinator {
 
   private publish() {
     this.updateHandler?.(this.getSnapshot(), this.getStatus());
-  }
-
-  private resetAlertState() {
-    this.alertsPrimed = false;
-    this.topBidToken = null;
-    this.topBidValue = null;
-  }
-
-  private getTopReturnRow(): InternalRow | null {
-    let topRow: InternalRow | null = null;
-    for (const row of this.rows.values()) {
-      if (row.marginStatus !== 'ready') {
-        continue;
-      }
-      if (!topRow || row.returnValue > topRow.returnValue) {
-        topRow = row;
-      }
-    }
-    return topRow;
-  }
-
-  private detectAlerts() {
-    if (!this.filter || this.rows.size === 0) {
-      return;
-    }
-
-    const topRow = this.getTopReturnRow();
-    if (!topRow) {
-      return;
-    }
-
-    if (!this.alertsPrimed) {
-      this.topBidToken = topRow.instrumentToken;
-      this.topBidValue = topRow.bid;
-      this.alertsPrimed = true;
-      return;
-    }
-
-    if (this.topBidToken === topRow.instrumentToken && this.topBidValue !== null) {
-      if (topRow.bid !== this.topBidValue) {
-        this.notificationHandler?.(
-          `Top bid changed for ${topRow.tradingsymbol}: ${this.topBidValue.toFixed(2)} → ${topRow.bid.toFixed(2)}`,
-          'important'
-        );
-      }
-    }
-
-    this.topBidToken = topRow.instrumentToken;
-    this.topBidValue = topRow.bid;
   }
 
   async shutdown() {

@@ -23,7 +23,13 @@ Real-time NSE F&O option chain dashboard for ~200 stocks, powered by [Zerodha Ki
 
 Load the chain with SD multiplier 2, switch theme, and open the sell order modal from the return column.
 
-<video src="docs/demo/demo.webm" controls width="100%"></video>
+<div align="center">
+
+[![Watch the demo — apply filter with SD 2, toggle theme, open sell order modal](docs/demo/demo-poster.png)](https://github.com/anurag-roy/all-option-chain/blob/main/docs/demo/demo.mp4)
+
+▶ **[Watch demo video](https://github.com/anurag-roy/all-option-chain/blob/main/docs/demo/demo.mp4)** · [Download MP4](docs/demo/demo.mp4)
+
+</div>
 
 ## Tech stack
 

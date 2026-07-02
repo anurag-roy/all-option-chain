@@ -1,4 +1,3 @@
-import type { NotificationType } from '@client/contexts/notification-context';
 import type { WsServerMessage } from '@server/shared/schemas/websocket';
 import type { ChainEngineStatus, OptionChainData } from '@shared/types/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -6,10 +5,9 @@ import { toast } from 'sonner';
 
 interface UseWebSocketOptions {
   subscribedSymbols?: string[];
-  onNotification?: (message: string, type: NotificationType) => void;
 }
 
-export function useWebSocket({ subscribedSymbols, onNotification }: UseWebSocketOptions = {}) {
+export function useWebSocket({ subscribedSymbols }: UseWebSocketOptions = {}) {
   const [optionChainData, setOptionChainData] = useState<OptionChainData>({});
   const [chainStatus, setChainStatus] = useState<ChainEngineStatus['status']>('idle');
   const [statusMessage, setStatusMessage] = useState<string | undefined>();
@@ -22,11 +20,6 @@ export function useWebSocket({ subscribedSymbols, onNotification }: UseWebSocket
   const reconnectAttemptsRef = useRef(0);
   const subscribedSymbolsRef = useRef<string[]>(subscribedSymbols ?? []);
   const pendingSubscriptionsRef = useRef<string[]>([]);
-  const onNotificationRef = useRef(onNotification);
-
-  useEffect(() => {
-    onNotificationRef.current = onNotification;
-  }, [onNotification]);
 
   const connect = useCallback(() => {
     try {
@@ -67,15 +60,6 @@ export function useWebSocket({ subscribedSymbols, onNotification }: UseWebSocket
             }
             if (message.visibleRowCount !== undefined) {
               setVisibleRowCount(message.visibleRowCount);
-            }
-          }
-
-          if (message.type === 'notification') {
-            onNotificationRef.current?.(message.message, message.severity);
-            if (message.severity === 'important') {
-              toast('Alert', {
-                description: message.message,
-              });
             }
           }
         } catch (error) {

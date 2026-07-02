@@ -34,10 +34,6 @@ optionChainCoordinator.onUpdate((data, status) => {
   clientBroadcaster.publishOptionChain(data, status);
 });
 
-optionChainCoordinator.onNotification((message, severity) => {
-  clientBroadcaster.publishNotification(message, severity);
-});
-
 const apiRoutes = app
   .basePath('/api')
   .route('/user', userRoute)

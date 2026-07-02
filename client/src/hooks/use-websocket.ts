@@ -16,7 +16,6 @@ export function useWebSocket({ subscribedSymbols, onNotification }: UseWebSocket
   const [rowCount, setRowCount] = useState(0);
   const [visibleRowCount, setVisibleRowCount] = useState(0);
   const [entryValue, setEntryValue] = useState(99);
-  const [orderPercent, setOrderPercent] = useState(0.5);
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
@@ -74,7 +73,7 @@ export function useWebSocket({ subscribedSymbols, onNotification }: UseWebSocket
           if (message.type === 'notification') {
             onNotificationRef.current?.(message.message, message.severity);
             if (message.severity === 'important') {
-              toast(message.message.includes('order trigger') ? 'Order Triggered!' : 'Alert', {
+              toast('Alert', {
                 description: message.message,
               });
             }
@@ -168,7 +167,6 @@ export function useWebSocket({ subscribedSymbols, onNotification }: UseWebSocket
       expiry: string;
       sdMultiplier: number;
       entryValue: number;
-      orderPercent: number;
       symbols?: string[];
     }) => {
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -200,8 +198,6 @@ export function useWebSocket({ subscribedSymbols, onNotification }: UseWebSocket
     visibleRowCount,
     entryValue,
     setEntryValue,
-    orderPercent,
-    setOrderPercent,
     applyOptionChainData,
     isConnected,
     connect,

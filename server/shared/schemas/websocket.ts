@@ -16,7 +16,6 @@ export const wsUpdateFilterSchema = z.object({
     expiry: z.string(),
     sdMultiplier: z.number(),
     entryValue: z.number(),
-    orderPercent: z.number(),
     symbols: z.array(z.string()).optional(),
   }),
 });

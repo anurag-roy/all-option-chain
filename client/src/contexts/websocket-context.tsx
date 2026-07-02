@@ -11,8 +11,6 @@ interface WebSocketContextType {
   visibleRowCount: number;
   entryValue: number;
   setEntryValue: (value: number) => void;
-  orderPercent: number;
-  setOrderPercent: (value: number) => void;
   applyOptionChainData: (data: OptionChainData) => void;
   isConnected: boolean;
   connect: () => void;
@@ -23,7 +21,6 @@ interface WebSocketContextType {
     expiry: string;
     sdMultiplier: number;
     entryValue: number;
-    orderPercent: number;
     symbols?: string[];
   }) => void;
   updateSdMultiplier: (value: number) => void;

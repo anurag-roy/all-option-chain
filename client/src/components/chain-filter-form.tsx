@@ -19,7 +19,7 @@ type FilterForm = z.infer<typeof chainFilterSchema>;
 
 export function ChainFilterForm() {
   const queryClient = useQueryClient();
-  const { chainStatus, setEntryValue, setOrderPercent, applyOptionChainData } = useWebSocketContext();
+  const { chainStatus, setEntryValue, applyOptionChainData } = useWebSocketContext();
   const { data: expiriesData } = useChainExpiries();
   const expiries = expiriesData?.expiries ?? [];
 
@@ -28,21 +28,15 @@ export function ChainFilterForm() {
     defaultValues: {
       expiry: '',
       entryValue: 99,
-      orderPercent: 0.5,
       sdMultiplier: 1,
     },
   });
 
   const watchedEntryValue = form.watch('entryValue');
-  const watchedOrderPercent = form.watch('orderPercent');
 
   useEffect(() => {
     setEntryValue(watchedEntryValue);
   }, [setEntryValue, watchedEntryValue]);
-
-  useEffect(() => {
-    setOrderPercent(watchedOrderPercent);
-  }, [setOrderPercent, watchedOrderPercent]);
 
   useEffect(() => {
     if (expiries[0] && !form.getValues('expiry')) {
@@ -61,7 +55,6 @@ export function ChainFilterForm() {
     },
     onSuccess: (result, values) => {
       setEntryValue(values.entryValue);
-      setOrderPercent(values.orderPercent);
       applyOptionChainData(result.data);
       void queryClient.invalidateQueries({ queryKey: queryKeys.chain.status });
       toast.success(
@@ -83,7 +76,7 @@ export function ChainFilterForm() {
   const selectedExpiry = form.watch('expiry') || expiries[0] || '';
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className='grid gap-8 p-4 md:grid-cols-5'>
+    <form onSubmit={form.handleSubmit(onSubmit)} className='grid gap-8 p-4 md:grid-cols-4'>
       <div className='space-y-2'>
         <Label htmlFor='expiry'>Expiry</Label>
         <Select value={selectedExpiry} onValueChange={(value) => form.setValue('expiry', value!)}>
@@ -103,16 +96,6 @@ export function ChainFilterForm() {
       <div className='space-y-2'>
         <Label htmlFor='entryValue'>Entry Value</Label>
         <Input id='entryValue' type='number' step='0.05' {...form.register('entryValue', { valueAsNumber: true })} />
-      </div>
-
-      <div className='space-y-2'>
-        <Label htmlFor='orderPercent'>Order %</Label>
-        <Input
-          id='orderPercent'
-          type='number'
-          step='0.01'
-          {...form.register('orderPercent', { valueAsNumber: true })}
-        />
       </div>
 
       <div className='space-y-2'>

@@ -1,5 +1,4 @@
 import { TZDate } from '@date-fns/tz';
-import { db } from '@server/db';
 import { holidaysTable } from '@server/db/schema';
 import { logger } from '@server/lib/logger';
 import {
@@ -31,6 +30,7 @@ const MARKET_CLOSE_MINUTES = MARKET_CLOSE_HOUR * 60 + MARKET_CLOSE_MINUTE; // 93
 let holidayCache: Set<string> | null = null;
 
 export async function loadHolidayCache(): Promise<void> {
+  const { db } = await import('@server/db');
   const holidays = await db.select({ date: holidaysTable.date }).from(holidaysTable);
 
   holidayCache = new Set(holidays.map((h) => h.date));
@@ -39,6 +39,16 @@ export async function loadHolidayCache(): Promise<void> {
 
 export function isHolidayCacheLoaded(): boolean {
   return holidayCache !== null;
+}
+
+/** Test helper: seed holiday dates without hitting the database. */
+export function setHolidayCacheForTests(holidays: Iterable<string>): void {
+  holidayCache = new Set(holidays);
+}
+
+/** Test helper: reset holiday cache between tests. */
+export function clearHolidayCacheForTests(): void {
+  holidayCache = null;
 }
 
 function isHoliday(dateStr: string): boolean {

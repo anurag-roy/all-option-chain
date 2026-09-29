@@ -50,7 +50,7 @@ The client provides a sortable option chain table, option **sell** orders (NFO M
 │   │   ├── calculators/    # Pure math: delta, sigma, returns
 │   │   ├── services/       # Core business logic (see below)
 │   │   ├── utils/          # NSE scraping, legacy db helpers
-│   │   ├── market-minutes.ts # NSE trading-minute math (9:15–15:30 IST)
+│   │   ├── market-minutes.ts # NSE F&O trading-minute math (9:15–15:40 IST)
 │   │   └── env.ts          # Zod-validated env
 │   ├── shared/
 │   │   ├── config.ts       # NSE_STOCKS_TO_INCLUDE, BSE_STOCKS_TO_INCLUDE, RISK_FREE_RATE
@@ -191,14 +191,14 @@ Canonical DB access (prefer over `lib/utils/db.ts`):
 
 Sigma and delta use **NSE trading minutes**, not calendar or working days.
 
-**Session:** 9:15 AM – 3:30 PM IST (`375` minutes per full trading day). Weekends and rows in `holidaysTable` (seeded from `.data/nse_holidays.csv`) are skipped.
+**Current session:** 9:15 AM – 3:40 PM IST (`385` minutes per full trading day), effective 3 August 2026. Historical dates before the change retain the prior 9:15 AM – 3:30 PM (`375`-minute) session. Weekends and rows in `holidaysTable` (seeded from `.data/nse_holidays.csv`) are skipped.
 
 **`calculateMarketMinutesTillExpiry(expiry)`** (intraday-aware):
 
-- Before open on a trading day: today counts full `375` minutes
-- During session: remaining minutes until 15:30
+- Before open on a current trading day: today counts full `385` minutes
+- During the current session: remaining minutes until 15:40
 - After close: `0` for today
-- Future trading days until expiry: `375` each (holiday/weekend = `0`)
+- Future trading days until expiry: `385` each (holiday/weekend = `0`)
 - Expiry day: minutes only until market close
 
 **Cache** (`marketMinutesCache`):

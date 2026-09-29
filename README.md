@@ -8,7 +8,7 @@ Real-time NSE F&O option chain dashboard for ~200 stocks, powered by [Zerodha Ki
 
 - **Live option chain** — bid, sell value, return %, delta, sigma metrics, margin status, underlying gain/loss
 - **Asymmetric sigma strike selection** — CE ceiling / PE floor with configurable SD multiplier
-- **Intraday-aware time math** — sigma and delta use NSE market minutes (9:15–15:30 IST), not calendar days
+- **Intraday-aware time math** — sigma and delta use NSE equity-derivatives market minutes (9:15–15:40 IST), not calendar days
 - **Sortable table** — sort by return value, strike position, delta; search by strike
 - **Real-time notifications** — order-trigger alerts (when return % crosses `orderPercent`) and top-bid changes; toast + sound + history sheet
 - **Option sell orders** — NFO MIS SELL LIMIT from the chain table with depth view and margin check
@@ -154,7 +154,8 @@ React SPA ◄──WebSocket────────► /api/ws
 
 Sigma bounds and Black-Scholes delta use **NSE trading minutes**, not working days:
 
-- **Session:** 9:15 AM – 3:30 PM IST (375 minutes per full trading day)
+- **Current session:** 9:15 AM – 3:40 PM IST (385 minutes per full trading day), effective 3 August 2026
+- **Historical sessions:** dates before 3 August 2026 retain the prior 9:15 AM – 3:30 PM session (375 minutes)
 - **Skipped:** weekends and NSE holidays (from `holidays` table, seeded via `.data/nse_holidays.csv`)
 - **`T`** — market minutes in the last year (cached at startup)
 - **`N`** — market minutes from now until expiry (60s cache TTL; decays during the session)

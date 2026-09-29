@@ -23,19 +23,27 @@ describe('market minutes', () => {
     clearHolidayCacheForTests();
   });
 
-  it('uses a full 375-minute NSE session', () => {
-    expect(FULL_TRADING_DAY_MINUTES).toBe(375);
+  it('uses the current full 385-minute NSE equity derivatives session', () => {
+    expect(FULL_TRADING_DAY_MINUTES).toBe(385);
   });
 
   it('counts only weekdays in a date range', () => {
-    const minutes = calculateMarketMinutesInRange('2026-06-29', '2026-07-03');
+    const minutes = calculateMarketMinutesInRange('2026-09-21', '2026-09-25');
     expect(minutes).toBe(5 * FULL_TRADING_DAY_MINUTES);
   });
 
   it('excludes configured holidays from range totals', () => {
-    setHolidayCacheForTests(['2026-07-01']);
-    const minutes = calculateMarketMinutesInRange('2026-06-29', '2026-07-03');
+    setHolidayCacheForTests(['2026-09-23']);
+    const minutes = calculateMarketMinutesInRange('2026-09-21', '2026-09-25');
     expect(minutes).toBe(4 * FULL_TRADING_DAY_MINUTES);
+  });
+
+  it('preserves the old session length before the 3 August 2026 change', () => {
+    expect(calculateMarketMinutesInRange('2026-07-31', '2026-07-31')).toBe(375);
+  });
+
+  it('uses the correct session length across the timing change', () => {
+    expect(calculateMarketMinutesInRange('2026-07-31', '2026-08-03')).toBe(375 + 385);
   });
 
   it('throws when the start date is after the end date', () => {
@@ -61,17 +69,17 @@ describe('market minutes', () => {
 
   it('returns remaining session minutes on expiry day', () => {
     vi.useFakeTimers();
-    vi.setSystemTime(istInstant('2026-07-02', 10));
+    vi.setSystemTime(istInstant('2026-09-03', 10));
 
-    expect(calculateMarketMinutesTillExpiry('2026-07-02')).toBe(330);
-    expect(calculateMarketMinutesTillExpiry('02-JUL-2026')).toBe(330);
+    expect(calculateMarketMinutesTillExpiry('2026-09-03')).toBe(340);
+    expect(calculateMarketMinutesTillExpiry('03-SEP-2026')).toBe(340);
   });
 
   it('includes future trading days until expiry', () => {
     vi.useFakeTimers();
-    vi.setSystemTime(istInstant('2026-07-02', 10));
+    vi.setSystemTime(istInstant('2026-09-03', 10));
 
-    expect(calculateMarketMinutesTillExpiry('2026-07-03')).toBe(330 + FULL_TRADING_DAY_MINUTES);
+    expect(calculateMarketMinutesTillExpiry('2026-09-04')).toBe(340 + FULL_TRADING_DAY_MINUTES);
   });
 
   it('returns 0 for expiries before today', () => {
@@ -83,15 +91,22 @@ describe('market minutes', () => {
 
   it('returns full session minutes before market open on expiry day', () => {
     vi.useFakeTimers();
-    vi.setSystemTime(istInstant('2026-07-02', 8));
+    vi.setSystemTime(istInstant('2026-09-03', 8));
 
-    expect(calculateMarketMinutesTillExpiry('2026-07-02')).toBe(FULL_TRADING_DAY_MINUTES);
+    expect(calculateMarketMinutesTillExpiry('2026-09-03')).toBe(FULL_TRADING_DAY_MINUTES);
   });
 
-  it('returns 0 after market close on expiry day', () => {
+  it('keeps the final ten minutes after the old close time', () => {
     vi.useFakeTimers();
-    vi.setSystemTime(istInstant('2026-07-02', 16));
+    vi.setSystemTime(istInstant('2026-09-03', 15, 30));
 
-    expect(calculateMarketMinutesTillExpiry('2026-07-02')).toBe(0);
+    expect(calculateMarketMinutesTillExpiry('2026-09-03')).toBe(10);
+  });
+
+  it('returns 0 at the new market close on expiry day', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(istInstant('2026-09-03', 15, 40));
+
+    expect(calculateMarketMinutesTillExpiry('2026-09-03')).toBe(0);
   });
 });

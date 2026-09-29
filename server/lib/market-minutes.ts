@@ -16,16 +16,19 @@ import {
 
 const INDIA_TIMEZONE = 'Asia/Kolkata';
 
-// NSE cash market session (IST)
+// NSE equity derivatives session (IST)
 const MARKET_OPEN_HOUR = 9;
 const MARKET_OPEN_MINUTE = 15;
 const MARKET_CLOSE_HOUR = 15;
-const MARKET_CLOSE_MINUTE = 30;
-
-export const FULL_TRADING_DAY_MINUTES = 375; // 9:15 AM - 3:30 PM
+const MARKET_CLOSE_MINUTE = 40;
+const LEGACY_MARKET_CLOSE_MINUTE = 30;
+const EXTENDED_SESSION_EFFECTIVE_DATE = '2026-08-03';
 
 const MARKET_OPEN_MINUTES = MARKET_OPEN_HOUR * 60 + MARKET_OPEN_MINUTE; // 555
-const MARKET_CLOSE_MINUTES = MARKET_CLOSE_HOUR * 60 + MARKET_CLOSE_MINUTE; // 930
+const MARKET_CLOSE_MINUTES = MARKET_CLOSE_HOUR * 60 + MARKET_CLOSE_MINUTE; // 940
+const LEGACY_MARKET_CLOSE_MINUTES = MARKET_CLOSE_HOUR * 60 + LEGACY_MARKET_CLOSE_MINUTE; // 930
+
+export const FULL_TRADING_DAY_MINUTES = MARKET_CLOSE_MINUTES - MARKET_OPEN_MINUTES; // 385
 
 let holidayCache: Set<string> | null = null;
 
@@ -93,11 +96,22 @@ function parseExpiryDate(expiryDate: string): Date {
   throw new Error(`Unable to parse expiry date: "${expiryDate}". Expected format: DD-MMM-YYYY or YYYY-MM-DD`);
 }
 
+function getMarketCloseMinutes(date: Date): number {
+  const indiaDate = new TZDate(date, INDIA_TIMEZONE);
+  const dateStr = format(indiaDate, 'yyyy-MM-dd');
+
+  return dateStr < EXTENDED_SESSION_EFFECTIVE_DATE ? LEGACY_MARKET_CLOSE_MINUTES : MARKET_CLOSE_MINUTES;
+}
+
+function getFullTradingDayMinutes(date: Date): number {
+  return getMarketCloseMinutes(date) - MARKET_OPEN_MINUTES;
+}
+
 function getMarketMinutesForDay(date: Date): number {
   if (!isTradingDay(date)) {
     return 0;
   }
-  return FULL_TRADING_DAY_MINUTES;
+  return getFullTradingDayMinutes(date);
 }
 
 function getRemainingMinutesToday(now: TZDate): number {
@@ -108,11 +122,13 @@ function getRemainingMinutesToday(now: TZDate): number {
   }
 
   if (currentTimeInMinutes < MARKET_OPEN_MINUTES) {
-    return FULL_TRADING_DAY_MINUTES;
+    return getFullTradingDayMinutes(now);
   }
 
-  if (currentTimeInMinutes < MARKET_CLOSE_MINUTES) {
-    return MARKET_CLOSE_MINUTES - currentTimeInMinutes;
+  const marketCloseMinutes = getMarketCloseMinutes(now);
+
+  if (currentTimeInMinutes < marketCloseMinutes) {
+    return marketCloseMinutes - currentTimeInMinutes;
   }
 
   return 0;
@@ -184,6 +200,6 @@ export function checkDateStatus(date: Date | string) {
     isHoliday: isHolidayDay,
     isWeekend: isWeekendDay,
     isTradingDay: !isWeekendDay && !isHolidayDay,
-    marketMinutes: isWeekendDay || isHolidayDay ? 0 : FULL_TRADING_DAY_MINUTES,
+    marketMinutes: isWeekendDay || isHolidayDay ? 0 : getFullTradingDayMinutes(indiaDate),
   };
 }

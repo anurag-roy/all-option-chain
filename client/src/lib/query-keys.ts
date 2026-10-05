@@ -11,6 +11,9 @@ export const queryKeys = {
   bans: {
     list: ['bans'] as const,
   },
+  gsecs: {
+    scan: ['gsecScan'] as const,
+  },
   orders: {
     quote: (instrumentToken: number) => ['orderQuote', instrumentToken] as const,
     margin: (tradingsymbol: string, price: number, quantity: number) =>

@@ -153,7 +153,11 @@ Queues: quotes 3/s, margins 8/s, orders 1 per 300ms.
 
 ### `server/lib/services/market-data.ts`
 
-Single `KiteTicker` connection. `applyDiff(added, removed)` for subscription changes. Options use `full` mode (bid + depth); equities use `subscribeLtp()` for underlying price updates.
+Single `KiteTicker` connection. `setSubscriptions(owner, { full, ltp })` replaces an owner's subscriptions without removing other owners. Options and pledgeable G-Secs use `full` mode; equities use `ltp`. Combined unique tokens are limited to 3,000 and overlapping subscriptions use `full` mode. All subscriptions and modes are restored on the actual `connect` event.
+
+### `server/lib/services/gsec-scanner.ts`
+
+Lazily starts the pledgeable G-Sec scanner. Reads the daily SQLite snapshot through `gsec-catalog.ts`, cached for the whole IST day, and subscribes its stored tokens through the `gsecs` owner. Only `db:seed` fetches the approved feed and maps tokens using its existing NSE instrument download. Missing or stale seed data requires `npm run data:prepare`; a minute timer detects a new IST day using the cached catalog, without external metadata requests. REST quote snapshots load initial prices and reconnect recovery; live seller ticks update both ranks and the top-five seller depth. Pushes `gsecs` snapshots only to browsers that send `{ type: 'subscribeGsecs', enabled: true }`. Failed refreshes clear G-Sec data and subscriptions; ticker disconnections preserve prices with a disconnected status. Reseeding the same day requires restarting the app to replace the catalog cache.
 
 ### `server/lib/services/margin-book.ts`
 
@@ -234,7 +238,9 @@ Converts form leg prices + value/LTP into batched `{ tradingsymbol, price, quant
 | POST | `/api/orders/margin` | Per-order margin `{ tradingsymbol, price, quantity }` |
 | POST | `/api/orders/sell` | Place NFO MIS SELL LIMIT order (option sell from modal) |
 | POST | `/api/orders/amo` | Batch CNC BUY orders `{ orders: AmoOrderItem[] }` → `{ placed, failed, results }` |
-| WS | `/api/ws` | Live option chain + status + notifications |
+| GET | `/api/gsecs` | Seeded pledgeable G-Sec snapshot; `refresh=true` refreshes quote snapshots only |
+| GET | `/api/gsecs/depth` | Cached top-five seller depth for an approved G-Sec |
+| WS | `/api/ws` | Live option chain + G-Secs + status + notifications |
 
 ### Chain filter payload (`server/shared/schemas/chain-filter.ts`)
 
@@ -252,6 +258,7 @@ Converts form leg prices + value/LTP into batched `{ tradingsymbol, price, quant
 
 **Client → server:**
 
+- `{ type: "subscribeGsecs", enabled: boolean }` — enable or disable live G-Sec snapshots
 - `{ type: "subscribe", symbols: string[] }`
 - `{ type: "unsubscribe", symbols: string[] }`
 - `{ type: "updateFilter", filter: ChainFilter }` — re-runs full pipeline
@@ -259,6 +266,7 @@ Converts form leg prices + value/LTP into batched `{ tradingsymbol, price, quant
 
 **Server → client:**
 
+- `{ type: "gsecs", data: GsecScan }` — ranked rows and seller depth for interested clients
 - `{ type: "optionChain", data: Record<number, OptionChainRow> }`
 - `{ type: "status", status, message?, rowCount?, visibleRowCount? }`
 - `{ type: "sdMultiplierUpdated", success, value?, error? }`
@@ -284,11 +292,13 @@ Converts form leg prices + value/LTP into batched `{ tradingsymbol, price, quant
 - `instruments` — Kite instruments + NSE volatility (`av`, `dv`). Keyed by `instrumentToken`. Use `name` + `expiry` for options lookup.
 - `holidays` — NSE holidays for market-minute calculations
 - `stock_bans` — NSE daily bans (`type='nse'`, `ban_date` = IST today) + custom bans (`type='custom'`, persist until removed)
+- `gsecs` — pledgeable G-Secs, including coupon, maturity year, ISIN and NSE instrument token
+- `gsec_seed_state` — singleton seed date and approved-list fetch time, including a successful empty G-Sec list
 
-**Seed:** `server/scripts/seed.ts` — downloads Kite instruments (NSE/BSE/NFO), Nifty 500 + `NSE_STOCKS_TO_INCLUDE`, NSE volatility CSV, holidays.
+**Seed:** `server/scripts/seed.ts` — downloads Kite instruments (NSE/BSE/NFO), Zerodha's approved G-Secs, Nifty 500 + `NSE_STOCKS_TO_INCLUDE`, NSE volatility CSV, holidays. G-Sec rows and metadata are replaced in the same transaction as equity/option instruments; source or token validation failures abort before writing.
 
 ```bash
-npm run db:push && npm run db:seed
+npm run data:prepare
 ```
 
 ## Auth & scripts
@@ -297,7 +307,7 @@ npm run db:push && npm run db:seed
 |--------|---------|---------|
 | Login | `npm run login` | Interactive Kite login → `.data/accessToken.txt` |
 | Auto-login | `npm run auto-login` | TOTP-based login |
-| Seed | `npm run db:seed` | Populate instruments + holidays |
+| Seed | `npm run db:seed` | Populate instruments + daily approved G-Secs + holidays |
 | Migrate | `npm run db:migrate` | Run Drizzle migrations |
 | Generate | `npm run db:generate` | Generate Drizzle migration |
 | Studio | `npm run db:studio` | Open Drizzle Studio |
@@ -309,12 +319,13 @@ npm run db:push && npm run db:seed
 
 ## Client
 
-TanStack Router SPA with three pages:
+TanStack Router SPA with four pages:
 
 | Route | Component | Purpose |
 |-------|-----------|---------|
 | `/` | `routes/index.tsx` | Chain filter form + options table |
 | `/amo` | `routes/amo.tsx` | AMO laddered equity buy order form |
+| `/gsecs` | `routes/gsecs.tsx` | Pledgeable G-Sec rankings and live seller depth |
 | `/settings` | `routes/settings.tsx` | NSE + custom ban management |
 
 Root layout (`routes/__root.tsx`): `Header`, `StatusBanner`, `NotificationProvider`, `WebSocketProvider`, Sonner `Toaster`.

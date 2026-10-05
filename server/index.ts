@@ -3,6 +3,7 @@ import app, { injectWebSocket } from '@server/app';
 import { env } from '@server/lib/env';
 import { logger } from '@server/lib/logger';
 import { accessToken } from '@server/lib/services/access-token';
+import { gsecScanner } from '@server/lib/services/gsec-scanner';
 import { optionChainCoordinator } from '@server/lib/services/option-chain-coordinator';
 
 async function bootstrap() {
@@ -28,6 +29,7 @@ async function bootstrap() {
 
   const shutdown = async () => {
     logger.info('Shutting down...');
+    gsecScanner.shutdown();
     await optionChainCoordinator.shutdown();
     process.exit(0);
   };

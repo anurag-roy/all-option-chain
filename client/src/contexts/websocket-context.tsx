@@ -1,9 +1,13 @@
-import { useWebSocket } from '@client/hooks/use-websocket';
 import { useTopDeltaSound } from '@client/hooks/use-top-delta-sound';
+import { useWebSocket } from '@client/hooks/use-websocket';
+import type { GsecScan } from '@shared/types/gsecs';
 import type { ChainEngineStatus, OptionChainData } from '@shared/types/types';
 import { createContext, useContext, type ReactNode } from 'react';
 
 interface WebSocketContextType {
+  gsecData: GsecScan | null;
+  applyGsecData: (data: GsecScan) => void;
+  setGsecSubscription: (enabled: boolean) => void;
   optionChainData: OptionChainData;
   chainStatus: ChainEngineStatus['status'];
   statusMessage?: string;
@@ -17,12 +21,7 @@ interface WebSocketContextType {
   disconnect: () => void;
   subscribe: (symbols: string[]) => void;
   unsubscribe: (symbols: string[]) => void;
-  updateFilter: (filter: {
-    expiry: string;
-    sdMultiplier: number;
-    entryValue: number;
-    symbols?: string[];
-  }) => void;
+  updateFilter: (filter: { expiry: string; sdMultiplier: number; entryValue: number; symbols?: string[] }) => void;
   updateSdMultiplier: (value: number) => void;
 }
 

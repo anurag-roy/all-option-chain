@@ -2,10 +2,12 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import { createNodeWebSocket } from '@hono/node-ws';
 import { logger } from '@server/lib/logger';
 import { clientBroadcaster } from '@server/lib/services/client-broadcaster';
+import { gsecScanner } from '@server/lib/services/gsec-scanner';
 import { optionChainCoordinator } from '@server/lib/services/option-chain-coordinator';
 import { httpLogger } from '@server/middlewares/http-logger';
 import { bansRoute } from '@server/routes/bans';
 import { chainRoute } from '@server/routes/chain';
+import { gsecsRoute } from '@server/routes/gsecs';
 import { ordersRoute } from '@server/routes/orders';
 import { userRoute } from '@server/routes/user';
 import { Hono } from 'hono';
@@ -34,12 +36,15 @@ optionChainCoordinator.onUpdate((data, status) => {
   clientBroadcaster.publishOptionChain(data, status);
 });
 
+gsecScanner.onUpdate((data) => clientBroadcaster.publishGsecs(data));
+
 const apiRoutes = app
   .basePath('/api')
   .route('/user', userRoute)
   .route('/chain', chainRoute)
   .route('/orders', ordersRoute)
   .route('/bans', bansRoute)
+  .route('/gsecs', gsecsRoute)
   .get(
     '/ws',
     upgradeWebSocket(() => {

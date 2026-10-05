@@ -30,7 +30,14 @@ export const chainRoute = new Hono()
     }
 
     const filter = c.req.valid('json');
-    await optionChainCoordinator.applyFilter(filter);
+    try {
+      await optionChainCoordinator.applyFilter(filter);
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('Kite ticker limit exceeded:')) {
+        throw new HTTPException(400, { message: error.message });
+      }
+      throw error;
+    }
     return c.json({
       status: optionChainCoordinator.getStatus(),
       data: optionChainCoordinator.getSnapshot(),

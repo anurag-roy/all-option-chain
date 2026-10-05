@@ -1,6 +1,8 @@
 import { logger } from '@server/lib/logger';
+import { gsecScanner } from '@server/lib/services/gsec-scanner';
 import type { WsClientMessage, WsServerMessage } from '@server/shared/schemas/websocket';
 import { wsClientMessageSchema } from '@server/shared/schemas/websocket';
+import type { GsecScan } from '@shared/types/gsecs';
 import type { ChainEngineStatus, OptionChainData } from '@shared/types/types';
 import type { WSContext } from 'hono/ws';
 import { randomUUID } from 'node:crypto';
@@ -8,6 +10,7 @@ import { randomUUID } from 'node:crypto';
 interface ClientSubscription {
   ws: WSContext;
   symbols: Set<string>;
+  gsecs: boolean;
 }
 
 export class ClientBroadcaster {
@@ -52,9 +55,15 @@ export class ClientBroadcaster {
     }
   }
 
+  publishGsecs(data: GsecScan) {
+    for (const [clientId, subscription] of this.clients) {
+      if (subscription.gsecs) this.sendToClient(clientId, subscription, { type: 'gsecs', data });
+    }
+  }
+
   handleOpen(ws: WSContext) {
     const clientId = randomUUID();
-    this.clients.set(clientId, { ws, symbols: new Set() });
+    this.clients.set(clientId, { ws, symbols: new Set(), gsecs: false });
     logger.info(`Client ${clientId} connected. Total clients: ${this.clients.size}`);
     return clientId;
   }
@@ -79,6 +88,22 @@ export class ClientBroadcaster {
     }
 
     const message = result.data;
+
+    if (message.type === 'subscribeGsecs') {
+      subscription.gsecs = message.enabled;
+      const data = gsecScanner.getCachedSnapshot();
+      if (message.enabled && data) this.sendToClient(clientId, subscription, { type: 'gsecs', data });
+      else if (message.enabled) {
+        // A browser reconnecting after a server restart may have a cached HTTP query.
+        // Start the scanner here as well; its updates go through publishGsecs().
+        try {
+          await gsecScanner.refresh(true);
+        } catch (error) {
+          logger.error('Failed to start the G-Sec stream:', error);
+        }
+      }
+      return;
+    }
 
     if (message.type === 'subscribe') {
       for (const symbol of message.symbols) {

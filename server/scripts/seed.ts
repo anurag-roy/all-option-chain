@@ -4,6 +4,7 @@ import { holidaysTable, instrumentsTable } from '@server/db/schema';
 import { logger } from '@server/lib/logger';
 import { kiteService } from '@server/lib/services/kite';
 import { getNifty500Stocks, getVolatilityData } from '@server/lib/utils/nse';
+import { fetchGsecSeed, replaceGsecSeed } from '@server/scripts/lib/seed-gsecs';
 import { BSE_STOCKS_TO_INCLUDE, NSE_STOCKS_TO_INCLUDE } from '@server/shared/config';
 import { format, parse } from 'date-fns';
 import { chunk } from 'es-toolkit';
@@ -20,6 +21,7 @@ async function seedInstruments() {
   // Fetch all instrument data
   const bseInstruments = await kiteService.getInstruments(['BSE']);
   const nseInstruments = await kiteService.getInstruments(['NSE']);
+  const gsecSeed = await fetchGsecSeed(nseInstruments);
   const nfoInstruments = await kiteService.getInstruments(['NFO']);
 
   const nifty500 = await getNifty500Stocks();
@@ -78,9 +80,11 @@ async function seedInstruments() {
       logger.info(`Inserting chunk ${i + 1}/${chunks.length} (${chunk.length} instruments)`);
       await tx.insert(instrumentsTable).values(chunk);
     }
+    await replaceGsecSeed(tx, gsecSeed);
   });
 
   logger.info(`Seeded ${dataToInsert.length} instruments`);
+  logger.info(`Seeded ${gsecSeed.securities.length} pledgeable G-Secs for ${gsecSeed.day}`);
 }
 
 async function seedHolidays() {

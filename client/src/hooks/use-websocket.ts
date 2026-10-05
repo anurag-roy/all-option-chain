@@ -1,4 +1,5 @@
 import type { WsServerMessage } from '@server/shared/schemas/websocket';
+import type { GsecScan } from '@shared/types/gsecs';
 import type { ChainEngineStatus, OptionChainData } from '@shared/types/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -15,6 +16,9 @@ export function useWebSocket({ subscribedSymbols }: UseWebSocketOptions = {}) {
   const [visibleRowCount, setVisibleRowCount] = useState(0);
   const [entryValue, setEntryValue] = useState(99);
   const [isConnected, setIsConnected] = useState(false);
+  const [gsecData, setGsecData] = useState<GsecScan | null>(null);
+  const gsecRevisionRef = useRef(0);
+  const gsecsSubscribedRef = useRef(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
   const reconnectAttemptsRef = useRef(0);
@@ -30,6 +34,7 @@ export function useWebSocket({ subscribedSymbols }: UseWebSocketOptions = {}) {
       ws.addEventListener('open', () => {
         setIsConnected(true);
         reconnectAttemptsRef.current = 0;
+        if (gsecsSubscribedRef.current) ws.send(JSON.stringify({ type: 'subscribeGsecs', enabled: true }));
 
         if (subscribedSymbolsRef.current.length > 0) {
           ws.send(JSON.stringify({ type: 'subscribe', symbols: subscribedSymbolsRef.current }));
@@ -47,6 +52,13 @@ export function useWebSocket({ subscribedSymbols }: UseWebSocketOptions = {}) {
       ws.addEventListener('message', (event) => {
         try {
           const message = JSON.parse(event.data) as WsServerMessage;
+
+          if (message.type === 'gsecs') {
+            if (message.data.revision >= gsecRevisionRef.current) {
+              gsecRevisionRef.current = message.data.revision;
+              setGsecData(message.data);
+            }
+          }
 
           if (message.type === 'optionChain') {
             setOptionChainData(message.data as OptionChainData);
@@ -69,6 +81,11 @@ export function useWebSocket({ subscribedSymbols }: UseWebSocketOptions = {}) {
 
       ws.addEventListener('close', () => {
         setIsConnected(false);
+        // Keep the last seller prices, but allow a restarted server's revision counter.
+        gsecRevisionRef.current = 0;
+        setGsecData((previous) =>
+          previous?.streamStatus === 'live' ? { ...previous, streamStatus: 'disconnected' } : previous
+        );
         wsRef.current = null;
 
         const maxAttempts = 5;
@@ -147,12 +164,7 @@ export function useWebSocket({ subscribedSymbols }: UseWebSocketOptions = {}) {
   }, []);
 
   const updateFilter = useCallback(
-    (filter: {
-      expiry: string;
-      sdMultiplier: number;
-      entryValue: number;
-      symbols?: string[];
-    }) => {
+    (filter: { expiry: string; sdMultiplier: number; entryValue: number; symbols?: string[] }) => {
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: 'updateFilter', filter }));
       } else {
@@ -174,8 +186,25 @@ export function useWebSocket({ subscribedSymbols }: UseWebSocketOptions = {}) {
     setOptionChainData(data);
   }, []);
 
+  const applyGsecData = useCallback((data: GsecScan) => {
+    if (data.revision >= gsecRevisionRef.current) {
+      gsecRevisionRef.current = data.revision;
+      setGsecData(data);
+    }
+  }, []);
+
+  const setGsecSubscription = useCallback((enabled: boolean) => {
+    gsecsSubscribedRef.current = enabled;
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'subscribeGsecs', enabled }));
+    }
+  }, []);
+
   return {
     optionChainData,
+    gsecData,
+    applyGsecData,
+    setGsecSubscription,
     chainStatus,
     statusMessage,
     rowCount,

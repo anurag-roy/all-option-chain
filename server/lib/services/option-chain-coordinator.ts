@@ -1,9 +1,5 @@
 import { calculateDelta } from '@server/lib/calculators/delta';
-import {
-  calculateReturnValue,
-  calculateSellValue,
-  calculateStrikePosition,
-} from '@server/lib/calculators/returns';
+import { calculateReturnValue, calculateSellValue, calculateStrikePosition } from '@server/lib/calculators/returns';
 import { calculateSd, calculateSigmaN, calculateSigmaX, calculateSigmaXi } from '@server/lib/calculators/sigma';
 import { logger } from '@server/lib/logger';
 import { accessToken } from '@server/lib/services/access-token';
@@ -16,12 +12,12 @@ import {
 import { getFullQuotes } from '@server/lib/services/kite';
 import { marginBook } from '@server/lib/services/margin-book';
 import { marketDataService } from '@server/lib/services/market-data';
+import { marketMinutesCache } from '@server/lib/services/market-minutes-cache';
 import {
   instrumentQuoteKey,
   planInstrumentsForSymbol,
   type PlannedInstrument,
 } from '@server/lib/services/subscription-planner';
-import { marketMinutesCache } from '@server/lib/services/market-minutes-cache';
 import { NSE_STOCKS_TO_INCLUDE } from '@server/shared/config';
 import type { ChainFilter } from '@server/shared/schemas/chain-filter';
 import type { ChainEngineStatus, OptionChainData, OptionChainRow } from '@shared/types/types';
@@ -111,7 +107,7 @@ export class OptionChainCoordinator {
             entryValue: this.filter.entryValue,
           }
         : null,
-      subscribedTokenCount: marketDataService.getSubscribedTokens().size,
+      subscribedTokenCount: marketDataService.getSubscribedTokens('option-chain').size,
       rowCount: this.rows.size,
       visibleRowCount: this.getVisibleRowCount(),
       hasAccessToken: Boolean(accessToken),
@@ -208,16 +204,12 @@ export class OptionChainCoordinator {
 
     const optionTokens = new Set(withOi.map((instrument) => instrument.instrumentToken));
     const equityTokens = new Set([...this.equityByToken.keys()]);
-    const newTokens = new Set([...optionTokens, ...equityTokens]);
-    const oldTokens = marketDataService.getSubscribedTokens();
-    const added = [...newTokens].filter((token) => !oldTokens.has(token));
-    const removed = [...oldTokens].filter((token) => !newTokens.has(token));
-
     this.setStatus('subscribing', `Subscribing to ${optionTokens.size} options and ${equityTokens.size} equities`);
-    marketDataService.applyDiff(added, removed);
-
-    if (equityTokens.size > 0) {
-      marketDataService.subscribeLtp([...equityTokens]);
+    try {
+      marketDataService.setSubscriptions('option-chain', { full: [...optionTokens], ltp: [...equityTokens] });
+    } catch (error) {
+      if (error instanceof Error) this.setStatus('error', error.message);
+      throw error;
     }
 
     this.rows.clear();
@@ -325,11 +317,7 @@ export class OptionChainCoordinator {
       }
 
       const marginEntry = marginBook.getMargin(row.tradingsymbol);
-      if (
-        marginEntry?.status === 'ready' &&
-        marginEntry.price === row.bid &&
-        marginEntry.quantity === row.lotSize
-      ) {
+      if (marginEntry?.status === 'ready' && marginEntry.price === row.bid && marginEntry.quantity === row.lotSize) {
         row.orderMargin = marginEntry.margin;
         row.marginStatus = 'ready';
         row.returnValue = calculateReturnValue(row.sellValue, marginEntry.margin);
@@ -339,7 +327,6 @@ export class OptionChainCoordinator {
         row.marginStatus = 'loading';
       }
     }
-
   }
 
   private async refreshMargins() {

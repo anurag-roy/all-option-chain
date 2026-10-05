@@ -30,8 +30,8 @@ export function Header() {
 
   return (
     <div className='border-border bg-background sticky top-0 z-10 border-b py-4'>
-      <header className='container mx-auto flex items-center justify-between px-4'>
-        <div className='flex items-center gap-6'>
+      <header className='container mx-auto flex flex-wrap items-center justify-between gap-3 px-4'>
+        <div className='flex items-center gap-3'>
           <Link to='/' className='flex items-center gap-3 transition-opacity hover:opacity-80'>
             <div className='bg-primary/10 text-primary flex size-8 items-center justify-center rounded-lg'>
               <TrendingUpIcon className='size-5' />

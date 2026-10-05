@@ -1,3 +1,4 @@
+import type { GsecScan } from '@shared/types/gsecs';
 import { z } from 'zod';
 
 export const wsSubscribeSchema = z.object({
@@ -26,6 +27,7 @@ export const wsUpdateSdMultiplierSchema = z.object({
 });
 
 export const wsClientMessageSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('subscribeGsecs'), enabled: z.boolean() }),
   wsSubscribeSchema,
   wsUnsubscribeSchema,
   wsUpdateFilterSchema,
@@ -61,6 +63,7 @@ export const wsNotificationMessageSchema = z.object({
 });
 
 export const wsServerMessageSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('gsecs'), data: z.custom<GsecScan>() }),
   wsOptionChainMessageSchema,
   wsStatusMessageSchema,
   wsSdMultiplierUpdatedSchema,

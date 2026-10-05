@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as GsecsRouteImport } from './routes/gsecs'
 import { Route as AmoRouteImport } from './routes/amo'
 import { Route as IndexRouteImport } from './routes/index'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GsecsRoute = GsecsRouteImport.update({
+  id: '/gsecs',
+  path: '/gsecs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AmoRoute = AmoRouteImport.update({
@@ -32,30 +38,34 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/amo': typeof AmoRoute
+  '/gsecs': typeof GsecsRoute
   '/settings': typeof SettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/amo': typeof AmoRoute
+  '/gsecs': typeof GsecsRoute
   '/settings': typeof SettingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/amo': typeof AmoRoute
+  '/gsecs': typeof GsecsRoute
   '/settings': typeof SettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/amo' | '/settings'
+  fullPaths: '/' | '/amo' | '/gsecs' | '/settings'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/amo' | '/settings'
-  id: '__root__' | '/' | '/amo' | '/settings'
+  to: '/' | '/amo' | '/gsecs' | '/settings'
+  id: '__root__' | '/' | '/amo' | '/gsecs' | '/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AmoRoute: typeof AmoRoute
+  GsecsRoute: typeof GsecsRoute
   SettingsRoute: typeof SettingsRoute
 }
 
@@ -66,6 +76,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gsecs': {
+      id: '/gsecs'
+      path: '/gsecs'
+      fullPath: '/gsecs'
+      preLoaderRoute: typeof GsecsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/amo': {
@@ -88,6 +105,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AmoRoute: AmoRoute,
+  GsecsRoute: GsecsRoute,
   SettingsRoute: SettingsRoute,
 }
 export const routeTree = rootRouteImport

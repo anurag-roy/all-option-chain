@@ -4,18 +4,20 @@ import { APPROVED_SECURITIES_PAGE, GsecSeedError } from '@server/lib/services/ap
 import { getSeededGsecs } from '@server/lib/services/gsec-catalog';
 import { getFullQuotes } from '@server/lib/services/kite';
 import { marketDataService } from '@server/lib/services/market-data';
-import type { GsecDepth, GsecScan, GsecSecurity, GsecSellerLevel } from '@shared/types/gsecs';
+import type { GsecBond, GsecDepth, GsecScan, GsecSellerLevel } from '@shared/types/gsecs';
 
 type SellerQuote = { depth: { sell: GsecSellerLevel[] } };
 
 export class GsecScanner {
-  private securities = new Map<number, GsecSecurity>();
+  private securities = new Map<number, GsecBond>();
   private quotes: Record<string, SellerQuote> = {};
   private quoteTimes = new Map<string, string>();
   private tickVersions = new Map<string, number>();
   private snapshot: GsecScan | null = null;
   private approvedListFetchedAt = '';
   private quotesFetchedAt = '';
+  private tradeDate = '';
+  private settlementDate = '';
   private revision = 0;
   private pending: Promise<GsecScan> | null = null;
   private pendingFullRefresh = false;
@@ -92,7 +94,7 @@ export class GsecScanner {
   private async refreshData(fullRefresh: boolean): Promise<GsecScan> {
     const approved = await getSeededGsecs();
     this.assertRunning();
-    const next = new Map<number, GsecSecurity>();
+    const next = new Map<number, GsecBond>();
     for (const { instrumentToken, ...security } of approved.securities) {
       next.set(instrumentToken, security);
     }
@@ -113,6 +115,8 @@ export class GsecScanner {
     }
     this.securities = next;
     this.approvedListFetchedAt = approved.fetchedAt;
+    this.tradeDate = approved.tradeDate;
+    this.settlementDate = approved.settlementDate;
     // Apply the daily seeded list before requesting quote snapshots.
     this.publish();
 
@@ -144,7 +148,7 @@ export class GsecScanner {
     this.publishTimer = null;
     const streamStatus = status ?? (marketDataService.isConnected() ? 'live' : 'disconnected');
     this.snapshot = {
-      rows: rankGsecs([...this.securities.values()], this.quotes).map((row) => ({
+      rows: rankGsecs([...this.securities.values()], this.quotes, this.settlementDate).map((row) => ({
         ...row,
         quoteUpdatedAt: this.quoteTimes.get(`NSE:${row.tradingsymbol}`) ?? null,
       })),
@@ -152,6 +156,8 @@ export class GsecScanner {
       approvedListFetchedAt: this.approvedListFetchedAt || new Date().toISOString(),
       quotesFetchedAt: this.quotesFetchedAt || new Date().toISOString(),
       revision: ++this.revision,
+      tradeDate: this.tradeDate,
+      settlementDate: this.settlementDate,
       streamStatus,
       message:
         message ??

@@ -13,7 +13,7 @@ Real-time NSE F&O option chain dashboard for ~200 stocks, powered by [Zerodha Ki
 - **Real-time notifications** — order-trigger alerts (when return % crosses `orderPercent`) and top-bid changes; toast + sound + history sheet
 - **Option sell orders** — NFO MIS SELL LIMIT from the chain table with depth view and margin check
 - **AMO buy orders** — laddered CNC equity buys on `/amo` (regular or AMO per row)
-- **Pledgeable G-Secs** — Zerodha-approved government bonds, seller-only RRR and Near FV rankings, top-five seller depth on `/gsecs`
+- **Pledgeable G-Secs** — Zerodha-approved government bonds, seller-based YTM and Near FV rankings, top-five seller depth on `/gsecs`
 - **Ban management** — auto-fetched NSE F&O ban list + persistent custom bans; banned symbols excluded from chain load
 - **Dark mode** — light / dark / system theme toggle
 - **Batch margin lookups** — Kite `orderMargins` with rate limiting
@@ -186,15 +186,15 @@ Sigma bounds and Black-Scholes delta use **NSE trading minutes**, not working da
 
 ### G-Sec scanner
 
-`npm run db:seed` fetches the [Zerodha Approved Securities list](https://zerodha.com/approved-securities/) through its [public feed](https://public.zrd.sh/crux/approved-securities.json). Only the Government Securities category is stored. Unapproved securities and securities with a breached broker pledge limit are excluded. Tokens are mapped using the NSE instrument list already downloaded by the seed. The approved G-Secs, coupons, maturity years, ISINs, instrument tokens and seed date are saved in SQLite atomically with the equity/option instruments.
+`npm run db:seed` fetches the [Zerodha Approved Securities list](https://zerodha.com/approved-securities/) through its [public feed](https://public.zrd.sh/crux/approved-securities.json). Only the Government Securities category is stored. Unapproved securities and securities with a breached broker pledge limit are excluded. Tokens are mapped using the NSE instrument list already downloaded by the seed. Exact maturities come from [NSE's debt master](https://nsearchives.nseindia.com/content/equities/DEBT.csv), supplemented by the source-cited legacy reference in `server/scripts/data/legacy-gsecs.ts`, matched by ISIN. NSE's separate trading and clearing calendars determine T+1 settlement. The approved bonds, terms, tokens and settlement dates are saved in SQLite atomically with the equity/option instruments. Missing or conflicting terms and unavailable calendars abort before writes.
 
 Run `npm run data:prepare` each morning, then start the app. It applies migrations and seeds the daily list. Runtime reads the seeded list from SQLite and caches it for the whole IST day, including across ticker reconnects; it does not fetch the approved feed or NSE instrument list. An unseeded or older-day snapshot shows an instruction to run `npm run data:prepare`. Reseeding during the same day requires an app restart to replace the in-memory catalog.
 
 - **Coupon** is the coupon number in the trading symbol. Shortened coupons are normalized: `68GS2060-GS` uses `680`, `75GS2034-GS` uses `750`; `1018GS` uses `1018`. Approved `GR` issues and letter suffixes are supported as well.
 - **Sell Rate** is the lowest positive seller price with positive available quantity. Buyer prices and last traded prices are never used.
-- **RRR** = coupon number / Sell Rate, truncated to four decimal places with `%` (for example, `750 / 100.50` displays `7.4626%`). Best RRR Rank uses the unrounded result, highest first.
+- **RRR (YTM)** is quoted annual yield to maturity: the solver discounts semiannual coupons and ₹100 redemption to match the best seller's price, using T+1 settlement and 30E/360 fractional coupon periods. NSE quotes already include accrued interest; it is not added again. Coupon `750` means ₹7.50 annually per ₹100 face value, or ₹3.75 each half year. Best RRR Rank uses the full-precision yield, highest first; display retains four decimal places. [Calculation and sources](docs/gsec-ytm.md).
 - **Distance from FV** = ABS(Sell Rate - 100). Near FV Rank puts the closest price first, whether above or below 100. Equal values share a rank (1, 1, 3).
-- Missing quotes and empty seller books remain visible with no RRR or ranks.
+- Missing quotes and empty seller books remain visible with no RRR or ranks. Bonds matured by settlement, or without a solvable yield, have no RRR rank; their valid seller price can still receive a Near FV rank.
 - G-Secs share the existing server-side Kite ticker in `full` mode. Seller prices, rankings and top-five seller depth update from the same ticks, with client snapshots batched every 250 ms. There is no periodic price or depth polling.
 - REST quotes load initial prices and recover prices after a ticker reconnect through the existing rate-limited queue. The seeded catalog is reused for the day; a minute timer detects a new IST day and checks its DB seed without contacting the approved feed or downloading instruments.
 - The ticker combines option-chain and G-Sec subscriptions by owner, counts unique tokens against the 3,000-instrument limit and restores modes after reconnecting. Leaving `/gsecs` stops G-Sec messages to that browser; the server keeps the scanner warm until shutdown. Disconnections retain the last prices with a disconnected status; failed data refreshes clear the ranking.

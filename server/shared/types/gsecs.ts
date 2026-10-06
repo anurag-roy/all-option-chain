@@ -5,10 +5,14 @@ export type GsecSecurity = {
   maturityYear: number;
 };
 
+export type GsecBond = GsecSecurity & { maturityDate: string };
+
 export type GsecCatalogSnapshot = {
-  securities: (GsecSecurity & { instrumentToken: number })[];
+  securities: (GsecBond & { instrumentToken: number })[];
   fetchedAt: string;
   day: string;
+  tradeDate: string;
+  settlementDate: string;
 };
 
 export type GsecSellerLevel = {
@@ -17,7 +21,7 @@ export type GsecSellerLevel = {
   orders: number;
 };
 
-export type GsecRow = GsecSecurity & {
+export type GsecRow = GsecBond & {
   sellRate: number | null;
   rrr: number | null;
   bestRrrRank: number | null;
@@ -34,6 +38,8 @@ export type GsecScan = {
   approvedListFetchedAt: string;
   quotesFetchedAt: string;
   revision: number;
+  tradeDate: string;
+  settlementDate: string;
   streamStatus: 'live' | 'disconnected' | 'error';
   message?: string;
 };

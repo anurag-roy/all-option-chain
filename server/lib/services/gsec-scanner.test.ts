@@ -1,5 +1,6 @@
+import { calculateGsecYtm } from '@server/lib/calculators/gsec-ytm';
 import { GsecSeedError } from '@server/lib/services/approved-gsecs';
-import type { GsecSecurity } from '@shared/types/gsecs';
+import type { GsecBond } from '@shared/types/gsecs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GsecScanner } from './gsec-scanner';
 
@@ -35,14 +36,26 @@ vi.mock('@server/lib/services/market-data', () => ({
   },
 }));
 
-const security: GsecSecurity = { tradingsymbol: '750GS2056-GS', coupon: 750, maturityYear: 2056, isin: 'IN0020260017' };
-const second: GsecSecurity = { tradingsymbol: '68GS2060-GS', coupon: 680, maturityYear: 2060, isin: 'IN0020200252' };
+const security: GsecBond = {
+  tradingsymbol: '750GS2056-GS',
+  coupon: 750,
+  maturityYear: 2056,
+  isin: 'IN0020260017',
+  maturityDate: '2056-02-28',
+};
+const second: GsecBond = {
+  tradingsymbol: '68GS2060-GS',
+  coupon: 680,
+  maturityYear: 2060,
+  isin: 'IN0020200252',
+  maturityDate: '2060-12-15',
+};
 const seller = (price: number) => ({ price, quantity: 5, orders: 1 });
 let scanner: GsecScanner;
 function tick(token: number, prices: number[]) {
   mocks.tick?.({ mode: 'full', instrument_token: token, depth: { sell: prices.map(seller), buy: [seller(999)] } });
 }
-function approved(securities: GsecSecurity[]) {
+function approved(securities: GsecBond[], settlementDate = '2026-10-06') {
   mocks.approved.mockResolvedValue({
     securities: securities.map((security) => ({
       ...security,
@@ -50,6 +63,8 @@ function approved(securities: GsecSecurity[]) {
     })),
     fetchedAt: new Date().toISOString(),
     day: '2026-10-05',
+    tradeDate: '2026-10-05',
+    settlementDate,
   });
 }
 function deferred<T>() {
@@ -113,7 +128,16 @@ describe('live G-Sec scanner', () => {
       nearFvRank: 1,
     });
     const row = snapshot.rows.find((row) => row.tradingsymbol === security.tradingsymbol)!;
-    expect(row).toMatchObject({ sellRate: 115, rrr: 750 / 115, distanceFromFv: 15, bestRrrRank: 2, nearFvRank: 2 });
+    expect(row).toMatchObject({ sellRate: 115, distanceFromFv: 15, bestRrrRank: 2, nearFvRank: 2 });
+    expect(row.rrr).toBeCloseTo(
+      calculateGsecYtm({
+        dirtyPrice: 115,
+        coupon: security.coupon,
+        maturityDate: security.maturityDate,
+        settlementDate: '2026-10-06',
+      })!,
+      10
+    );
     expect(row.sellerDepth.map((level) => level.price)).toEqual([115, 116, 117, 118, 119]);
     expect(row.quoteUpdatedAt).toBe('2026-10-05T05:00:00.000Z');
     expect(mocks.quotes).toHaveBeenCalledTimes(1);
@@ -204,6 +228,16 @@ describe('live G-Sec scanner', () => {
       bestRrrRank: null,
       nearFvRank: null,
     });
+  });
+
+  it('recalculates yield when a new daily settlement date arrives without polling prices', async () => {
+    const before = await scanner.refresh();
+    approved([security], '2026-10-07');
+    const after = await scanner.refresh();
+    expect(after.settlementDate).toBe('2026-10-07');
+    expect(after.rows[0]?.rrr).not.toBe(before.rows[0]?.rrr);
+    expect(after.rows[0]?.sellRate).toBe(before.rows[0]?.sellRate);
+    expect(mocks.quotes).toHaveBeenCalledTimes(1);
   });
 
   it('stops timers and pending refreshes without reviving subscriptions after shutdown', async () => {

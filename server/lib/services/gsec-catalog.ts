@@ -1,5 +1,6 @@
 import { db } from '@server/db';
 import { gsecSeedStateTable, gsecsTable } from '@server/db/schema';
+import { parseBondDate } from '@server/lib/calculators/gsec-ytm';
 import { GsecSeedError } from '@server/lib/services/approved-gsecs';
 import type { GsecCatalogSnapshot } from '@shared/types/gsecs';
 import { eq } from 'drizzle-orm';
@@ -38,7 +39,24 @@ export class GsecCatalog {
           );
         }
         const securities = await tx.select().from(gsecsTable);
-        return { securities, day: state.seededDate, fetchedAt: state.fetchedAt };
+        if (
+          !parseBondDate(state.tradeDate) ||
+          !parseBondDate(state.settlementDate) ||
+          state.tradeDate < day ||
+          state.settlementDate <= state.tradeDate ||
+          securities.some((security) => !parseBondDate(security.maturityDate))
+        ) {
+          throw new GsecSeedError(
+            'G-Sec bond terms or settlement dates are missing. Run npm run data:prepare, then restart the app.'
+          );
+        }
+        return {
+          securities,
+          day: state.seededDate,
+          fetchedAt: state.fetchedAt,
+          tradeDate: state.tradeDate,
+          settlementDate: state.settlementDate,
+        };
       });
       this.cached = snapshot;
       return snapshot;

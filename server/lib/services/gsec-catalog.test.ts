@@ -17,10 +17,19 @@ vi.mock('@server/db', () => ({ db: null }));
 
 const snapshot: GsecCatalogSnapshot = {
   securities: [
-    { instrumentToken: 1, tradingsymbol: '75GS2034-GS', isin: 'IN0020230036', coupon: 750, maturityYear: 2034 },
+    {
+      instrumentToken: 1,
+      tradingsymbol: '75GS2034-GS',
+      isin: 'IN0020040039',
+      coupon: 750,
+      maturityYear: 2034,
+      maturityDate: '2034-08-10',
+    },
   ],
   day: '2026-10-05',
   fetchedAt: '2026-10-05T05:00:00.000Z',
+  tradeDate: '2026-10-05',
+  settlementDate: '2026-10-06',
 };
 let directory: string;
 let client: Client;
@@ -81,7 +90,13 @@ describe('seeded G-Sec catalog', () => {
     await catalog.getSnapshot();
     vi.setSystemTime(new Date('2026-10-05T18:31:00Z'));
     await expect(catalog.getSnapshot()).rejects.toThrow('seeded for 2026-10-05');
-    const next = { ...snapshot, day: '2026-10-06', fetchedAt: '2026-10-05T18:31:00.000Z' };
+    const next = {
+      ...snapshot,
+      day: '2026-10-06',
+      tradeDate: '2026-10-06',
+      settlementDate: '2026-10-07',
+      fetchedAt: '2026-10-05T18:31:00.000Z',
+    };
     await seed(next);
     expect(await catalog.getSnapshot()).toEqual(next);
     expect(fetch).not.toHaveBeenCalled();
@@ -115,5 +130,12 @@ describe('seeded G-Sec catalog', () => {
     await client.execute('DROP TABLE gsec_seed_state');
     await expect(catalog.getSnapshot()).rejects.toThrow('npm run data:prepare');
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('requires reseeding for pre-YTM rows or invalid settlement dates', async () => {
+    await seed({ ...snapshot, settlementDate: '' });
+    await expect(catalog.getSnapshot()).rejects.toThrow('bond terms or settlement dates are missing');
+    await seed({ ...snapshot, securities: [{ ...snapshot.securities[0]!, maturityDate: '' }] });
+    await expect(catalog.getSnapshot()).rejects.toThrow('npm run data:prepare');
   });
 });

@@ -13,6 +13,8 @@ const snapshot: GsecScan = {
   rows: [],
   sourceUrl: 'https://zerodha.com/approved-securities/',
   approvedListFetchedAt: '2026-10-05T05:00:00Z',
+  tradeDate: '2026-10-05',
+  settlementDate: '2026-10-06',
   quotesFetchedAt: '2026-10-05T05:00:00Z',
   revision: 1,
   streamStatus: 'live',

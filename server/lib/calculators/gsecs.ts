@@ -1,4 +1,5 @@
-import type { GsecRow, GsecSecurity, GsecSellerLevel } from '@shared/types/gsecs';
+import { calculateGsecYtm } from '@server/lib/calculators/gsec-ytm';
+import type { GsecBond, GsecRow, GsecSecurity, GsecSellerLevel } from '@shared/types/gsecs';
 
 export function parseGsecSymbol(
   symbol: string
@@ -29,7 +30,11 @@ export function getGsecSellerDepth(levels: GsecSellerLevel[] = []): GsecSellerLe
 
 type GsecQuote = { depth?: { sell: GsecSellerLevel[] } };
 
-export function rankGsecs(securities: GsecSecurity[], quotes: Record<string, GsecQuote>): GsecRow[] {
+export function rankGsecs(
+  securities: GsecBond[],
+  quotes: Record<string, GsecQuote>,
+  settlementDate: string
+): GsecRow[] {
   const rows: GsecRow[] = securities.map((security) => {
     const quote = quotes[`NSE:${security.tradingsymbol}`];
     const sellerDepth = getGsecSellerDepth(quote?.depth?.sell);
@@ -37,7 +42,15 @@ export function rankGsecs(securities: GsecSecurity[], quotes: Record<string, Gse
     return {
       ...security,
       sellRate,
-      rrr: sellRate === null ? null : security.coupon / sellRate,
+      rrr:
+        sellRate === null
+          ? null
+          : calculateGsecYtm({
+              dirtyPrice: sellRate,
+              coupon: security.coupon,
+              settlementDate,
+              maturityDate: security.maturityDate,
+            }),
       // Remove binary floating-point noise so equal distances receive equal ranks.
       distanceFromFv: sellRate === null ? null : Number(Math.abs(sellRate - 100).toFixed(8)),
       bestRrrRank: null,
@@ -48,14 +61,13 @@ export function rankGsecs(securities: GsecSecurity[], quotes: Record<string, Gse
     };
   });
 
-  const quotedRows = rows.filter((row) => row.sellRate !== null);
   for (const [valueKey, rankKey, direction] of [
     ['rrr', 'bestRrrRank', -1],
     ['distanceFromFv', 'nearFvRank', 1],
   ] as const) {
-    const sorted = [...quotedRows].sort(
-      (a, b) => direction * (a[valueKey]! - b[valueKey]!) || a.tradingsymbol.localeCompare(b.tradingsymbol)
-    );
+    const sorted = rows
+      .filter((row) => row[valueKey] !== null)
+      .sort((a, b) => direction * (a[valueKey]! - b[valueKey]!) || a.tradingsymbol.localeCompare(b.tradingsymbol));
     sorted.forEach((row, index) => {
       const previous = sorted[index - 1];
       row[rankKey] = previous && previous[valueKey] === row[valueKey] ? previous[rankKey] : index + 1;

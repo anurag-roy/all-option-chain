@@ -15,6 +15,13 @@
       "when": 1791193199655,
       "tag": "0001_pledgeable-gsecs",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791269285467,
+      "tag": "0002_gsec-ytm-terms",
+      "breakpoints": true
     }
   ]
 }

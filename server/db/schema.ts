@@ -54,6 +54,8 @@ export const gsecsTable = sqliteTable('gsecs', {
   isin: text().notNull(),
   coupon: integer().notNull(),
   maturityYear: integer().notNull(),
+  // Empty defaults mark pre-YTM seeds; the catalog requires a fresh daily seed.
+  maturityDate: text().notNull().default(''),
 });
 
 // A successful empty approved list must be distinguishable from an unseeded DB.
@@ -61,4 +63,6 @@ export const gsecSeedStateTable = sqliteTable('gsec_seed_state', {
   id: integer().primaryKey().notNull(),
   seededDate: text().notNull(),
   fetchedAt: text().notNull(),
+  tradeDate: text().notNull().default(''),
+  settlementDate: text().notNull().default(''),
 });

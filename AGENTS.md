@@ -157,7 +157,7 @@ Single `KiteTicker` connection. `setSubscriptions(owner, { full, ltp })` replace
 
 ### `server/lib/services/gsec-scanner.ts`
 
-Lazily starts the pledgeable G-Sec scanner. Reads the daily SQLite snapshot through `gsec-catalog.ts`, cached for the whole IST day, and subscribes its stored tokens through the `gsecs` owner. Only `db:seed` fetches the approved feed and maps tokens using its existing NSE instrument download. Missing or stale seed data requires `npm run data:prepare`; a minute timer detects a new IST day using the cached catalog, without external metadata requests. REST quote snapshots load initial prices and reconnect recovery; live seller ticks update both ranks and the top-five seller depth. Pushes `gsecs` snapshots only to browsers that send `{ type: 'subscribeGsecs', enabled: true }`. Failed refreshes clear G-Sec data and subscriptions; ticker disconnections preserve prices with a disconnected status. Reseeding the same day requires restarting the app to replace the catalog cache.
+Lazily starts the pledgeable G-Sec scanner. Reads the daily SQLite snapshot through `gsec-catalog.ts`, cached for the whole IST day, and subscribes its stored tokens through the `gsecs` owner. Only `db:seed` fetches metadata: the approved feed, NSE debt master, and separate CM trading/clearing holiday calendars. Tokens reuse the existing NSE instrument download; legacy terms omitted from NSE use the source-cited `server/scripts/data/legacy-gsecs.ts` reference by ISIN. Missing/conflicting terms or unavailable calendar coverage abort the seed. Missing or stale seed data requires `npm run data:prepare`; a minute timer detects a new IST day using the cached catalog, without external metadata requests. REST quote snapshots load initial prices and reconnect recovery; live seller ticks update both ranks and the top-five seller depth. RRR is quoted annual YTM computed server-side by `gsec-ytm.ts`, using stored T+1 settlement, semiannual coupons, ₹100 redemption and 30E/360. NSE seller prices are dirty prices: never add accrued interest again. Near FV still compares the seller price directly with ₹100. Pushes `gsecs` snapshots only to browsers that send `{ type: 'subscribeGsecs', enabled: true }`. Failed refreshes clear G-Sec data and subscriptions; ticker disconnections preserve prices with a disconnected status. Reseeding the same day requires restarting the app to replace the catalog cache. See `docs/gsec-ytm.md` for conventions and sources.
 
 ### `server/lib/services/margin-book.ts`
 
@@ -292,8 +292,8 @@ Converts form leg prices + value/LTP into batched `{ tradingsymbol, price, quant
 - `instruments` — Kite instruments + NSE volatility (`av`, `dv`). Keyed by `instrumentToken`. Use `name` + `expiry` for options lookup.
 - `holidays` — NSE holidays for market-minute calculations
 - `stock_bans` — NSE daily bans (`type='nse'`, `ban_date` = IST today) + custom bans (`type='custom'`, persist until removed)
-- `gsecs` — pledgeable G-Secs, including coupon, maturity year, ISIN and NSE instrument token
-- `gsec_seed_state` — singleton seed date and approved-list fetch time, including a successful empty G-Sec list
+- `gsecs` — pledgeable G-Secs, including coupon, exact maturity date/year, ISIN and NSE instrument token
+- `gsec_seed_state` — singleton seed date, approved-list fetch time, trade date and T+1 settlement date, including a successful empty G-Sec list
 
 **Seed:** `server/scripts/seed.ts` — downloads Kite instruments (NSE/BSE/NFO), Zerodha's approved G-Secs, Nifty 500 + `NSE_STOCKS_TO_INCLUDE`, NSE volatility CSV, holidays. G-Sec rows and metadata are replaced in the same transaction as equity/option instruments; source or token validation failures abort before writing.
 

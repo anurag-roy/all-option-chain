@@ -1,11 +1,13 @@
 import { getGsecSellerDepth, parseGsecSymbol, rankGsecs } from '@server/lib/calculators/gsecs';
 import { formatGsecRrr } from '@shared/lib/format-gsec-rrr';
-import type { GsecSecurity } from '@shared/types/gsecs';
+import type { GsecBond } from '@shared/types/gsecs';
 import { describe, expect, it } from 'vitest';
 
-function security(symbol: string): GsecSecurity {
-  return { ...parseGsecSymbol(symbol)!, isin: symbol };
+function security(symbol: string): GsecBond {
+  const parsed = parseGsecSymbol(symbol)!;
+  return { ...parsed, isin: symbol, maturityDate: `${parsed.maturityYear}-01-15` };
 }
+const settlementDate = '2026-01-15';
 
 describe('G-Sec coupon parsing', () => {
   it.each([
@@ -26,9 +28,9 @@ describe('G-Sec coupon parsing', () => {
 });
 
 describe('G-Sec rankings', () => {
-  it('reproduces all requested RRR examples using only seller prices', () => {
-    const securities = ['750GS2056', '680GS2060', '1018GS2026', '720GS2034', '825GS2035'].map(security);
-    const prices = [100.5, 100.5, 100.5, 99.8, 101.25];
+  it('ranks quoted YTM using only the lowest seller’s dirty price, ignoring buyers and LTP', () => {
+    const securities = ['750GS2028', '680GS2028', '1018GS2028', '720GS2028', '825GS2028'].map(security);
+    const prices = [100, 100, 100, 100, 100];
     const quotes = Object.fromEntries(
       securities.map((row, index) => [
         `NSE:${row.tradingsymbol}`,
@@ -41,26 +43,29 @@ describe('G-Sec rankings', () => {
         },
       ])
     );
-    const rows = rankGsecs(securities, quotes);
+    const rows = rankGsecs(securities, quotes, settlementDate);
     expect(rows.map((row) => row.coupon)).toEqual([1018, 825, 750, 720, 680]);
     expect(rows.map((row) => formatGsecRrr(row.rrr!))).toEqual([
-      '10.1293%',
-      '8.1481%',
-      '7.4626%',
-      '7.2144%',
-      '6.7661%',
+      '10.1800%',
+      '8.2500%',
+      '7.5000%',
+      '7.2000%',
+      '6.8000%',
     ]);
     expect(rows.map((row) => row.bestRrrRank)).toEqual([1, 2, 3, 4, 5]);
-    expect(rows.find((row) => row.coupon === 720)?.nearFvRank).toBe(1);
-    expect(rows.find((row) => row.coupon === 825)?.nearFvRank).toBe(5);
+    expect(rows.every((row) => row.nearFvRank === 1)).toBe(true);
   });
 
   it('leaves missing, zero and empty seller quotes unranked without a bid or LTP fallback', () => {
     const securities = ['750GS2056', '680GS2060', '720GS2034'].map(security);
-    const rows = rankGsecs(securities, {
-      'NSE:750GS2056-GS': { depth: { sell: [{ price: 100, quantity: 0, orders: 0 }] } },
-      'NSE:680GS2060-GS': { depth: { sell: [{ price: 0, quantity: 10, orders: 1 }] } },
-    });
+    const rows = rankGsecs(
+      securities,
+      {
+        'NSE:750GS2056-GS': { depth: { sell: [{ price: 100, quantity: 0, orders: 0 }] } },
+        'NSE:680GS2060-GS': { depth: { sell: [{ price: 0, quantity: 10, orders: 1 }] } },
+      },
+      settlementDate
+    );
     expect(
       rows.every(
         (row) => row.rrr === null && row.sellRate === null && row.bestRrrRank === null && row.nearFvRank === null
@@ -78,7 +83,7 @@ describe('G-Sec rankings', () => {
         { depth: { sell: [{ price: [100.05, 99.9, 100.1, 98][index]!, quantity: 10, orders: 1 }] } },
       ])
     );
-    const rows = rankGsecs(securities, quotes);
+    const rows = rankGsecs(securities, quotes, settlementDate);
     expect(rows.find((row) => row.coupon === 750)?.nearFvRank).toBe(1);
     expect(rows.find((row) => row.coupon === 680)?.nearFvRank).toBe(2);
     expect(rows.find((row) => row.coupon === 720)?.nearFvRank).toBe(2);
@@ -86,14 +91,31 @@ describe('G-Sec rankings', () => {
   });
 
   it('ranks unrounded RRR values even when display values are identical', () => {
-    const securities = ['750GS2056', '750GS2034'].map(security);
-    const rows = rankGsecs(securities, {
-      'NSE:750GS2056-GS': { depth: { sell: [{ price: 100.50001, quantity: 1, orders: 1 }] } },
-      'NSE:750GS2034-GS': { depth: { sell: [{ price: 100.50002, quantity: 1, orders: 1 }] } },
-    });
+    const securities = ['750GS2056', '750GS2056A'].map(security);
+    const rows = rankGsecs(
+      securities,
+      {
+        'NSE:750GS2056-GS': { depth: { sell: [{ price: 100.50001, quantity: 1, orders: 1 }] } },
+        'NSE:750GS2056A-GS': { depth: { sell: [{ price: 100.50002, quantity: 1, orders: 1 }] } },
+      },
+      settlementDate
+    );
     expect(rows[0]?.rrr?.toFixed(4)).toBe(rows[1]?.rrr?.toFixed(4));
     expect(rows.map((row) => row.bestRrrRank)).toEqual([1, 2]);
     expect(rows[0]?.tradingsymbol).toBe('750GS2056-GS');
+  });
+
+  it('leaves expired bonds without a YTM rank while retaining their Near FV rank', () => {
+    const rows = rankGsecs(
+      ['750GS2025', '750GS2028'].map(security),
+      {
+        'NSE:750GS2025-GS': { depth: { sell: [{ price: 100, quantity: 1, orders: 1 }] } },
+        'NSE:750GS2028-GS': { depth: { sell: [{ price: 101, quantity: 1, orders: 1 }] } },
+      },
+      settlementDate
+    );
+    expect(rows[0]?.tradingsymbol).toBe('750GS2028-GS');
+    expect(rows[1]).toMatchObject({ rrr: null, bestRrrRank: null, nearFvRank: 1 });
   });
 
   it('returns only the five cheapest valid seller levels', () => {

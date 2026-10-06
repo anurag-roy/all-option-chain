@@ -8,6 +8,12 @@ import { ArrowDownIcon, ExternalLinkIcon } from 'lucide-react';
 import { useState } from 'react';
 
 type Ranking = 'bestRrrRank' | 'nearFvRank';
+const bondDateFormat = new Intl.DateTimeFormat('en-IN', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
 
 export function GsecScanner() {
   const { data, error, isPending, isLive } = useGsecs();
@@ -15,7 +21,9 @@ export function GsecScanner() {
   const [ranking, setRanking] = useState<Ranking>('bestRrrRank');
   const rows = [...(data?.rows ?? [])]
     .filter((row) =>
-      `${row.tradingsymbol} ${row.coupon} ${row.maturityYear}`.toLowerCase().includes(search.trim().toLowerCase())
+      `${row.tradingsymbol} ${row.coupon} ${row.maturityYear} ${row.maturityDate}`
+        .toLowerCase()
+        .includes(search.trim().toLowerCase())
     )
     .sort(
       (a, b) => (a[ranking] ?? Infinity) - (b[ranking] ?? Infinity) || a.tradingsymbol.localeCompare(b.tradingsymbol)
@@ -37,7 +45,7 @@ export function GsecScanner() {
 
       <div className='flex flex-wrap items-center justify-between gap-3'>
         <Input
-          aria-label='Search G-Secs by symbol, coupon or maturity year'
+          aria-label='Search G-Secs by symbol, coupon or maturity date'
           placeholder='Search G-Sec or maturity year…'
           value={search}
           onChange={(event) => setSearch(event.target.value)}
@@ -76,9 +84,16 @@ export function GsecScanner() {
               <TableRow>
                 <TableHead className='pl-4'>G-Sec</TableHead>
                 <TableHead className='text-center'>Coupon</TableHead>
-                <TableHead className='text-center'>Maturity Year</TableHead>
-                <TableHead className='text-center'>Sell Rate</TableHead>
-                <TableHead className='text-center'>RRR</TableHead>
+                <TableHead className='text-center'>Maturity</TableHead>
+                <TableHead className='text-center' title='Best NSE seller price, including accrued interest'>
+                  Sell Rate
+                </TableHead>
+                <TableHead
+                  className='text-center'
+                  title={`Quoted annual YTM. T+1 settlement: ${data?.settlementDate ?? '—'}`}
+                >
+                  RRR (YTM)
+                </TableHead>
                 <TableHead className='text-center' aria-sort={ranking === 'bestRrrRank' ? 'ascending' : 'none'}>
                   <button
                     type='button'
@@ -121,7 +136,11 @@ export function GsecScanner() {
                   <TableRow key={row.tradingsymbol}>
                     <TableCell className='pl-4 font-medium'>{row.tradingsymbol}</TableCell>
                     <TableCell className='text-center'>{row.coupon}</TableCell>
-                    <TableCell className='text-center'>{row.maturityYear}</TableCell>
+                    <TableCell className='text-center whitespace-nowrap'>
+                      {row.maturityDate
+                        ? bondDateFormat.format(new Date(`${row.maturityDate}T00:00:00Z`))
+                        : row.maturityYear}
+                    </TableCell>
                     <TableCell className='text-center'>
                       {row.sellRate === null ? (
                         <span className='text-muted-foreground text-xs'>

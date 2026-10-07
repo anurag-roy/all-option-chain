@@ -19,6 +19,8 @@ const snapshot: GsecCatalogSnapshot = {
   securities: [
     {
       instrumentToken: 1,
+      exchange: 'NSE',
+      tickSize: 0.01,
       tradingsymbol: '75GS2034-GS',
       isin: 'IN0020040039',
       coupon: 750,
@@ -62,6 +64,16 @@ afterEach(() => {
 });
 
 describe('seeded G-Sec catalog', () => {
+  it('stores both venues for one ISIN and allows identical symbols across exchanges only', async () => {
+    const nse = snapshot.securities[0]!;
+    const bse = { ...nse, instrumentToken: 2, exchange: 'BSE' as const, tickSize: 0.05 };
+    const both = { ...snapshot, securities: [nse, bse] };
+    await seed(both);
+    expect(await catalog.getSnapshot()).toEqual(both);
+    await expect(database.insert(gsecsTable).values({ ...nse, instrumentToken: 3 })).rejects.toThrow();
+    expect(await database.select().from(gsecsTable)).toHaveLength(2);
+    expect(fetch).not.toHaveBeenCalled();
+  });
   it('loads and coalesces DB reads once per day without fetching external metadata', async () => {
     await seed();
     const reads = vi.spyOn(database, 'transaction');

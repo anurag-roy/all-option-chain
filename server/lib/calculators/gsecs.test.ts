@@ -1,11 +1,11 @@
 import { getGsecSellerDepth, parseGsecSymbol, rankGsecs } from '@server/lib/calculators/gsecs';
 import { formatGsecRrr } from '@shared/lib/format-gsec-rrr';
-import type { GsecBond } from '@shared/types/gsecs';
+import type { GsecListing } from '@shared/types/gsecs';
 import { describe, expect, it } from 'vitest';
 
-function security(symbol: string): GsecBond {
+function security(symbol: string): GsecListing {
   const parsed = parseGsecSymbol(symbol)!;
-  return { ...parsed, isin: symbol, maturityDate: `${parsed.maturityYear}-01-15` };
+  return { ...parsed, exchange: 'NSE', tickSize: 0.01, isin: symbol, maturityDate: `${parsed.maturityYear}-01-15` };
 }
 const settlementDate = '2026-01-15';
 
@@ -28,6 +28,28 @@ describe('G-Sec coupon parsing', () => {
 });
 
 describe('G-Sec rankings', () => {
+  it('ranks the same bond separately per exchange, including identical symbols, and shares exact yield ties', () => {
+    const nse = security('750GS2028');
+    const bse = { ...nse, exchange: 'BSE' as const, tickSize: 0.05 };
+    const quotes = {
+      'NSE:750GS2028-GS': { depth: { sell: [{ price: 100, quantity: 1, orders: 1 }] } },
+      'BSE:750GS2028-GS': { depth: { sell: [{ price: 99, quantity: 3, orders: 2 }] } },
+    };
+    const rows = rankGsecs([nse, bse], quotes, settlementDate);
+    expect(rows.map(({ exchange, sellRate, bestRrrRank }) => ({ exchange, sellRate, bestRrrRank }))).toEqual([
+      { exchange: 'BSE', sellRate: 99, bestRrrRank: 1 },
+      { exchange: 'NSE', sellRate: 100, bestRrrRank: 2 },
+    ]);
+    expect(rows[0]?.sellerDepth).toEqual([{ price: 99, quantity: 3, orders: 2 }]);
+    const tied = rankGsecs([nse, bse], { ...quotes, 'BSE:750GS2028-GS': quotes['NSE:750GS2028-GS'] }, settlementDate);
+    expect(tied.map((row) => row.bestRrrRank)).toEqual([1, 1]);
+    const missing = rankGsecs([nse, bse], { 'NSE:750GS2028-GS': quotes['NSE:750GS2028-GS'] }, settlementDate);
+    expect(missing.find((row) => row.exchange === 'BSE')).toMatchObject({
+      sellRate: null,
+      quoteStatus: 'unavailable',
+      bestRrrRank: null,
+    });
+  });
   it('ranks quoted YTM using only the lowest seller’s dirty price, ignoring buyers and LTP', () => {
     const securities = ['750GS2028', '680GS2028', '1018GS2028', '720GS2028', '825GS2028'].map(security);
     const prices = [100, 100, 100, 100, 100];

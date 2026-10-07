@@ -117,6 +117,20 @@ describe('target-YTM dirty buy-price ceilings', () => {
     expect(calculateGsecMaxBuyPrice({ ...base, targetYtm: 0 })).toBe(116);
   });
 
+  it('floors BSE ceilings to their listing tick while preserving the target yield', () => {
+    const terms = { coupon: 733, maturityDate: '2026-10-30', settlementDate: '2026-10-08' };
+    const price = calculateGsecMaxBuyPrice({ ...terms, targetYtm: 8, tickSize: 0.05 })!;
+    expect(price).toBe(103.15);
+    expect(calculateGsecYtm({ ...terms, dirtyPrice: price })).toBeGreaterThan(8);
+    expect(calculateGsecYtm({ ...terms, dirtyPrice: price + 0.05 })).toBeLessThan(8);
+    expect(calculateGsecMaxBuyPrice({ ...terms, targetYtm: 8, tickSize: 0.01 })).toBe(103.16);
+    expect(calculateGsecMaxBuyPrice({ ...base, targetYtm: 0, tickSize: 0.05 })).toBe(116);
+  });
+
+  it.each([0, -0.01, NaN, Infinity, 0.0025])('rejects an invalid dirty-price trading tick %s', (tickSize) => {
+    expect(calculateGsecMaxBuyPrice({ ...base, targetYtm: 8, tickSize })).toBeNull();
+  });
+
   it('changes the ceiling with the target and the settlement date', () => {
     const bond = { coupon: 733, maturityDate: '2026-10-30', settlementDate: '2026-10-08' };
     const price = calculateGsecMaxBuyPrice({ ...bond, targetYtm: 8 })!;

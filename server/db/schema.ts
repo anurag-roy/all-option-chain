@@ -1,4 +1,4 @@
-import { index, integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import type { Exchange } from 'kiteconnect-ts';
 
 export const instrumentsTable = sqliteTable(
@@ -48,15 +48,21 @@ export const stockBansTable = sqliteTable(
   (table) => [index('stock_bans_type_idx').on(table.type), index('stock_bans_ban_date_idx').on(table.banDate)]
 );
 
-export const gsecsTable = sqliteTable('gsecs', {
-  instrumentToken: integer().primaryKey().notNull(),
-  tradingsymbol: text().notNull().unique(),
-  isin: text().notNull(),
-  coupon: integer().notNull(),
-  maturityYear: integer().notNull(),
-  // Empty defaults mark pre-YTM seeds; the catalog requires a fresh daily seed.
-  maturityDate: text().notNull().default(''),
-});
+export const gsecsTable = sqliteTable(
+  'gsecs',
+  {
+    instrumentToken: integer().primaryKey().notNull(),
+    exchange: text().$type<'NSE' | 'BSE'>().notNull().default('NSE'),
+    tradingsymbol: text().notNull(),
+    isin: text().notNull(),
+    coupon: integer().notNull(),
+    maturityYear: integer().notNull(),
+    // Empty defaults mark pre-YTM seeds; the catalog requires a fresh daily seed.
+    maturityDate: text().notNull().default(''),
+    tickSize: real().notNull().default(0.01),
+  },
+  (table) => [uniqueIndex('gsecs_exchange_symbol_unique').on(table.exchange, table.tradingsymbol)]
+);
 
 // A successful empty approved list must be distinguishable from an unseeded DB.
 export const gsecSeedStateTable = sqliteTable('gsec_seed_state', {

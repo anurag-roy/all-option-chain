@@ -44,7 +44,13 @@ export class GsecCatalog {
           !parseBondDate(state.settlementDate) ||
           state.tradeDate < day ||
           state.settlementDate <= state.tradeDate ||
-          securities.some((security) => !parseBondDate(security.maturityDate))
+          securities.some(
+            (security) =>
+              !parseBondDate(security.maturityDate) ||
+              !['NSE', 'BSE'].includes(security.exchange) ||
+              !Number.isSafeInteger(security.tickSize * 100) ||
+              security.tickSize <= 0
+          )
         ) {
           throw new GsecSeedError(
             'G-Sec bond terms or settlement dates are missing. Run npm run data:prepare, then restart the app.'

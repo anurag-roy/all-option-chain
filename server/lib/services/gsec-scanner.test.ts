@@ -1,6 +1,6 @@
 import { calculateGsecYtm } from '@server/lib/calculators/gsec-ytm';
 import { GsecSeedError } from '@server/lib/services/approved-gsecs';
-import type { GsecBond } from '@shared/types/gsecs';
+import type { GsecListing } from '@shared/types/gsecs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GsecScanner } from './gsec-scanner';
 
@@ -36,14 +36,18 @@ vi.mock('@server/lib/services/market-data', () => ({
   },
 }));
 
-const security: GsecBond = {
+const security: GsecListing = {
+  exchange: 'NSE',
+  tickSize: 0.01,
   tradingsymbol: '750GS2056-GS',
   coupon: 750,
   maturityYear: 2056,
   isin: 'IN0020260017',
   maturityDate: '2056-02-28',
 };
-const second: GsecBond = {
+const second: GsecListing = {
+  exchange: 'NSE',
+  tickSize: 0.01,
   tradingsymbol: '68GS2060-GS',
   coupon: 680,
   maturityYear: 2060,
@@ -55,11 +59,11 @@ let scanner: GsecScanner;
 function tick(token: number, prices: number[]) {
   mocks.tick?.({ mode: 'full', instrument_token: token, depth: { sell: prices.map(seller), buy: [seller(999)] } });
 }
-function approved(securities: GsecBond[], settlementDate = '2026-10-06') {
+function approved(securities: GsecListing[], settlementDate = '2026-10-06') {
   mocks.approved.mockResolvedValue({
     securities: securities.map((security) => ({
       ...security,
-      instrumentToken: security.tradingsymbol === '750GS2056-GS' ? 1 : 2,
+      instrumentToken: security.exchange === 'BSE' ? 3 : security.tradingsymbol === '750GS2056-GS' ? 1 : 2,
     })),
     fetchedAt: new Date().toISOString(),
     day: '2026-10-05',
@@ -96,6 +100,47 @@ afterEach(() => {
 });
 
 describe('live G-Sec scanner', () => {
+  it('keeps BSE quotes and depth independent from NSE through ticks, reconnects and venue removal', async () => {
+    const bse = { ...security, exchange: 'BSE' as const, tickSize: 0.05 };
+    approved([security, bse]);
+    mocks.quotes.mockResolvedValue({
+      'NSE:750GS2056-GS': { depth: { sell: [seller(100.5)] } },
+      'BSE:750GS2056-GS': { depth: { sell: [seller(99.5)] } },
+    });
+    await scanner.refresh();
+    expect(mocks.subscriptions).toHaveBeenLastCalledWith('gsecs', { full: [1, 3] });
+    expect(mocks.quotes).toHaveBeenCalledExactlyOnceWith(['NSE:750GS2056-GS', 'BSE:750GS2056-GS']);
+    tick(3, [98.5, 98.6]);
+    await vi.advanceTimersByTimeAsync(250);
+    expect(await scanner.getDepth(security.tradingsymbol, 'BSE')).toMatchObject({
+      exchange: 'BSE',
+      sell: [seller(98.5), seller(98.6)],
+    });
+    expect(await scanner.getDepth(security.tradingsymbol)).toMatchObject({ exchange: 'NSE', sell: [seller(100.5)] });
+    expect(scanner.getCachedSnapshot()?.rows.map((row) => [row.exchange, row.bestRrrRank])).toEqual([
+      ['BSE', 1],
+      ['NSE', 2],
+    ]);
+    const pending = deferred<Record<string, any>>();
+    mocks.quotes.mockReturnValueOnce(pending.promise);
+    mocks.connection?.(true);
+    await vi.waitFor(() => expect(mocks.quotes).toHaveBeenCalledTimes(2));
+    tick(3, [97]);
+    pending.resolve({
+      'NSE:750GS2056-GS': { depth: { sell: [seller(101)] } },
+      'BSE:750GS2056-GS': { depth: { sell: [seller(99)] } },
+    });
+    await scanner.refresh(true);
+    expect((await scanner.getDepth(security.tradingsymbol, 'BSE'))?.sell).toEqual([seller(97)]);
+    expect((await scanner.getDepth(security.tradingsymbol))?.sell).toEqual([seller(101)]);
+    approved([security]);
+    await scanner.refresh();
+    expect(mocks.subscriptions).toHaveBeenLastCalledWith('gsecs', { full: [1] });
+    tick(3, [1]);
+    await vi.advanceTimersByTimeAsync(250);
+    expect(await scanner.getDepth(security.tradingsymbol, 'BSE')).toBeNull();
+    expect(scanner.getCachedSnapshot()?.rows).toEqual([expect.objectContaining({ exchange: 'NSE', sellRate: 101 })]);
+  });
   it('shares initial requests, subscribes only approved instruments and never polls prices or depth', async () => {
     const [first, duplicate] = await Promise.all([scanner.refresh(), scanner.refresh()]);
     expect(first).toBe(duplicate);

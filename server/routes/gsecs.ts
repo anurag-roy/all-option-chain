@@ -64,11 +64,23 @@ export const gsecsRoute = new Hono()
   )
   .get(
     '/depth',
-    routeValidator('query', z.object({ tradingsymbol: z.string().regex(/^\d{2,4}(?:GS|GR)\d{4}[A-Z]?-GS$/) })),
+    routeValidator(
+      'query',
+      z
+        .object({
+          exchange: z.enum(['NSE', 'BSE']).default('NSE'),
+          tradingsymbol: z.string().regex(/^[A-Z0-9][A-Z0-9-]{0,49}$/),
+        })
+        .refine(
+          ({ exchange, tradingsymbol }) => exchange === 'BSE' || /^\d{2,4}(?:GS|GR)\d{4}[A-Z]?-GS$/.test(tradingsymbol),
+          { message: 'Invalid NSE G-Sec symbol', path: ['tradingsymbol'] }
+        )
+    ),
     async (c) => {
       requireAccessToken();
       try {
-        const depth = await getGsecDepth(c.req.valid('query').tradingsymbol);
+        const { tradingsymbol, exchange } = c.req.valid('query');
+        const depth = await getGsecDepth(tradingsymbol, exchange);
         if (!depth) throw new HTTPException(404, { message: 'This G-Sec is not currently approved for pledging.' });
         return c.json(depth);
       } catch (error) {

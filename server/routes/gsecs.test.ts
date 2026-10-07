@@ -26,8 +26,33 @@ beforeEach(() => {
     settlementDate: '2026-10-08',
     fetchedAt: '2026-10-07T09:40:14.226Z',
     securities: [
-      { tradingsymbol: '733GS2026-GS', coupon: 733, maturityDate: '2026-10-30', maturityYear: 2026, isin: 'test' },
-      { tradingsymbol: '800GS2025-GS', coupon: 800, maturityDate: '2025-01-15', maturityYear: 2025, isin: 'expired' },
+      {
+        exchange: 'NSE',
+        tickSize: 0.01,
+        tradingsymbol: '733GS2026-GS',
+        coupon: 733,
+        maturityDate: '2026-10-30',
+        maturityYear: 2026,
+        isin: 'test',
+      },
+      {
+        exchange: 'BSE',
+        tickSize: 0.05,
+        tradingsymbol: '733GS2026-GS',
+        coupon: 733,
+        maturityDate: '2026-10-30',
+        maturityYear: 2026,
+        isin: 'test',
+      },
+      {
+        exchange: 'NSE',
+        tickSize: 0.01,
+        tradingsymbol: '800GS2025-GS',
+        coupon: 800,
+        maturityDate: '2025-01-15',
+        maturityYear: 2025,
+        isin: 'expired',
+      },
     ],
   });
 });
@@ -40,7 +65,7 @@ describe('G-Sec target-price API', () => {
       targetYtm: 8,
       settlementDate: '2026-10-08',
       approvedListFetchedAt: '2026-10-07T09:40:14.226Z',
-      prices: { '733GS2026-GS': 103.16, '800GS2025-GS': null },
+      prices: { 'NSE:733GS2026-GS': 103.16, 'BSE:733GS2026-GS': 103.15, 'NSE:800GS2025-GS': null },
     });
     expect(mocks.scan).not.toHaveBeenCalled();
     expect(mocks.depth).not.toHaveBeenCalled();
@@ -51,9 +76,9 @@ describe('G-Sec target-price API', () => {
     const high = await (await gsecsRoute.request('/target-prices?targetYtm=8.5')).json();
     expect(low.targetYtm).toBe(7.5);
     expect(high.targetYtm).toBe(8.5);
-    expect(low.prices['733GS2026-GS']).toBeGreaterThan(high.prices['733GS2026-GS']);
+    expect(low.prices['NSE:733GS2026-GS']).toBeGreaterThan(high.prices['NSE:733GS2026-GS']);
     const original = await (await gsecsRoute.request('/target-prices?targetYtm=8')).json();
-    expect(original.prices['733GS2026-GS']).toBe(103.16);
+    expect(original.prices['NSE:733GS2026-GS']).toBe(103.16);
   });
 
   it.each(['', '?targetYtm=', '?targetYtm=abc', '?targetYtm=-1', '?targetYtm=100.01', '?targetYtm=Infinity'])(
@@ -122,6 +147,18 @@ describe('G-Sec API boundary', () => {
     const response = await gsecsRoute.request('/depth?tradingsymbol=750GS2056-GS');
     expect(response.status).toBe(404);
     expect(await response.json()).toEqual({ message: 'This G-Sec is not currently approved for pledging.' });
+    expect(mocks.depth).toHaveBeenLastCalledWith('750GS2056-GS', 'NSE');
+  });
+
+  it('accepts BSE names only through the approved exchange-specific depth lookup', async () => {
+    mocks.depth.mockResolvedValueOnce({ exchange: 'BSE', tradingsymbol: '709GOI54', sell: [], fetchedAt: 'now' });
+    const response = await gsecsRoute.request('/depth?exchange=BSE&tradingsymbol=709GOI54');
+    expect(response.status).toBe(200);
+    expect(mocks.depth).toHaveBeenLastCalledWith('709GOI54', 'BSE');
+    expect(await response.json()).toMatchObject({ exchange: 'BSE', tradingsymbol: '709GOI54' });
+    expect((await gsecsRoute.request('/depth?exchange=BSE&tradingsymbol=RELIANCE')).status).toBe(404);
+    expect((await gsecsRoute.request('/depth?exchange=NSE&tradingsymbol=709GOI54')).status).toBe(400);
+    expect((await gsecsRoute.request('/depth?exchange=NFO&tradingsymbol=709GOI54')).status).toBe(400);
   });
 
   it('identifies a rejected Kite token so the user can refresh the login', async () => {

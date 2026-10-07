@@ -22,6 +22,13 @@
       "when": 1791269285467,
       "tag": "0002_gsec-ytm-terms",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1791397873076,
+      "tag": "0003_gsec-exchange-listings",
+      "breakpoints": true
     }
   ]
 }

@@ -4,12 +4,13 @@ import { APPROVED_SECURITIES_PAGE, GsecSeedError } from '@server/lib/services/ap
 import { getSeededGsecs } from '@server/lib/services/gsec-catalog';
 import { getFullQuotes } from '@server/lib/services/kite';
 import { marketDataService } from '@server/lib/services/market-data';
-import type { GsecBond, GsecDepth, GsecScan, GsecSellerLevel } from '@shared/types/gsecs';
+import { gsecKey } from '@shared/lib/gsec-key';
+import type { GsecDepth, GsecExchange, GsecListing, GsecScan, GsecSellerLevel } from '@shared/types/gsecs';
 
 type SellerQuote = { depth: { sell: GsecSellerLevel[] } };
 
 export class GsecScanner {
-  private securities = new Map<number, GsecBond>();
+  private securities = new Map<number, GsecListing>();
   private quotes: Record<string, SellerQuote> = {};
   private quoteTimes = new Map<string, string>();
   private tickVersions = new Map<string, number>();
@@ -42,7 +43,7 @@ export class GsecScanner {
       if (tick.mode !== 'full') return;
       const security = this.securities.get(tick.instrument_token);
       if (!security) return;
-      const key = `NSE:${security.tradingsymbol}`;
+      const key = gsecKey(security);
       this.quotes[key] = { depth: { sell: getGsecSellerDepth(tick.depth?.sell) } };
       this.tickVersions.set(key, (this.tickVersions.get(key) ?? 0) + 1);
       this.quotesFetchedAt = new Date().toISOString();
@@ -94,7 +95,7 @@ export class GsecScanner {
   private async refreshData(fullRefresh: boolean): Promise<GsecScan> {
     const approved = await getSeededGsecs();
     this.assertRunning();
-    const next = new Map<number, GsecBond>();
+    const next = new Map<number, GsecListing>();
     for (const { instrumentToken, ...security } of approved.securities) {
       next.set(instrumentToken, security);
     }
@@ -103,9 +104,12 @@ export class GsecScanner {
     this.assertRunning();
     marketDataService.setSubscriptions('gsecs', { full: [...next.keys()] });
     const addedKeys = [...next]
-      .filter(([token, security]) => this.securities.get(token)?.tradingsymbol !== security.tradingsymbol)
-      .map(([, security]) => `NSE:${security.tradingsymbol}`);
-    const allowedKeys = new Set([...next.values()].map((security) => `NSE:${security.tradingsymbol}`));
+      .filter(([token, security]) => {
+        const previous = this.securities.get(token);
+        return !previous || gsecKey(previous) !== gsecKey(security);
+      })
+      .map(([, security]) => gsecKey(security));
+    const allowedKeys = new Set([...next.values()].map(gsecKey));
     for (const key of Object.keys(this.quotes)) {
       if (!allowedKeys.has(key) || addedKeys.includes(key)) {
         delete this.quotes[key];
@@ -150,7 +154,7 @@ export class GsecScanner {
     this.snapshot = {
       rows: rankGsecs([...this.securities.values()], this.quotes, this.settlementDate).map((row) => ({
         ...row,
-        quoteUpdatedAt: this.quoteTimes.get(`NSE:${row.tradingsymbol}`) ?? null,
+        quoteUpdatedAt: this.quoteTimes.get(gsecKey(row)) ?? null,
       })),
       sourceUrl: APPROVED_SECURITIES_PAGE,
       approvedListFetchedAt: this.approvedListFetchedAt || new Date().toISOString(),
@@ -186,12 +190,19 @@ export class GsecScanner {
     this.publish('error', message);
   }
 
-  async getDepth(tradingsymbol: string): Promise<GsecDepth | null> {
+  async getDepth(tradingsymbol: string, exchange: GsecExchange = 'NSE'): Promise<GsecDepth | null> {
     const snapshot = await this.refresh();
-    const row = snapshot.rows.find((security) => security.tradingsymbol === tradingsymbol);
+    const row = snapshot.rows.find(
+      (security) => security.exchange === exchange && security.tradingsymbol === tradingsymbol
+    );
     if (!row) return null;
-    if (row.quoteStatus === 'unavailable') throw new Error(`Seller quote unavailable for ${tradingsymbol}`);
-    return { tradingsymbol, sell: row.sellerDepth, fetchedAt: row.quoteUpdatedAt ?? snapshot.quotesFetchedAt };
+    if (row.quoteStatus === 'unavailable') throw new Error(`Seller quote unavailable for ${exchange}:${tradingsymbol}`);
+    return {
+      exchange,
+      tradingsymbol,
+      sell: row.sellerDepth,
+      fetchedAt: row.quoteUpdatedAt ?? snapshot.quotesFetchedAt,
+    };
   }
 
   shutdown() {
@@ -214,4 +225,5 @@ export class GsecScanner {
 
 export const gsecScanner = new GsecScanner();
 export const scanGsecs = (fullRefresh = false) => gsecScanner.refresh(fullRefresh);
-export const getGsecDepth = (tradingsymbol: string) => gsecScanner.getDepth(tradingsymbol);
+export const getGsecDepth = (tradingsymbol: string, exchange: GsecExchange = 'NSE') =>
+  gsecScanner.getDepth(tradingsymbol, exchange);

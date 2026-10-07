@@ -1,3 +1,4 @@
+import { GsecName } from '@client/components/gsecs/gsec-name';
 import { SellerDepthDialog } from '@client/components/gsecs/seller-depth-dialog';
 import { Input } from '@client/components/ui/input';
 import { Label } from '@client/components/ui/label';
@@ -5,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useGsecTargetPrices } from '@client/hooks/use-gsec-target-prices';
 import { useGsecs } from '@client/hooks/use-gsecs';
 import { formatGsecRrr } from '@shared/lib/format-gsec-rrr';
+import { gsecKey } from '@shared/lib/gsec-key';
 import { DEFAULT_GSEC_TARGET_YTM, gsecTargetYtmSchema } from '@shared/schemas/gsecs';
 import { ArrowDownIcon, ArrowUpIcon, ExternalLinkIcon } from 'lucide-react';
 import { useState } from 'react';
@@ -26,12 +28,12 @@ export function GsecScanner() {
   const targetPrices = useGsecTargetPrices(targetYtm, data?.settlementDate, data?.approvedListFetchedAt);
   const rows = [...(data?.rows ?? [])]
     .filter((row) =>
-      `${row.tradingsymbol} ${row.coupon} ${row.maturityYear} ${row.maturityDate}`
+      `${row.exchange} ${row.tradingsymbol} ${row.isin} ${row.coupon} ${row.maturityYear} ${row.maturityDate}`
         .toLowerCase()
         .includes(search.trim().toLowerCase())
     )
     .sort((a, b) => {
-      const symbolOrder = a.tradingsymbol.localeCompare(b.tradingsymbol);
+      const symbolOrder = gsecKey(a).localeCompare(gsecKey(b));
       // Unranked bonds stay last in either direction.
       if (a.bestRrrRank === null) return b.bestRrrRank === null ? symbolOrder : 1;
       if (b.bestRrrRank === null) return -1;
@@ -55,7 +57,7 @@ export function GsecScanner() {
       <div className='space-y-4 p-4'>
         <div className='flex flex-wrap items-center gap-3'>
           <Input
-            aria-label='Search G-Secs by symbol, coupon or maturity date'
+            aria-label='Search G-Secs by exchange, symbol, ISIN, coupon or maturity date'
             placeholder='Search G-Sec or maturity year…'
             value={search}
             onChange={(event) => setSearch(event.target.value)}
@@ -117,12 +119,15 @@ export function GsecScanner() {
                   </TableHead>
                   <TableHead className='text-center'>Coupon</TableHead>
                   <TableHead className='text-center'>Maturity</TableHead>
-                  <TableHead className='text-center' title='Best NSE seller price, including accrued interest'>
+                  <TableHead
+                    className='text-center'
+                    title='Best seller price on this exchange, including accrued interest'
+                  >
                     Sell Rate
                   </TableHead>
                   <TableHead
                     className='text-center'
-                    title={`Maximum dirty buy price for ${targetYtm ?? '—'}% YTM, floored to ₹0.01`}
+                    title={`Maximum dirty buy price for ${targetYtm ?? '—'}% YTM, floored to this listing’s trading tick`}
                   >
                     Max Buy Price
                   </TableHead>
@@ -150,14 +155,16 @@ export function GsecScanner() {
                   </TableRow>
                 ) : (
                   rows.map((row) => {
-                    const maxBuyPrice = targetPrices.data?.prices[row.tradingsymbol] ?? null;
+                    const maxBuyPrice = targetPrices.data?.prices[gsecKey(row)] ?? null;
                     const withinTarget = row.sellRate !== null && maxBuyPrice !== null && row.sellRate <= maxBuyPrice;
                     return (
                       <TableRow
-                        key={row.tradingsymbol}
+                        key={gsecKey(row)}
                         className={withinTarget ? 'bg-success/10 hover:bg-success/15' : undefined}
                       >
-                        <TableCell className='pl-4 font-medium'>{row.tradingsymbol}</TableCell>
+                        <TableCell className='pl-4 font-medium'>
+                          <GsecName listing={row} />
+                        </TableCell>
                         <TableCell className='text-center'>{row.bestRrrRank ?? '—'}</TableCell>
                         <TableCell className='text-center'>{row.coupon}</TableCell>
                         <TableCell className='text-center whitespace-nowrap'>

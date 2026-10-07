@@ -1,7 +1,8 @@
 import { calculateGsecMaxBuyPrice, calculateGsecYtm } from '@server/lib/calculators/gsec-ytm';
+import { gsecKey } from '@shared/lib/gsec-key';
 import type {
-  GsecBond,
   GsecCatalogSnapshot,
+  GsecListing,
   GsecRow,
   GsecSecurity,
   GsecSellerLevel,
@@ -18,7 +19,7 @@ export function priceGsecsAtTarget(
     approvedListFetchedAt: fetchedAt,
     prices: Object.fromEntries(
       securities.map((security) => [
-        security.tradingsymbol,
+        gsecKey(security),
         calculateGsecMaxBuyPrice({ ...security, settlementDate, targetYtm }),
       ])
     ),
@@ -55,12 +56,12 @@ export function getGsecSellerDepth(levels: GsecSellerLevel[] = []): GsecSellerLe
 type GsecQuote = { depth?: { sell: GsecSellerLevel[] } };
 
 export function rankGsecs(
-  securities: GsecBond[],
+  securities: GsecListing[],
   quotes: Record<string, GsecQuote>,
   settlementDate: string
 ): GsecRow[] {
   const rows: GsecRow[] = securities.map((security) => {
-    const quote = quotes[`NSE:${security.tradingsymbol}`];
+    const quote = quotes[gsecKey(security)];
     const sellerDepth = getGsecSellerDepth(quote?.depth?.sell);
     const sellRate = sellerDepth[0]?.price ?? null;
     return {
@@ -91,7 +92,7 @@ export function rankGsecs(
   ] as const) {
     const sorted = rows
       .filter((row) => row[valueKey] !== null)
-      .sort((a, b) => direction * (a[valueKey]! - b[valueKey]!) || a.tradingsymbol.localeCompare(b.tradingsymbol));
+      .sort((a, b) => direction * (a[valueKey]! - b[valueKey]!) || gsecKey(a).localeCompare(gsecKey(b)));
     sorted.forEach((row, index) => {
       const previous = sorted[index - 1];
       row[rankKey] = previous && previous[valueKey] === row[valueKey] ? previous[rankKey] : index + 1;
@@ -99,7 +100,6 @@ export function rankGsecs(
   }
 
   return rows.sort(
-    (a, b) =>
-      (a.bestRrrRank ?? Infinity) - (b.bestRrrRank ?? Infinity) || a.tradingsymbol.localeCompare(b.tradingsymbol)
+    (a, b) => (a.bestRrrRank ?? Infinity) - (b.bestRrrRank ?? Infinity) || gsecKey(a).localeCompare(gsecKey(b))
   );
 }

@@ -70,14 +70,20 @@ export function calculateGsecDirtyPrice({
   return Number.isFinite(price) && price > 0 ? price : null;
 }
 
-/** Price ceiling floored to NSE's ₹0.01 tick, never rounded up. */
-export function calculateGsecMaxBuyPrice({ targetYtm, ...terms }: BondTerms & { targetYtm: number }): number | null {
+/** Dirty price ceiling floored to the listing's trading tick, never rounded up. */
+export function calculateGsecMaxBuyPrice({
+  targetYtm,
+  tickSize = 0.01,
+  ...terms
+}: BondTerms & { targetYtm: number; tickSize?: number }): number | null {
+  const tickPaise = tickSize * 100;
+  if (!Number.isSafeInteger(tickPaise) || tickPaise <= 0) return null;
   const price = calculateGsecDirtyPrice({ ...terms, yieldPercent: targetYtm });
   if (price === null) return null;
-  return Math.floor(price * 100) / 100;
+  return (Math.floor((price * 100) / tickPaise) * tickPaise) / 100;
 }
 
-/** Quoted annual YTM in percent, using the NSE seller's dirty price per ₹100 FV. */
+/** Quoted annual YTM in percent, using the seller's dirty price per ₹100 FV. */
 export function calculateGsecYtm({ dirtyPrice, ...terms }: BondTerms & { dirtyPrice: number }): number | null {
   if (!Number.isFinite(dirtyPrice) || dirtyPrice <= 0) return null;
   const presentValue = createBondPricer(terms);

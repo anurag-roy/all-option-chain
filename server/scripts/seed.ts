@@ -21,7 +21,7 @@ async function seedInstruments() {
   // Fetch all instrument data
   const bseInstruments = await kiteService.getInstruments(['BSE']);
   const nseInstruments = await kiteService.getInstruments(['NSE']);
-  const gsecSeed = await fetchGsecSeed(nseInstruments);
+  const gsecSeed = await fetchGsecSeed(nseInstruments, bseInstruments);
   const nfoInstruments = await kiteService.getInstruments(['NFO']);
 
   const nifty500 = await getNifty500Stocks();

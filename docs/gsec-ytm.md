@@ -14,7 +14,7 @@ Seller price = Σ(i = 0 … n−1) C / (1 + y/2)^(f+i)
 RRR = 100 × y, displayed as a percentage
 ```
 
-NSE's capital-market G-Sec quotes are **dirty prices**, including accrued interest. The seller price is the purchase-price input directly; no accrued interest is added. This differs from the clean-price assumption in the supplied ChatGPT conversation.
+NSE's capital-market G-Sec quotes are **dirty prices**, including accrued interest. The supported BSE counterparts are active G-group securities marked `FinInstrmTp=D` (dirty-price debt) in BSE's daily master. For both exchanges, the seller price is the purchase-price input directly; no accrued interest is added. This differs from the clean-price assumption in the supplied ChatGPT conversation. A broker-available BSE counterpart with another quote convention aborts the seed rather than silently applying the dirty-price calculation.
 
 The rate is quoted annual YTM (twice the half-year yield). The effective annual yield `(1+y/2)^2−1` is not displayed. The calculation excludes taxes and transaction fees.
 
@@ -22,13 +22,13 @@ The numerical solver verifies a bracket and accommodates negative or unusually h
 
 ## Target YTM and maximum buy price
 
-The scanner accepts a target quoted annual YTM from 0% to 100%, defaulting to 8%. One target applies to every pledgeable bond in that browser. The existing coupon schedule and 30E/360 fraction are used in the forward pricing equation above, with `y = target YTM / 100`. This gives the theoretical maximum **dirty** buy price. The displayed `Max Buy Price` is `floor(theoretical price × 100) / 100`, floored to NSE's ₹0.01 tick. Accrued interest is not added.
+The scanner accepts a target quoted annual YTM from 0% to 100%, defaulting to 8%. One target applies to every pledgeable bond in that browser. The existing coupon schedule and 30E/360 fraction are used in the forward pricing equation above, with `y = target YTM / 100`. This gives the theoretical maximum **dirty** buy price. The displayed `Max Buy Price` is floored to each listing's trading tick using integer paise. NSE uses ₹0.01; the matched BSE listings currently use ₹0.01 or ₹0.05. Thus an NSE ceiling of ₹103.16 becomes ₹103.15 on a BSE counterpart with a ₹0.05 tick. Accrued interest is not added.
 
 Only a valid seller price at or below that floored ceiling receives a green highlight. Other rows remain visible with their usual rankings. A ceiling can be calculated even without sellers; matured or invalid bonds have no ceiling. As with current YTM, the calculation excludes fees and taxes. The scanner's existing disconnected status still applies to retained quotes.
 
 For `733GS2026-GS`, settlement 8 October 2026 and target 8%, the theoretical price is ₹103.1692561862, so the ceiling is **₹103.16**. A seller at ₹103.15 qualifies; a seller at ₹103.17 does not. For `709GS2054-GS`, the same settlement/target produces **₹91.13**. All 18 examples in the supplied target-YTM note are covered by numerical checks.
 
-`GET /api/gsecs/target-prices?targetYtm=8` calculates ceilings server-side from the cached daily SQLite catalog. It does not fetch broker quotes or external reference data. The client caches each target/settlement/seed combination and requests new ceilings when one changes, debouncing target edits by 300ms. The seed identity ensures newly approved bonds get ceilings even when consecutive non-trading days share a settlement date. The existing ticker updates the seller-price comparison as quotes change. Old target/date/seed responses are excluded from highlighting while new ceilings are pending.
+`GET /api/gsecs/target-prices?targetYtm=8` calculates ceilings server-side from the cached daily SQLite catalog. Its `prices` keys are `EXCHANGE:tradingsymbol`, for example `NSE:733GS2026-GS` and `BSE:733GS2026`. It does not fetch broker quotes or external reference data. The client caches each target/settlement/seed combination and requests new ceilings when one changes, debouncing target edits by 300ms. The seed identity ensures newly approved bonds get ceilings even when consecutive non-trading days share a settlement date. The existing ticker updates the seller-price comparison as quotes change. Old target/date/seed responses are excluded from highlighting while new ceilings are pending.
 
 ## Example
 
@@ -42,7 +42,11 @@ For `676GS2061-GS`, maturity is 22 February 2061 and coupons fall on 22 February
 
 `npm run data:prepare` applies the migration and runs the seed. Exact maturity dates are matched by ISIN from NSE's daily debt master, supplemented by `server/scripts/data/legacy-gsecs.ts` for 36 older issues omitted from that master when checked on 6 October 2026. Those fixed coupon rates and maturity dates were transcribed from Statement 3 of the Government of India's January–March 2021 public-debt report. The ISIN/symbol associations come from Zerodha's approved feed. No security becomes pledgeable merely because it appears in the reference file.
 
-The seed rejects unknown terms, disagreement between sources, incompatible coupons/years, and missing instrument tokens before replacing the database snapshot. All runtime metadata is read from SQLite and cached for the IST day. Restart after reseeding during the same day. Pre-YTM database rows also require reseeding.
+The seed also downloads [BSE's daily security master ZIP](https://www.bseindia.com/downloads/Help/file/SCRIP.zip), extracting only `BSE_EQ_SCRIP_DDMMYYYY.csv`. It matches active BSE G-Secs to the approved NSE bonds by ISIN, then matches `FinInstrmId` to Kite's BSE `exchange_token`. BSE symbols need not resemble NSE names: `709GS2054-GS` and `709GOI54` share ISIN `IN0020240118`. Every matched BSE listing copies the resolved NSE coupon, maturity and ISIN, and uses the same seeded settlement date. Its BSE symbol, instrument token and tick remain separate. Missing BSE counterparts are omitted; BSE-only ISINs outside the approved NSE universe are excluded.
+
+Both venues appear as separate table rows in a combined YTM ranking. A dot to the left of the name identifies BSE (black in light mode, white in dark mode). Quote caches, ticker routing, target prices, table keys and seller-depth lookups all use the exchange plus symbol; one venue's sellers are never used for another. `GET /api/gsecs/depth` accepts `exchange=NSE|BSE` alongside `tradingsymbol`, defaulting to NSE when omitted.
+
+The seed rejects unknown terms, disagreement between sources, incompatible coupons/years, missing NSE tokens, inconsistent BSE identifiers/ticks/face values, unsupported matched BSE quote conventions and source failures before replacing the database snapshot. A failed BSE download does not become an apparently successful NSE-only seed. All runtime metadata is read from SQLite and cached for the IST day. Restart after reseeding during the same day. Pre-YTM database rows also require reseeding.
 
 ## Sources
 
@@ -51,6 +55,7 @@ The seed rejects unknown terms, disagreement between sources, incompatible coupo
 - [RBI G-Sec FAQ](https://m.rbi.org.in/commonman/english/scripts/FAQs.aspx?Id=711): fixed coupons, semiannual payments, T+1 settlement, and Excel YIELD basis 4 / 30/360 (sections 1, 16, 24–25).
 - [NSE settlement cycle](https://www.nseindia.com/static/products-services/equity-market-settlement-cycle): settlement excludes weekends, exchange holidays and bank holidays.
 - [NSE debt master](https://nsearchives.nseindia.com/content/equities/DEBT.csv) and [download page](https://www.nseindia.com/static/market-data/securities-available-for-trading).
+- [BSE daily security master](https://www.bseindia.com/downloads/Help/file/SCRIP.zip): ISIN, scrip code, symbol, group, active status, quote type, tick and face value (in paise).
 - [NSE trading calendar](https://www.nseindia.com/api/holiday-master?type=trading) and [clearing calendar](https://www.nseindia.com/api/holiday-master?type=clearing), using the `CM` arrays.
 - [Government of India public-debt report, January–March 2021](https://static.pib.gov.in/WriteReadData/specificdocs/documents/2021/jun/doc202162531.pdf): Statement 3, printed pages 24–26.
 - [Zerodha approved securities](https://zerodha.com/approved-securities/) and [public feed](https://public.zrd.sh/crux/approved-securities.json).

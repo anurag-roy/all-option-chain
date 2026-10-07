@@ -1,16 +1,22 @@
 import type { db } from '@server/db';
 import { gsecSeedStateTable, gsecsTable } from '@server/db/schema';
 import { APPROVED_SECURITIES_FEED, selectApprovedGsecs } from '@server/lib/services/approved-gsecs';
+import {
+  BSE_SECURITY_MASTER,
+  extractBseSecurityMaster,
+  matchBseGsecs,
+  type GsecInstrument,
+} from '@server/scripts/lib/bse-gsecs';
 import { getGsecSettlementDates, parseGsecCalendar } from '@server/scripts/lib/gsec-settlement';
 import { NSE_DEBT_MASTER, parseNseGsecTerms, resolveGsecTerms } from '@server/scripts/lib/gsec-terms';
 import type { GsecCatalogSnapshot } from '@shared/types/gsecs';
 import { chunk } from 'es-toolkit';
-import type { Instrument } from 'kiteconnect-ts';
 
 type SeedTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export async function fetchGsecSeed(
-  nseInstruments: Pick<Instrument, 'exchange' | 'tradingsymbol' | 'instrument_token'>[]
+  nseInstruments: GsecInstrument[],
+  bseInstruments: GsecInstrument[]
 ): Promise<GsecCatalogSnapshot> {
   const request = async (url: string) => {
     const response = await fetch(url, {
@@ -20,11 +26,12 @@ export async function fetchGsecSeed(
     if (!response.ok) throw new Error(`G-Sec seed request failed (${response.status}): ${url}`);
     return response;
   };
-  const [approvedResponse, termsResponse, tradingResponse, clearingResponse] = await Promise.all([
+  const [approvedResponse, termsResponse, tradingResponse, clearingResponse, bseResponse] = await Promise.all([
     request(APPROVED_SECURITIES_FEED),
     request(NSE_DEBT_MASTER),
     request('https://www.nseindia.com/api/holiday-master?type=trading'),
     request('https://www.nseindia.com/api/holiday-master?type=clearing'),
+    request(BSE_SECURITY_MASTER),
   ]);
   const approved = selectApprovedGsecs(await approvedResponse.json());
   const terms = parseNseGsecTerms(await termsResponse.text());
@@ -33,17 +40,24 @@ export async function fetchGsecSeed(
   const tokens = new Map(
     nseInstruments
       .filter((instrument) => instrument.exchange === 'NSE')
-      .map((instrument) => [instrument.tradingsymbol, Number(instrument.instrument_token)])
+      .map((instrument) => [instrument.tradingsymbol, instrument])
   );
-  const securities = approved.map((security) => {
-    const instrumentToken = tokens.get(security.tradingsymbol);
+  const nseListings = approved.map((security) => {
+    const instrument = tokens.get(security.tradingsymbol);
+    const instrumentToken = Number(instrument?.instrument_token);
     if (!instrumentToken || !Number.isSafeInteger(instrumentToken) || instrumentToken <= 0) {
       throw new Error(
         `Approved G-Sec ${security.tradingsymbol} is missing a valid NSE instrument token. G-Sec seed aborted.`
       );
     }
-    return { ...resolveGsecTerms(security, terms), instrumentToken };
+    const tickSize = Number(instrument?.tick_size);
+    if (!Number.isSafeInteger(tickSize * 100) || tickSize <= 0) {
+      throw new Error(`Approved G-Sec ${security.tradingsymbol} is missing a valid NSE tick size. G-Sec seed aborted.`);
+    }
+    return { ...resolveGsecTerms(security, terms), exchange: 'NSE' as const, instrumentToken, tickSize };
   });
+  const bseMaster = extractBseSecurityMaster(new Uint8Array(await bseResponse.arrayBuffer()));
+  const securities = [...nseListings, ...matchBseGsecs(nseListings, bseInstruments, bseMaster)];
   const now = new Date();
   const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
   return {

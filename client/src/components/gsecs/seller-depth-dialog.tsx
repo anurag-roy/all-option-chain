@@ -1,3 +1,4 @@
+import { GsecName } from '@client/components/gsecs/gsec-name';
 import { Button } from '@client/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@client/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@client/components/ui/table';
@@ -8,7 +9,9 @@ function SellerDepth({ row, isLive }: { row: GsecRow; isLive: boolean }) {
   return (
     <>
       <DialogHeader>
-        <DialogTitle>{row.tradingsymbol}</DialogTitle>
+        <DialogTitle>
+          <GsecName listing={row} />
+        </DialogTitle>
       </DialogHeader>
       {!isLive ? (
         <p role='status' className='text-muted-foreground text-sm'>
@@ -58,7 +61,7 @@ export function SellerDepthDialog({ row, isLive }: { row: GsecRow; isLive: boole
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={<Button variant='outline' size='sm' className='min-h-10 transition-colors' />}
-        aria-label={`Open seller market depth for ${row.tradingsymbol}`}
+        aria-label={`Open seller market depth for ${row.exchange} ${row.tradingsymbol}`}
       >
         Market depth
       </DialogTrigger>

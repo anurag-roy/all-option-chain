@@ -7,8 +7,13 @@ export type GsecSecurity = {
 
 export type GsecBond = GsecSecurity & { maturityDate: string };
 
+export type GsecExchange = 'NSE' | 'BSE';
+
+// Bond terms are shared by ISIN; prices and trading identifiers belong to a venue.
+export type GsecListing = GsecBond & { exchange: GsecExchange; tickSize: number };
+
 export type GsecCatalogSnapshot = {
-  securities: (GsecBond & { instrumentToken: number })[];
+  securities: (GsecListing & { instrumentToken: number })[];
   fetchedAt: string;
   day: string;
   tradeDate: string;
@@ -21,7 +26,7 @@ export type GsecSellerLevel = {
   orders: number;
 };
 
-export type GsecRow = GsecBond & {
+export type GsecRow = GsecListing & {
   sellRate: number | null;
   rrr: number | null;
   bestRrrRank: number | null;
@@ -45,6 +50,7 @@ export type GsecScan = {
 };
 
 export type GsecDepth = {
+  exchange: GsecExchange;
   tradingsymbol: string;
   sell: GsecSellerLevel[];
   fetchedAt: string;

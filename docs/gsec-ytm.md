@@ -1,6 +1,6 @@
 # G-Sec yield calculation
 
-`RRR (YTM)` and `Best RRR Rank` use quoted annual yield to maturity. This replaces the previous coupon-number / seller-price current-yield calculation. Inputs remain restricted to pledgeable G-Secs and the lowest valid seller price. Buyers and LTP are never substituted.
+`RRR (YTM)` and `RRR Rank` use quoted annual yield to maturity. This replaces the previous coupon-number / seller-price current-yield calculation. Inputs remain restricted to pledgeable G-Secs and the lowest valid seller price. Buyers and LTP are never substituted.
 
 For ₹100 face value, normalized coupon `676` means ₹6.76 annually and ₹3.38 per half year. Fixed-coupon Government of India bonds redeem ₹100 at maturity. Coupon dates are generated every six calendar months backwards from the exact maturity date, retaining the original day and clamping it where a month is shorter. Only coupons after settlement enter the calculation.
 
@@ -18,7 +18,7 @@ NSE's capital-market G-Sec quotes are **dirty prices**, including accrued intere
 
 The rate is quoted annual YTM (twice the half-year yield). The effective annual yield `(1+y/2)^2−1` is not displayed. The calculation excludes taxes and transaction fees.
 
-The numerical solver verifies a bracket and accommodates negative or unusually high yields. Rankings use full precision with competition ranks for exact ties. Display uses four decimal places. Missing sellers, matured bonds and unsolvable inputs have no YTM rank. Near FV remains `ABS(seller price − 100)` and can rank a valid seller price independently of YTM.
+The numerical solver verifies a bracket and accommodates negative or unusually high yields. Rankings use full precision with competition ranks for exact ties. Display uses four decimal places. Missing sellers, matured bonds and unsolvable inputs have no YTM rank. The table shows RRR Rank in its second column and defaults to ascending order. Its column header toggles ascending/descending, keeping unranked bonds last. The API retains face-value distance and Near FV ranks, but the page does not display them or offer ranking tabs.
 
 ## Target YTM and maximum buy price
 

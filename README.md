@@ -13,7 +13,7 @@ Real-time NSE F&O option chain dashboard for ~200 stocks, powered by [Zerodha Ki
 - **Real-time notifications** — order-trigger alerts (when return % crosses `orderPercent`) and top-bid changes; toast + sound + history sheet
 - **Option sell orders** — NFO MIS SELL LIMIT from the chain table with depth view and margin check
 - **AMO buy orders** — laddered CNC equity buys on `/amo` (regular or AMO per row)
-- **Pledgeable G-Secs** — Zerodha-approved government bonds, seller-based YTM and Near FV rankings, target-YTM buy-price ceilings and top-five seller depth on `/gsecs`
+- **Pledgeable G-Secs** — Zerodha-approved government bonds, seller-based YTM rankings, target-YTM buy-price ceilings and top-five seller depth on `/gsecs`
 - **Ban management** — auto-fetched NSE F&O ban list + persistent custom bans; banned symbols excluded from chain load
 - **Dark mode** — light / dark / system theme toggle
 - **Batch margin lookups** — Kite `orderMargins` with rate limiting
@@ -91,7 +91,7 @@ npm start       # Hono serves the SPA + API on PORT
 |-------|---------|
 | `/` | Option chain — filter form + live sortable table |
 | `/amo` | AMO laddered equity buy orders |
-| `/gsecs` | Pledgeable G-Secs ranked by RRR or distance from face value |
+| `/gsecs` | Pledgeable G-Secs sorted by ascending RRR Rank, with target-YTM buy-price ceilings |
 | `/settings` | NSE + custom stock ban management |
 
 ## Environment variables
@@ -193,10 +193,9 @@ Run `npm run data:prepare` each morning, then start the app. It applies migratio
 
 - **Coupon** is the coupon number in the trading symbol. Shortened coupons are normalized: `68GS2060-GS` uses `680`, `75GS2034-GS` uses `750`; `1018GS` uses `1018`. Approved `GR` issues and letter suffixes are supported as well.
 - **Sell Rate** is the lowest positive seller price with positive available quantity. Buyer prices and last traded prices are never used.
-- **RRR (YTM)** is quoted annual yield to maturity: the solver discounts semiannual coupons and ₹100 redemption to match the best seller's price, using T+1 settlement and 30E/360 fractional coupon periods. NSE quotes already include accrued interest; it is not added again. Coupon `750` means ₹7.50 annually per ₹100 face value, or ₹3.75 each half year. Best RRR Rank uses the full-precision yield, highest first; display retains four decimal places. [Calculation and sources](docs/gsec-ytm.md).
+- **RRR (YTM)** is quoted annual yield to maturity: the solver discounts semiannual coupons and ₹100 redemption to match the best seller's price, using T+1 settlement and 30E/360 fractional coupon periods. NSE quotes already include accrued interest; it is not added again. Coupon `750` means ₹7.50 annually per ₹100 face value, or ₹3.75 each half year. RRR Rank uses the full-precision yield, highest first; display retains four decimal places. The table places RRR Rank beside G-Sec and defaults to ascending rank order. Click the RRR Rank header to toggle ascending/descending; unranked bonds stay last in either direction. Equal yields share a rank (1, 1, 3). [Calculation and sources](docs/gsec-ytm.md).
 - **Target YTM** defaults to 8% and applies to all displayed bonds. **Max Buy Price** discounts the remaining payments at that target and floors the dirty-price ceiling to ₹0.01. Seller prices at or below the ceiling are highlighted green; other rows remain visible. Ceilings are calculated server-side from SQLite when the target, settlement date or seed changes. Live quote comparisons use the existing ticker, without extra broker requests.
-- **Distance from FV** = ABS(Sell Rate - 100). Near FV Rank puts the closest price first, whether above or below 100. Equal values share a rank (1, 1, 3).
-- Missing quotes and empty seller books remain visible with no RRR or ranks. Bonds matured by settlement, or without a solvable yield, have no RRR rank; their valid seller price can still receive a Near FV rank.
+- Missing quotes and empty seller books remain visible with no RRR or rank. Bonds matured by settlement, or without a solvable yield, have no RRR rank.
 - G-Secs share the existing server-side Kite ticker in `full` mode. Seller prices, rankings and top-five seller depth update from the same ticks, with client snapshots batched every 250 ms. There is no periodic price or depth polling.
 - REST quotes load initial prices and recover prices after a ticker reconnect through the existing rate-limited queue. The seeded catalog is reused for the day; a minute timer detects a new IST day and checks its DB seed without contacting the approved feed or downloading instruments.
 - The ticker combines option-chain and G-Sec subscriptions by owner, counts unique tokens against the 3,000-instrument limit and restores modes after reconnecting. Leaving `/gsecs` stops G-Sec messages to that browser; the server keeps the scanner warm until shutdown. Disconnections retain the last prices with a disconnected status; failed data refreshes clear the ranking.

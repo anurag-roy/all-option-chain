@@ -1,5 +1,4 @@
 import { SellerDepthDialog } from '@client/components/gsecs/seller-depth-dialog';
-import { Button } from '@client/components/ui/button';
 import { Input } from '@client/components/ui/input';
 import { Label } from '@client/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@client/components/ui/table';
@@ -7,10 +6,9 @@ import { useGsecTargetPrices } from '@client/hooks/use-gsec-target-prices';
 import { useGsecs } from '@client/hooks/use-gsecs';
 import { formatGsecRrr } from '@shared/lib/format-gsec-rrr';
 import { DEFAULT_GSEC_TARGET_YTM, gsecTargetYtmSchema } from '@shared/schemas/gsecs';
-import { ArrowDownIcon, ExternalLinkIcon } from 'lucide-react';
+import { ArrowDownIcon, ArrowUpIcon, ExternalLinkIcon } from 'lucide-react';
 import { useState } from 'react';
 
-type Ranking = 'bestRrrRank' | 'nearFvRank';
 const bondDateFormat = new Intl.DateTimeFormat('en-IN', {
   day: '2-digit',
   month: 'short',
@@ -21,7 +19,7 @@ const bondDateFormat = new Intl.DateTimeFormat('en-IN', {
 export function GsecScanner() {
   const { data, error, isPending, isLive } = useGsecs();
   const [search, setSearch] = useState('');
-  const [ranking, setRanking] = useState<Ranking>('bestRrrRank');
+  const [rankDescending, setRankDescending] = useState(false);
   const [targetInput, setTargetInput] = useState(String(DEFAULT_GSEC_TARGET_YTM));
   const parsedTarget = gsecTargetYtmSchema.safeParse(targetInput.trim() ? Number(targetInput) : NaN);
   const targetYtm = parsedTarget.success ? parsedTarget.data : null;
@@ -32,9 +30,13 @@ export function GsecScanner() {
         .toLowerCase()
         .includes(search.trim().toLowerCase())
     )
-    .sort(
-      (a, b) => (a[ranking] ?? Infinity) - (b[ranking] ?? Infinity) || a.tradingsymbol.localeCompare(b.tradingsymbol)
-    );
+    .sort((a, b) => {
+      const symbolOrder = a.tradingsymbol.localeCompare(b.tradingsymbol);
+      // Unranked bonds stay last in either direction.
+      if (a.bestRrrRank === null) return b.bestRrrRank === null ? symbolOrder : 1;
+      if (b.bestRrrRank === null) return -1;
+      return (rankDescending ? -1 : 1) * (a.bestRrrRank - b.bestRrrRank) || symbolOrder;
+    });
 
   return (
     <section className='border-border bg-card w-[80rem] max-w-[calc(100vw-2rem)] rounded-md border'>
@@ -76,26 +78,6 @@ export function GsecScanner() {
               className='h-10 w-24 tabular-nums'
             />
           </div>
-          <div className='ml-auto flex items-center gap-2' role='group' aria-label='G-Sec ranking'>
-            <Button
-              size='lg'
-              variant={ranking === 'bestRrrRank' ? 'default' : 'ghost'}
-              aria-pressed={ranking === 'bestRrrRank'}
-              className='transition-colors'
-              onClick={() => setRanking('bestRrrRank')}
-            >
-              Best RRR
-            </Button>
-            <Button
-              size='lg'
-              variant={ranking === 'nearFvRank' ? 'default' : 'ghost'}
-              aria-pressed={ranking === 'nearFvRank'}
-              className='transition-colors'
-              onClick={() => setRanking('nearFvRank')}
-            >
-              Near FV
-            </Button>
-          </div>
         </div>
 
         {!parsedTarget.success ? (
@@ -118,6 +100,21 @@ export function GsecScanner() {
               <TableHeader>
                 <TableRow>
                   <TableHead className='pl-4'>G-Sec</TableHead>
+                  <TableHead className='text-center' aria-sort={rankDescending ? 'descending' : 'ascending'}>
+                    <button
+                      type='button'
+                      className='focus-visible:outline-ring inline-flex min-h-10 cursor-pointer items-center gap-1 rounded px-1 focus-visible:outline-2'
+                      aria-label={`Sort RRR Rank ${rankDescending ? 'ascending' : 'descending'}`}
+                      onClick={() => setRankDescending((descending) => !descending)}
+                    >
+                      RRR Rank
+                      {rankDescending ? (
+                        <ArrowDownIcon className='size-3.5' aria-hidden='true' />
+                      ) : (
+                        <ArrowUpIcon className='size-3.5' aria-hidden='true' />
+                      )}
+                    </button>
+                  </TableHead>
                   <TableHead className='text-center'>Coupon</TableHead>
                   <TableHead className='text-center'>Maturity</TableHead>
                   <TableHead className='text-center' title='Best NSE seller price, including accrued interest'>
@@ -135,27 +132,6 @@ export function GsecScanner() {
                   >
                     RRR (YTM)
                   </TableHead>
-                  <TableHead className='text-center' aria-sort={ranking === 'bestRrrRank' ? 'ascending' : 'none'}>
-                    <button
-                      type='button'
-                      className='focus-visible:outline-ring inline-flex min-h-10 items-center gap-1 rounded px-1 focus-visible:outline-2'
-                      onClick={() => setRanking('bestRrrRank')}
-                    >
-                      Best RRR Rank{' '}
-                      {ranking === 'bestRrrRank' ? <ArrowDownIcon className='size-3.5' aria-hidden='true' /> : null}
-                    </button>
-                  </TableHead>
-                  <TableHead className='text-center'>Distance from FV</TableHead>
-                  <TableHead className='text-center' aria-sort={ranking === 'nearFvRank' ? 'ascending' : 'none'}>
-                    <button
-                      type='button'
-                      className='focus-visible:outline-ring inline-flex min-h-10 items-center gap-1 rounded px-1 focus-visible:outline-2'
-                      onClick={() => setRanking('nearFvRank')}
-                    >
-                      Near FV Rank{' '}
-                      {ranking === 'nearFvRank' ? <ArrowDownIcon className='size-3.5' aria-hidden='true' /> : null}
-                    </button>
-                  </TableHead>
                   <TableHead className='pr-4'>
                     <span className='sr-only'>Market depth</span>
                   </TableHead>
@@ -164,7 +140,7 @@ export function GsecScanner() {
               <TableBody>
                 {isPending || rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className='text-muted-foreground py-12 text-center'>
+                    <TableCell colSpan={8} className='text-muted-foreground py-12 text-center'>
                       {isPending
                         ? 'Loading approved G-Secs and seller quotes…'
                         : search
@@ -182,6 +158,7 @@ export function GsecScanner() {
                         className={withinTarget ? 'bg-success/10 hover:bg-success/15' : undefined}
                       >
                         <TableCell className='pl-4 font-medium'>{row.tradingsymbol}</TableCell>
+                        <TableCell className='text-center'>{row.bestRrrRank ?? '—'}</TableCell>
                         <TableCell className='text-center'>{row.coupon}</TableCell>
                         <TableCell className='text-center whitespace-nowrap'>
                           {row.maturityDate
@@ -206,11 +183,6 @@ export function GsecScanner() {
                         <TableCell className='text-center font-semibold'>
                           {row.rrr === null ? '—' : formatGsecRrr(row.rrr)}
                         </TableCell>
-                        <TableCell className='text-center'>{row.bestRrrRank ?? '—'}</TableCell>
-                        <TableCell className='text-center'>
-                          {row.distanceFromFv === null ? '—' : row.distanceFromFv.toFixed(2)}
-                        </TableCell>
-                        <TableCell className='text-center'>{row.nearFvRank ?? '—'}</TableCell>
                         <TableCell className='pr-4 text-right'>
                           <SellerDepthDialog row={row} isLive={isLive} />
                         </TableCell>

@@ -49,3 +49,10 @@ export type GsecDepth = {
   sell: GsecSellerLevel[];
   fetchedAt: string;
 };
+
+export type GsecTargetPrices = {
+  targetYtm: number;
+  settlementDate: string;
+  approvedListFetchedAt: string;
+  prices: Record<string, number | null>;
+};

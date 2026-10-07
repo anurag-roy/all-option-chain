@@ -1,4 +1,9 @@
-import { calculateGsecYtm, parseBondDate } from '@server/lib/calculators/gsec-ytm';
+import {
+  calculateGsecDirtyPrice,
+  calculateGsecMaxBuyPrice,
+  calculateGsecYtm,
+  parseBondDate,
+} from '@server/lib/calculators/gsec-ytm';
 import { describe, expect, it } from 'vitest';
 
 const base = { coupon: 800, settlementDate: '2026-01-15', maturityDate: '2028-01-15' };
@@ -73,5 +78,62 @@ describe('quoted semiannual G-Sec YTM', () => {
   it('validates real leap days instead of rolling invalid dates forward', () => {
     expect(parseBondDate('2028-02-29')).not.toBeNull();
     expect(parseBondDate('2026-02-29')).toBeNull();
+  });
+});
+
+describe('target-YTM dirty buy-price ceilings', () => {
+  // All 18 examples in target_ytm_8pct_tech_note (1).pdf, using T+1 on 8 October.
+  it.each([
+    [733, '2026-10-30', 103.1693, 103.16],
+    [690, '2065-04-15', 90.2333, 90.23],
+    [734, '2064-04-22', 95.5635, 95.56],
+    [676, '2061-02-22', 86.3969, 86.39],
+    [695, '2061-12-16', 89.8517, 89.85],
+    [709, '2074-11-25', 91.4917, 91.49],
+    [743, '2076-01-19', 94.6368, 94.63],
+    [771, '2066-05-18', 99.5224, 99.52],
+    [730, '2053-06-19', 94.5209, 94.52],
+    [698, '2054-12-16', 90.8025, 90.8],
+    [680, '2060-12-15', 88.1456, 88.14],
+    [724, '2055-08-18', 92.4788, 92.47],
+    [763, '2056-09-15', 96.296, 96.29],
+    [667, '2050-12-17', 87.9086, 87.9],
+    [719, '2060-09-15', 91.0334, 91.03],
+    [750, '2056-04-27', 97.7125, 97.71],
+    [709, '2054-08-05', 91.1324, 91.13],
+    [740, '2062-09-19', 93.3309, 93.33],
+  ] as const)('prices coupon %s maturing %s at 8%%', (coupon, maturityDate, theoretical, ceiling) => {
+    const terms = { coupon, maturityDate, settlementDate: '2026-10-08' };
+    const price = calculateGsecDirtyPrice({ ...terms, yieldPercent: 8 })!;
+    expect(price).toBeCloseTo(theoretical, 4);
+    expect(calculateGsecYtm({ ...terms, dirtyPrice: price })).toBeCloseTo(8, 10);
+    expect(calculateGsecMaxBuyPrice({ ...terms, targetYtm: 8 })).toBe(ceiling);
+    expect(calculateGsecYtm({ ...terms, dirtyPrice: ceiling })).toBeGreaterThanOrEqual(8);
+    expect(calculateGsecYtm({ ...terms, dirtyPrice: ceiling + 0.01 })).toBeLessThan(8);
+  });
+
+  it('supports zero target yield without a geometric-series division by zero', () => {
+    expect(calculateGsecDirtyPrice({ ...base, yieldPercent: 0 })).toBe(116);
+    expect(calculateGsecMaxBuyPrice({ ...base, targetYtm: 0 })).toBe(116);
+  });
+
+  it('changes the ceiling with the target and the settlement date', () => {
+    const bond = { coupon: 733, maturityDate: '2026-10-30', settlementDate: '2026-10-08' };
+    const price = calculateGsecMaxBuyPrice({ ...bond, targetYtm: 8 })!;
+    expect(calculateGsecMaxBuyPrice({ ...bond, targetYtm: 9 })).toBeLessThan(price);
+    expect(calculateGsecMaxBuyPrice({ ...bond, targetYtm: 7 })).toBeGreaterThan(price);
+    expect(calculateGsecMaxBuyPrice({ ...bond, settlementDate: '2026-10-09', targetYtm: 8 })).toBeGreaterThan(price);
+  });
+
+  it.each([
+    { targetYtm: NaN },
+    { targetYtm: Infinity },
+    { targetYtm: -200 },
+    { maturityDate: '2025-01-15' },
+    { maturityDate: '2026-01-15' },
+    { coupon: -1 },
+    { settlementDate: '2026-02-30' },
+  ])('leaves invalid or matured bond prices unavailable: %j', (invalid) => {
+    expect(calculateGsecMaxBuyPrice({ ...base, targetYtm: 8, ...invalid })).toBeNull();
   });
 });

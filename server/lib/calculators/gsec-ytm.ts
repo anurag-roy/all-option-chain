@@ -23,30 +23,17 @@ function couponDate(maturity: BondDate, periodsBeforeMaturity: number): string {
   return month.toISOString().slice(0, 10);
 }
 
-/** Quoted annual YTM in percent, using the NSE seller's dirty price per ₹100 FV. */
-export function calculateGsecYtm({
-  dirtyPrice,
-  coupon,
-  settlementDate,
-  maturityDate,
-}: {
-  dirtyPrice: number;
+type BondTerms = {
   coupon: number; // Normalized symbol number: 676 means 6.76% per year.
   settlementDate: string;
   maturityDate: string;
-}): number | null {
+};
+
+// Forward pricing and inverse YTM must use exactly the same coupon schedule.
+function createBondPricer({ coupon, settlementDate, maturityDate }: BondTerms) {
   const settlement = parseBondDate(settlementDate);
   const maturity = parseBondDate(maturityDate);
-  if (
-    !settlement ||
-    !maturity ||
-    maturityDate <= settlementDate ||
-    !Number.isFinite(dirtyPrice) ||
-    dirtyPrice <= 0 ||
-    !Number.isFinite(coupon) ||
-    coupon < 0
-  )
-    return null;
+  if (!settlement || !maturity || maturityDate <= settlementDate || !Number.isFinite(coupon) || coupon < 0) return null;
 
   let remainingCoupons = 0;
   let nextCoupon = maturityDate;
@@ -63,12 +50,38 @@ export function calculateGsecYtm({
   // 30/360 days to the next coupon; that still defines a valid discount period.
   if (fraction <= 0) return null;
   const halfYearCoupon = coupon / 200;
-  const presentValue = (yieldRate: number) => {
+  return (yieldRate: number) => {
     const base = 1 + yieldRate / 2;
     let value = 100 / base ** (fraction + remainingCoupons - 1);
     for (let i = 0; i < remainingCoupons; i++) value += halfYearCoupon / base ** (fraction + i);
     return value;
   };
+}
+
+/** Theoretical dirty price per ₹100 FV at a quoted annual yield in percent. */
+export function calculateGsecDirtyPrice({
+  yieldPercent,
+  ...terms
+}: BondTerms & { yieldPercent: number }): number | null {
+  if (!Number.isFinite(yieldPercent) || yieldPercent <= -200) return null;
+  const presentValue = createBondPricer(terms);
+  if (!presentValue) return null;
+  const price = presentValue(yieldPercent / 100);
+  return Number.isFinite(price) && price > 0 ? price : null;
+}
+
+/** Price ceiling floored to NSE's ₹0.01 tick, never rounded up. */
+export function calculateGsecMaxBuyPrice({ targetYtm, ...terms }: BondTerms & { targetYtm: number }): number | null {
+  const price = calculateGsecDirtyPrice({ ...terms, yieldPercent: targetYtm });
+  if (price === null) return null;
+  return Math.floor(price * 100) / 100;
+}
+
+/** Quoted annual YTM in percent, using the NSE seller's dirty price per ₹100 FV. */
+export function calculateGsecYtm({ dirtyPrice, ...terms }: BondTerms & { dirtyPrice: number }): number | null {
+  if (!Number.isFinite(dirtyPrice) || dirtyPrice <= 0) return null;
+  const presentValue = createBondPricer(terms);
+  if (!presentValue) return null;
 
   // Check the bracket; a fixed 0–30% search silently clamps negative/high yields.
   let low = -1.999999;

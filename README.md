@@ -13,7 +13,7 @@ Real-time NSE F&O option chain dashboard for ~200 stocks, powered by [Zerodha Ki
 - **Real-time notifications** — order-trigger alerts (when return % crosses `orderPercent`) and top-bid changes; toast + sound + history sheet
 - **Option sell orders** — NFO MIS SELL LIMIT from the chain table with depth view and margin check
 - **AMO buy orders** — laddered CNC equity buys on `/amo` (regular or AMO per row)
-- **Pledgeable G-Secs** — Zerodha-approved government bonds, seller-based YTM and Near FV rankings, top-five seller depth on `/gsecs`
+- **Pledgeable G-Secs** — Zerodha-approved government bonds, seller-based YTM and Near FV rankings, target-YTM buy-price ceilings and top-five seller depth on `/gsecs`
 - **Ban management** — auto-fetched NSE F&O ban list + persistent custom bans; banned symbols excluded from chain load
 - **Dark mode** — light / dark / system theme toggle
 - **Batch margin lookups** — Kite `orderMargins` with rate limiting
@@ -178,6 +178,7 @@ Sigma bounds and Black-Scholes delta use **NSE trading minutes**, not working da
 | POST | `/api/bans/toggle` | Toggle custom ban `{ name }` |
 | GET | `/api/orders/quote` | Bid/ask depth for an instrument |
 | GET | `/api/gsecs` | Seeded pledgeable G-Secs, seller-only prices and both rankings; `refresh=true` refreshes quotes |
+| GET | `/api/gsecs/target-prices` | Dirty max buy prices for `targetYtm` (0–100), floored to ₹0.01 using the daily seeded catalog |
 | GET | `/api/gsecs/depth` | Top-five seller levels for an approved G-Sec (`tradingsymbol` query) |
 | POST | `/api/orders/margin` | Margin for a single sell order |
 | POST | `/api/orders/sell` | Place NFO MIS SELL LIMIT order |
@@ -193,6 +194,7 @@ Run `npm run data:prepare` each morning, then start the app. It applies migratio
 - **Coupon** is the coupon number in the trading symbol. Shortened coupons are normalized: `68GS2060-GS` uses `680`, `75GS2034-GS` uses `750`; `1018GS` uses `1018`. Approved `GR` issues and letter suffixes are supported as well.
 - **Sell Rate** is the lowest positive seller price with positive available quantity. Buyer prices and last traded prices are never used.
 - **RRR (YTM)** is quoted annual yield to maturity: the solver discounts semiannual coupons and ₹100 redemption to match the best seller's price, using T+1 settlement and 30E/360 fractional coupon periods. NSE quotes already include accrued interest; it is not added again. Coupon `750` means ₹7.50 annually per ₹100 face value, or ₹3.75 each half year. Best RRR Rank uses the full-precision yield, highest first; display retains four decimal places. [Calculation and sources](docs/gsec-ytm.md).
+- **Target YTM** defaults to 8% and applies to all displayed bonds. **Max Buy Price** discounts the remaining payments at that target and floors the dirty-price ceiling to ₹0.01. Seller prices at or below the ceiling are highlighted green; other rows remain visible. Ceilings are calculated server-side from SQLite when the target, settlement date or seed changes. Live quote comparisons use the existing ticker, without extra broker requests.
 - **Distance from FV** = ABS(Sell Rate - 100). Near FV Rank puts the closest price first, whether above or below 100. Equal values share a rank (1, 1, 3).
 - Missing quotes and empty seller books remain visible with no RRR or ranks. Bonds matured by settlement, or without a solvable yield, have no RRR rank; their valid seller price can still receive a Near FV rank.
 - G-Secs share the existing server-side Kite ticker in `full` mode. Seller prices, rankings and top-five seller depth update from the same ticks, with client snapshots batched every 250 ms. There is no periodic price or depth polling.

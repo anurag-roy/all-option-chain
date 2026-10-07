@@ -20,6 +20,16 @@ The rate is quoted annual YTM (twice the half-year yield). The effective annual 
 
 The numerical solver verifies a bracket and accommodates negative or unusually high yields. Rankings use full precision with competition ranks for exact ties. Display uses four decimal places. Missing sellers, matured bonds and unsolvable inputs have no YTM rank. Near FV remains `ABS(seller price − 100)` and can rank a valid seller price independently of YTM.
 
+## Target YTM and maximum buy price
+
+The scanner accepts a target quoted annual YTM from 0% to 100%, defaulting to 8%. One target applies to every pledgeable bond in that browser. The existing coupon schedule and 30E/360 fraction are used in the forward pricing equation above, with `y = target YTM / 100`. This gives the theoretical maximum **dirty** buy price. The displayed `Max Buy Price` is `floor(theoretical price × 100) / 100`, floored to NSE's ₹0.01 tick. Accrued interest is not added.
+
+Only a valid seller price at or below that floored ceiling receives a green highlight. Other rows remain visible with their usual rankings. A ceiling can be calculated even without sellers; matured or invalid bonds have no ceiling. As with current YTM, the calculation excludes fees and taxes. The scanner's existing disconnected status still applies to retained quotes.
+
+For `733GS2026-GS`, settlement 8 October 2026 and target 8%, the theoretical price is ₹103.1692561862, so the ceiling is **₹103.16**. A seller at ₹103.15 qualifies; a seller at ₹103.17 does not. For `709GS2054-GS`, the same settlement/target produces **₹91.13**. All 18 examples in the supplied target-YTM note are covered by numerical checks.
+
+`GET /api/gsecs/target-prices?targetYtm=8` calculates ceilings server-side from the cached daily SQLite catalog. It does not fetch broker quotes or external reference data. The client caches each target/settlement/seed combination and requests new ceilings when one changes, debouncing target edits by 300ms. The seed identity ensures newly approved bonds get ceilings even when consecutive non-trading days share a settlement date. The existing ticker updates the seller-price comparison as quotes change. Old target/date/seed responses are excluded from highlighting while new ceilings are pending.
+
 ## Example
 
 For `676GS2061-GS`, maturity is 22 February 2061 and coupons fall on 22 February and 22 August.

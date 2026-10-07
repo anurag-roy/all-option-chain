@@ -1,9 +1,12 @@
 import { SellerDepthDialog } from '@client/components/gsecs/seller-depth-dialog';
 import { Button } from '@client/components/ui/button';
 import { Input } from '@client/components/ui/input';
+import { Label } from '@client/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@client/components/ui/table';
+import { useGsecTargetPrices } from '@client/hooks/use-gsec-target-prices';
 import { useGsecs } from '@client/hooks/use-gsecs';
 import { formatGsecRrr } from '@shared/lib/format-gsec-rrr';
+import { DEFAULT_GSEC_TARGET_YTM, gsecTargetYtmSchema } from '@shared/schemas/gsecs';
 import { ArrowDownIcon, ExternalLinkIcon } from 'lucide-react';
 import { useState } from 'react';
 
@@ -19,6 +22,10 @@ export function GsecScanner() {
   const { data, error, isPending, isLive } = useGsecs();
   const [search, setSearch] = useState('');
   const [ranking, setRanking] = useState<Ranking>('bestRrrRank');
+  const [targetInput, setTargetInput] = useState(String(DEFAULT_GSEC_TARGET_YTM));
+  const parsedTarget = gsecTargetYtmSchema.safeParse(targetInput.trim() ? Number(targetInput) : NaN);
+  const targetYtm = parsedTarget.success ? parsedTarget.data : null;
+  const targetPrices = useGsecTargetPrices(targetYtm, data?.settlementDate, data?.approvedListFetchedAt);
   const rows = [...(data?.rows ?? [])]
     .filter((row) =>
       `${row.tradingsymbol} ${row.coupon} ${row.maturityYear} ${row.maturityDate}`
@@ -51,6 +58,23 @@ export function GsecScanner() {
           onChange={(event) => setSearch(event.target.value)}
           className='h-10 w-full sm:max-w-xs'
         />
+        <div className='flex items-center gap-2'>
+          <Label htmlFor='gsec-target-ytm' className='whitespace-nowrap'>
+            Target YTM (%)
+          </Label>
+          <Input
+            id='gsec-target-ytm'
+            type='number'
+            min={0}
+            max={100}
+            step='any'
+            value={targetInput}
+            onChange={(event) => setTargetInput(event.target.value)}
+            aria-invalid={!parsedTarget.success}
+            aria-describedby={!parsedTarget.success ? 'gsec-target-error' : undefined}
+            className='h-10 w-24 tabular-nums'
+          />
+        </div>
         <div className='flex items-center gap-2' role='group' aria-label='G-Sec ranking'>
           <Button
             size='lg'
@@ -73,6 +97,16 @@ export function GsecScanner() {
         </div>
       </div>
 
+      {!parsedTarget.success ? (
+        <p id='gsec-target-error' role='alert' className='text-destructive text-sm'>
+          Enter a target YTM between 0% and 100%.
+        </p>
+      ) : targetPrices.error && !error ? (
+        <p role='alert' className='text-destructive text-sm'>
+          Max buy prices unavailable: {targetPrices.error.message}
+        </p>
+      ) : null}
+
       {error ? (
         <div role='alert' className='border-destructive/30 text-destructive rounded-md border p-4 text-sm'>
           {error.message}
@@ -87,6 +121,12 @@ export function GsecScanner() {
                 <TableHead className='text-center'>Maturity</TableHead>
                 <TableHead className='text-center' title='Best NSE seller price, including accrued interest'>
                   Sell Rate
+                </TableHead>
+                <TableHead
+                  className='text-center'
+                  title={`Maximum dirty buy price for ${targetYtm ?? '—'}% YTM, floored to ₹0.01`}
+                >
+                  Max Buy Price
                 </TableHead>
                 <TableHead
                   className='text-center'
@@ -123,7 +163,7 @@ export function GsecScanner() {
             <TableBody>
               {isPending || rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className='text-muted-foreground py-12 text-center'>
+                  <TableCell colSpan={10} className='text-muted-foreground py-12 text-center'>
                     {isPending
                       ? 'Loading approved G-Secs and seller quotes…'
                       : search
@@ -132,37 +172,50 @@ export function GsecScanner() {
                   </TableCell>
                 </TableRow>
               ) : (
-                rows.map((row) => (
-                  <TableRow key={row.tradingsymbol}>
-                    <TableCell className='pl-4 font-medium'>{row.tradingsymbol}</TableCell>
-                    <TableCell className='text-center'>{row.coupon}</TableCell>
-                    <TableCell className='text-center whitespace-nowrap'>
-                      {row.maturityDate
-                        ? bondDateFormat.format(new Date(`${row.maturityDate}T00:00:00Z`))
-                        : row.maturityYear}
-                    </TableCell>
-                    <TableCell className='text-center'>
-                      {row.sellRate === null ? (
-                        <span className='text-muted-foreground text-xs'>
-                          {row.quoteStatus === 'unavailable' ? 'Quote unavailable' : 'No sellers'}
-                        </span>
-                      ) : (
-                        row.sellRate.toFixed(2)
-                      )}
-                    </TableCell>
-                    <TableCell className='text-center font-semibold'>
-                      {row.rrr === null ? '—' : formatGsecRrr(row.rrr)}
-                    </TableCell>
-                    <TableCell className='text-center'>{row.bestRrrRank ?? '—'}</TableCell>
-                    <TableCell className='text-center'>
-                      {row.distanceFromFv === null ? '—' : row.distanceFromFv.toFixed(2)}
-                    </TableCell>
-                    <TableCell className='text-center'>{row.nearFvRank ?? '—'}</TableCell>
-                    <TableCell className='pr-4 text-right'>
-                      <SellerDepthDialog row={row} isLive={isLive} />
-                    </TableCell>
-                  </TableRow>
-                ))
+                rows.map((row) => {
+                  const maxBuyPrice = targetPrices.data?.prices[row.tradingsymbol] ?? null;
+                  const withinTarget = row.sellRate !== null && maxBuyPrice !== null && row.sellRate <= maxBuyPrice;
+                  return (
+                    <TableRow
+                      key={row.tradingsymbol}
+                      className={withinTarget ? 'bg-success/10 hover:bg-success/15' : undefined}
+                    >
+                      <TableCell className='pl-4 font-medium'>{row.tradingsymbol}</TableCell>
+                      <TableCell className='text-center'>{row.coupon}</TableCell>
+                      <TableCell className='text-center whitespace-nowrap'>
+                        {row.maturityDate
+                          ? bondDateFormat.format(new Date(`${row.maturityDate}T00:00:00Z`))
+                          : row.maturityYear}
+                      </TableCell>
+                      <TableCell className={withinTarget ? 'text-success text-center font-semibold' : 'text-center'}>
+                        {row.sellRate === null ? (
+                          <span className='text-muted-foreground text-xs'>
+                            {row.quoteStatus === 'unavailable' ? 'Quote unavailable' : 'No sellers'}
+                          </span>
+                        ) : (
+                          <>
+                            {row.sellRate.toFixed(2)}
+                            {withinTarget ? <span className='sr-only'>, within target YTM price ceiling</span> : null}
+                          </>
+                        )}
+                      </TableCell>
+                      <TableCell className={withinTarget ? 'text-success text-center font-semibold' : 'text-center'}>
+                        {maxBuyPrice === null ? '—' : maxBuyPrice.toFixed(2)}
+                      </TableCell>
+                      <TableCell className='text-center font-semibold'>
+                        {row.rrr === null ? '—' : formatGsecRrr(row.rrr)}
+                      </TableCell>
+                      <TableCell className='text-center'>{row.bestRrrRank ?? '—'}</TableCell>
+                      <TableCell className='text-center'>
+                        {row.distanceFromFv === null ? '—' : row.distanceFromFv.toFixed(2)}
+                      </TableCell>
+                      <TableCell className='text-center'>{row.nearFvRank ?? '—'}</TableCell>
+                      <TableCell className='pr-4 text-right'>
+                        <SellerDepthDialog row={row} isLive={isLive} />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>

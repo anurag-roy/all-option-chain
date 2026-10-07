@@ -239,6 +239,7 @@ Converts form leg prices + value/LTP into batched `{ tradingsymbol, price, quant
 | POST | `/api/orders/sell` | Place NFO MIS SELL LIMIT order (option sell from modal) |
 | POST | `/api/orders/amo` | Batch CNC BUY orders `{ orders: AmoOrderItem[] }` → `{ placed, failed, results }` |
 | GET | `/api/gsecs` | Seeded pledgeable G-Sec snapshot; `refresh=true` refreshes quote snapshots only |
+| GET | `/api/gsecs/target-prices` | `targetYtm` (0–100) → dirty max buy prices floored to ₹0.01, calculated from the daily seeded catalog without quote requests |
 | GET | `/api/gsecs/depth` | Cached top-five seller depth for an approved G-Sec |
 | WS | `/api/ws` | Live option chain + G-Secs + status + notifications |
 

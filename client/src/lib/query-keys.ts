@@ -13,6 +13,8 @@ export const queryKeys = {
   },
   gsecs: {
     scan: ['gsecScan'] as const,
+    targetPrices: (targetYtm: number | null, settlementDate?: string, approvedListFetchedAt?: string) =>
+      ['gsecTargetPrices', targetYtm, settlementDate, approvedListFetchedAt] as const,
   },
   orders: {
     quote: (instrumentToken: number) => ['orderQuote', instrumentToken] as const,

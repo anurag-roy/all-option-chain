@@ -1,8 +1,11 @@
+import { priceGsecsAtTarget } from '@server/lib/calculators/gsecs';
 import { logger } from '@server/lib/logger';
 import { accessToken } from '@server/lib/services/access-token';
 import { GsecSeedError } from '@server/lib/services/approved-gsecs';
+import { getSeededGsecs } from '@server/lib/services/gsec-catalog';
 import { getGsecDepth, scanGsecs } from '@server/lib/services/gsec-scanner';
 import { routeValidator } from '@server/middlewares/validator';
+import { gsecTargetYtmSchema } from '@shared/schemas/gsecs';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
@@ -43,6 +46,22 @@ export const gsecsRoute = new Hono()
       return upstreamError(error);
     }
   })
+  .get(
+    '/target-prices',
+    routeValidator(
+      'query',
+      z.object({ targetYtm: z.string().trim().min(1).pipe(z.coerce.number()).pipe(gsecTargetYtmSchema) })
+    ),
+    async (c) => {
+      requireAccessToken();
+      try {
+        const catalog = await getSeededGsecs();
+        return c.json(priceGsecsAtTarget(catalog, c.req.valid('query').targetYtm));
+      } catch (error) {
+        return upstreamError(error);
+      }
+    }
+  )
   .get(
     '/depth',
     routeValidator('query', z.object({ tradingsymbol: z.string().regex(/^\d{2,4}(?:GS|GR)\d{4}[A-Z]?-GS$/) })),

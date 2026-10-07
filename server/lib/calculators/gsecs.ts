@@ -1,5 +1,29 @@
-import { calculateGsecYtm } from '@server/lib/calculators/gsec-ytm';
-import type { GsecBond, GsecRow, GsecSecurity, GsecSellerLevel } from '@shared/types/gsecs';
+import { calculateGsecMaxBuyPrice, calculateGsecYtm } from '@server/lib/calculators/gsec-ytm';
+import type {
+  GsecBond,
+  GsecCatalogSnapshot,
+  GsecRow,
+  GsecSecurity,
+  GsecSellerLevel,
+  GsecTargetPrices,
+} from '@shared/types/gsecs';
+
+export function priceGsecsAtTarget(
+  { securities, settlementDate, fetchedAt }: Pick<GsecCatalogSnapshot, 'securities' | 'settlementDate' | 'fetchedAt'>,
+  targetYtm: number
+): GsecTargetPrices {
+  return {
+    targetYtm,
+    settlementDate,
+    approvedListFetchedAt: fetchedAt,
+    prices: Object.fromEntries(
+      securities.map((security) => [
+        security.tradingsymbol,
+        calculateGsecMaxBuyPrice({ ...security, settlementDate, targetYtm }),
+      ])
+    ),
+  };
+}
 
 export function parseGsecSymbol(
   symbol: string

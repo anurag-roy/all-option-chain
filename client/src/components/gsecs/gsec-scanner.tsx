@@ -37,8 +37,8 @@ export function GsecScanner() {
     );
 
   return (
-    <section className='w-[80rem] max-w-[calc(100vw-2rem)] space-y-6 px-4'>
-      <div className='flex flex-wrap items-center justify-between gap-4'>
+    <section className='border-border bg-card w-[80rem] max-w-[calc(100vw-2rem)] rounded-md border'>
+      <div className='border-border flex flex-wrap items-center justify-between gap-4 border-b px-4 py-3'>
         <h2 className='text-2xl font-semibold text-balance'>Pledgeable G-Secs</h2>
         <a
           href='https://zerodha.com/approved-securities/'
@@ -50,177 +50,179 @@ export function GsecScanner() {
         </a>
       </div>
 
-      <div className='flex flex-wrap items-center justify-between gap-3'>
-        <Input
-          aria-label='Search G-Secs by symbol, coupon or maturity date'
-          placeholder='Search G-Sec or maturity year…'
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          className='h-10 w-full sm:max-w-xs'
-        />
-        <div className='flex items-center gap-2'>
-          <Label htmlFor='gsec-target-ytm' className='whitespace-nowrap'>
-            Target YTM (%)
-          </Label>
+      <div className='space-y-4 p-4'>
+        <div className='flex flex-wrap items-center gap-3'>
           <Input
-            id='gsec-target-ytm'
-            type='number'
-            min={0}
-            max={100}
-            step='any'
-            value={targetInput}
-            onChange={(event) => setTargetInput(event.target.value)}
-            aria-invalid={!parsedTarget.success}
-            aria-describedby={!parsedTarget.success ? 'gsec-target-error' : undefined}
-            className='h-10 w-24 tabular-nums'
+            aria-label='Search G-Secs by symbol, coupon or maturity date'
+            placeholder='Search G-Sec or maturity year…'
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className='h-10 w-full sm:max-w-xs'
           />
+          <div className='flex items-center gap-2'>
+            <Label htmlFor='gsec-target-ytm' className='whitespace-nowrap'>
+              Target YTM (%)
+            </Label>
+            <Input
+              id='gsec-target-ytm'
+              type='number'
+              min={0}
+              max={100}
+              step='any'
+              value={targetInput}
+              onChange={(event) => setTargetInput(event.target.value)}
+              aria-invalid={!parsedTarget.success}
+              aria-describedby={!parsedTarget.success ? 'gsec-target-error' : undefined}
+              className='h-10 w-24 tabular-nums'
+            />
+          </div>
+          <div className='ml-auto flex items-center gap-2' role='group' aria-label='G-Sec ranking'>
+            <Button
+              size='lg'
+              variant={ranking === 'bestRrrRank' ? 'default' : 'ghost'}
+              aria-pressed={ranking === 'bestRrrRank'}
+              className='transition-colors'
+              onClick={() => setRanking('bestRrrRank')}
+            >
+              Best RRR
+            </Button>
+            <Button
+              size='lg'
+              variant={ranking === 'nearFvRank' ? 'default' : 'ghost'}
+              aria-pressed={ranking === 'nearFvRank'}
+              className='transition-colors'
+              onClick={() => setRanking('nearFvRank')}
+            >
+              Near FV
+            </Button>
+          </div>
         </div>
-        <div className='flex items-center gap-2' role='group' aria-label='G-Sec ranking'>
-          <Button
-            size='lg'
-            variant={ranking === 'bestRrrRank' ? 'secondary' : 'ghost'}
-            aria-pressed={ranking === 'bestRrrRank'}
-            className='transition-colors'
-            onClick={() => setRanking('bestRrrRank')}
-          >
-            Best RRR
-          </Button>
-          <Button
-            size='lg'
-            variant={ranking === 'nearFvRank' ? 'secondary' : 'ghost'}
-            aria-pressed={ranking === 'nearFvRank'}
-            className='transition-colors'
-            onClick={() => setRanking('nearFvRank')}
-          >
-            Near FV
-          </Button>
-        </div>
-      </div>
 
-      {!parsedTarget.success ? (
-        <p id='gsec-target-error' role='alert' className='text-destructive text-sm'>
-          Enter a target YTM between 0% and 100%.
-        </p>
-      ) : targetPrices.error && !error ? (
-        <p role='alert' className='text-destructive text-sm'>
-          Max buy prices unavailable: {targetPrices.error.message}
-        </p>
-      ) : null}
+        {!parsedTarget.success ? (
+          <p id='gsec-target-error' role='alert' className='text-destructive text-sm'>
+            Enter a target YTM between 0% and 100%.
+          </p>
+        ) : targetPrices.error && !error ? (
+          <p role='alert' className='text-destructive text-sm'>
+            Max buy prices unavailable: {targetPrices.error.message}
+          </p>
+        ) : null}
 
-      {error ? (
-        <div role='alert' className='border-destructive/30 text-destructive rounded-md border p-4 text-sm'>
-          {error.message}
-        </div>
-      ) : (
-        <div className='bg-background rounded-lg border'>
-          <Table className='tabular-nums'>
-            <TableHeader>
-              <TableRow>
-                <TableHead className='pl-4'>G-Sec</TableHead>
-                <TableHead className='text-center'>Coupon</TableHead>
-                <TableHead className='text-center'>Maturity</TableHead>
-                <TableHead className='text-center' title='Best NSE seller price, including accrued interest'>
-                  Sell Rate
-                </TableHead>
-                <TableHead
-                  className='text-center'
-                  title={`Maximum dirty buy price for ${targetYtm ?? '—'}% YTM, floored to ₹0.01`}
-                >
-                  Max Buy Price
-                </TableHead>
-                <TableHead
-                  className='text-center'
-                  title={`Quoted annual YTM. T+1 settlement: ${data?.settlementDate ?? '—'}`}
-                >
-                  RRR (YTM)
-                </TableHead>
-                <TableHead className='text-center' aria-sort={ranking === 'bestRrrRank' ? 'ascending' : 'none'}>
-                  <button
-                    type='button'
-                    className='focus-visible:outline-ring inline-flex min-h-10 items-center gap-1 rounded px-1 focus-visible:outline-2'
-                    onClick={() => setRanking('bestRrrRank')}
-                  >
-                    Best RRR Rank{' '}
-                    {ranking === 'bestRrrRank' ? <ArrowDownIcon className='size-3.5' aria-hidden='true' /> : null}
-                  </button>
-                </TableHead>
-                <TableHead className='text-center'>Distance from FV</TableHead>
-                <TableHead className='text-center' aria-sort={ranking === 'nearFvRank' ? 'ascending' : 'none'}>
-                  <button
-                    type='button'
-                    className='focus-visible:outline-ring inline-flex min-h-10 items-center gap-1 rounded px-1 focus-visible:outline-2'
-                    onClick={() => setRanking('nearFvRank')}
-                  >
-                    Near FV Rank{' '}
-                    {ranking === 'nearFvRank' ? <ArrowDownIcon className='size-3.5' aria-hidden='true' /> : null}
-                  </button>
-                </TableHead>
-                <TableHead className='pr-4'>
-                  <span className='sr-only'>Market depth</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isPending || rows.length === 0 ? (
+        {error ? (
+          <div role='alert' className='border-destructive/30 text-destructive rounded-md border p-4 text-sm'>
+            {error.message}
+          </div>
+        ) : (
+          <div className='bg-background rounded-md border'>
+            <Table className='tabular-nums'>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={10} className='text-muted-foreground py-12 text-center'>
-                    {isPending
-                      ? 'Loading approved G-Secs and seller quotes…'
-                      : search
-                        ? 'No G-Secs match your search.'
-                        : 'No pledgeable G-Secs available.'}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                rows.map((row) => {
-                  const maxBuyPrice = targetPrices.data?.prices[row.tradingsymbol] ?? null;
-                  const withinTarget = row.sellRate !== null && maxBuyPrice !== null && row.sellRate <= maxBuyPrice;
-                  return (
-                    <TableRow
-                      key={row.tradingsymbol}
-                      className={withinTarget ? 'bg-success/10 hover:bg-success/15' : undefined}
+                  <TableHead className='pl-4'>G-Sec</TableHead>
+                  <TableHead className='text-center'>Coupon</TableHead>
+                  <TableHead className='text-center'>Maturity</TableHead>
+                  <TableHead className='text-center' title='Best NSE seller price, including accrued interest'>
+                    Sell Rate
+                  </TableHead>
+                  <TableHead
+                    className='text-center'
+                    title={`Maximum dirty buy price for ${targetYtm ?? '—'}% YTM, floored to ₹0.01`}
+                  >
+                    Max Buy Price
+                  </TableHead>
+                  <TableHead
+                    className='text-center'
+                    title={`Quoted annual YTM. T+1 settlement: ${data?.settlementDate ?? '—'}`}
+                  >
+                    RRR (YTM)
+                  </TableHead>
+                  <TableHead className='text-center' aria-sort={ranking === 'bestRrrRank' ? 'ascending' : 'none'}>
+                    <button
+                      type='button'
+                      className='focus-visible:outline-ring inline-flex min-h-10 items-center gap-1 rounded px-1 focus-visible:outline-2'
+                      onClick={() => setRanking('bestRrrRank')}
                     >
-                      <TableCell className='pl-4 font-medium'>{row.tradingsymbol}</TableCell>
-                      <TableCell className='text-center'>{row.coupon}</TableCell>
-                      <TableCell className='text-center whitespace-nowrap'>
-                        {row.maturityDate
-                          ? bondDateFormat.format(new Date(`${row.maturityDate}T00:00:00Z`))
-                          : row.maturityYear}
-                      </TableCell>
-                      <TableCell className={withinTarget ? 'text-success text-center font-semibold' : 'text-center'}>
-                        {row.sellRate === null ? (
-                          <span className='text-muted-foreground text-xs'>
-                            {row.quoteStatus === 'unavailable' ? 'Quote unavailable' : 'No sellers'}
-                          </span>
-                        ) : (
-                          <>
-                            {row.sellRate.toFixed(2)}
-                            {withinTarget ? <span className='sr-only'>, within target YTM price ceiling</span> : null}
-                          </>
-                        )}
-                      </TableCell>
-                      <TableCell className={withinTarget ? 'text-success text-center font-semibold' : 'text-center'}>
-                        {maxBuyPrice === null ? '—' : maxBuyPrice.toFixed(2)}
-                      </TableCell>
-                      <TableCell className='text-center font-semibold'>
-                        {row.rrr === null ? '—' : formatGsecRrr(row.rrr)}
-                      </TableCell>
-                      <TableCell className='text-center'>{row.bestRrrRank ?? '—'}</TableCell>
-                      <TableCell className='text-center'>
-                        {row.distanceFromFv === null ? '—' : row.distanceFromFv.toFixed(2)}
-                      </TableCell>
-                      <TableCell className='text-center'>{row.nearFvRank ?? '—'}</TableCell>
-                      <TableCell className='pr-4 text-right'>
-                        <SellerDepthDialog row={row} isLive={isLive} />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+                      Best RRR Rank{' '}
+                      {ranking === 'bestRrrRank' ? <ArrowDownIcon className='size-3.5' aria-hidden='true' /> : null}
+                    </button>
+                  </TableHead>
+                  <TableHead className='text-center'>Distance from FV</TableHead>
+                  <TableHead className='text-center' aria-sort={ranking === 'nearFvRank' ? 'ascending' : 'none'}>
+                    <button
+                      type='button'
+                      className='focus-visible:outline-ring inline-flex min-h-10 items-center gap-1 rounded px-1 focus-visible:outline-2'
+                      onClick={() => setRanking('nearFvRank')}
+                    >
+                      Near FV Rank{' '}
+                      {ranking === 'nearFvRank' ? <ArrowDownIcon className='size-3.5' aria-hidden='true' /> : null}
+                    </button>
+                  </TableHead>
+                  <TableHead className='pr-4'>
+                    <span className='sr-only'>Market depth</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isPending || rows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={10} className='text-muted-foreground py-12 text-center'>
+                      {isPending
+                        ? 'Loading approved G-Secs and seller quotes…'
+                        : search
+                          ? 'No G-Secs match your search.'
+                          : 'No pledgeable G-Secs available.'}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  rows.map((row) => {
+                    const maxBuyPrice = targetPrices.data?.prices[row.tradingsymbol] ?? null;
+                    const withinTarget = row.sellRate !== null && maxBuyPrice !== null && row.sellRate <= maxBuyPrice;
+                    return (
+                      <TableRow
+                        key={row.tradingsymbol}
+                        className={withinTarget ? 'bg-success/10 hover:bg-success/15' : undefined}
+                      >
+                        <TableCell className='pl-4 font-medium'>{row.tradingsymbol}</TableCell>
+                        <TableCell className='text-center'>{row.coupon}</TableCell>
+                        <TableCell className='text-center whitespace-nowrap'>
+                          {row.maturityDate
+                            ? bondDateFormat.format(new Date(`${row.maturityDate}T00:00:00Z`))
+                            : row.maturityYear}
+                        </TableCell>
+                        <TableCell className={withinTarget ? 'text-success text-center font-semibold' : 'text-center'}>
+                          {row.sellRate === null ? (
+                            <span className='text-muted-foreground text-xs'>
+                              {row.quoteStatus === 'unavailable' ? 'Quote unavailable' : 'No sellers'}
+                            </span>
+                          ) : (
+                            <>
+                              {row.sellRate.toFixed(2)}
+                              {withinTarget ? <span className='sr-only'>, within target YTM price ceiling</span> : null}
+                            </>
+                          )}
+                        </TableCell>
+                        <TableCell className={withinTarget ? 'text-success text-center font-semibold' : 'text-center'}>
+                          {maxBuyPrice === null ? '—' : maxBuyPrice.toFixed(2)}
+                        </TableCell>
+                        <TableCell className='text-center font-semibold'>
+                          {row.rrr === null ? '—' : formatGsecRrr(row.rrr)}
+                        </TableCell>
+                        <TableCell className='text-center'>{row.bestRrrRank ?? '—'}</TableCell>
+                        <TableCell className='text-center'>
+                          {row.distanceFromFv === null ? '—' : row.distanceFromFv.toFixed(2)}
+                        </TableCell>
+                        <TableCell className='text-center'>{row.nearFvRank ?? '—'}</TableCell>
+                        <TableCell className='pr-4 text-right'>
+                          <SellerDepthDialog row={row} isLive={isLive} />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

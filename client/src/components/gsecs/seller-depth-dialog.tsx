@@ -38,10 +38,7 @@ function SellerDepth({ row, isLive }: { row: GsecRow; isLive: boolean }) {
             ) : (
               row.sellerDepth.map((level, index) => (
                 <TableRow key={index}>
-                  <TableCell>
-                    Seller {index + 1}
-                    {index === 0 ? ' (best)' : ''}
-                  </TableCell>
+                  <TableCell>Seller {index + 1}</TableCell>
                   <TableCell className='text-right font-medium'>{level.price.toFixed(2)}</TableCell>
                   <TableCell className='text-right'>{level.quantity.toLocaleString('en-IN')}</TableCell>
                   <TableCell className='text-right'>{level.orders.toLocaleString('en-IN')}</TableCell>

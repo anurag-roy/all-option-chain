@@ -5,6 +5,7 @@ import { Label } from '@client/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@client/components/ui/table';
 import { useGsecTargetPrices } from '@client/hooks/use-gsec-target-prices';
 import { useGsecs } from '@client/hooks/use-gsecs';
+import { cn } from '@client/lib/utils';
 import { formatGsecRrr } from '@shared/lib/format-gsec-rrr';
 import { gsecKey } from '@shared/lib/gsec-key';
 import { DEFAULT_GSEC_TARGET_YTM, gsecTargetYtmSchema } from '@shared/schemas/gsecs';
@@ -88,7 +89,7 @@ export function GsecScanner() {
           </p>
         ) : targetPrices.error && !error ? (
           <p role='alert' className='text-destructive text-sm'>
-            Max buy prices unavailable: {targetPrices.error.message}
+            Buy rates unavailable: {targetPrices.error.message}
           </p>
         ) : null}
 
@@ -127,15 +128,15 @@ export function GsecScanner() {
                   </TableHead>
                   <TableHead
                     className='text-center'
-                    title={`Maximum dirty buy price for ${targetYtm ?? '—'}% YTM, floored to this listing’s trading tick`}
-                  >
-                    Max Buy Price
-                  </TableHead>
-                  <TableHead
-                    className='text-center'
                     title={`Quoted annual YTM. T+1 settlement: ${data?.settlementDate ?? '—'}`}
                   >
                     RRR (YTM)
+                  </TableHead>
+                  <TableHead
+                    className='text-center'
+                    title={`Maximum dirty buy price for ${targetYtm ?? '—'}% YTM, floored to this listing’s trading tick`}
+                  >
+                    Buy Rate
                   </TableHead>
                   <TableHead className='pr-4'>
                     <span className='sr-only'>Market depth</span>
@@ -172,7 +173,12 @@ export function GsecScanner() {
                             ? bondDateFormat.format(new Date(`${row.maturityDate}T00:00:00Z`))
                             : row.maturityYear}
                         </TableCell>
-                        <TableCell className={withinTarget ? 'text-success text-center font-semibold' : 'text-center'}>
+                        <TableCell
+                          className={cn(
+                            'bg-red-50/60 text-center dark:bg-red-900/10',
+                            withinTarget && 'text-success font-semibold'
+                          )}
+                        >
                           {row.sellRate === null ? (
                             <span className='text-muted-foreground text-xs'>
                               {row.quoteStatus === 'unavailable' ? 'Quote unavailable' : 'No sellers'}
@@ -184,11 +190,16 @@ export function GsecScanner() {
                             </>
                           )}
                         </TableCell>
-                        <TableCell className={withinTarget ? 'text-success text-center font-semibold' : 'text-center'}>
-                          {maxBuyPrice === null ? '—' : maxBuyPrice.toFixed(2)}
-                        </TableCell>
                         <TableCell className='text-center font-semibold'>
                           {row.rrr === null ? '—' : formatGsecRrr(row.rrr)}
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            'bg-blue-50/60 text-center dark:bg-blue-900/10',
+                            withinTarget && 'text-success font-semibold'
+                          )}
+                        >
+                          {maxBuyPrice === null ? '—' : maxBuyPrice.toFixed(2)}
                         </TableCell>
                         <TableCell className='pr-4 text-right'>
                           <SellerDepthDialog row={row} isLive={isLive} />

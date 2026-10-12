@@ -1,7 +1,9 @@
-import { getGsecSellerDepth, rankGsecs } from '@server/lib/calculators/gsecs';
+import { sampleGsecCurve } from '@server/lib/calculators/gsec-zero-curve';
+import { getGsecSellerDepth, rankGsecs, type GsecCurveContext } from '@server/lib/calculators/gsecs';
 import { logger } from '@server/lib/logger';
 import { APPROVED_SECURITIES_PAGE, GsecSeedError } from '@server/lib/services/approved-gsecs';
 import { getSeededGsecs } from '@server/lib/services/gsec-catalog';
+import { getSeededGsecCurve } from '@server/lib/services/gsec-curve-catalog';
 import { getFullQuotes } from '@server/lib/services/kite';
 import { marketDataService } from '@server/lib/services/market-data';
 import { gsecKey } from '@shared/lib/gsec-key';
@@ -28,6 +30,8 @@ export class GsecScanner {
   private disposeConnection: (() => void) | null = null;
   private updateHandler: ((snapshot: GsecScan) => void) | null = null;
   private stopped = false;
+  private curveContext: GsecCurveContext | undefined;
+  private curvePoints: NonNullable<GsecScan['curvePoints']> = [];
 
   onUpdate(handler: (snapshot: GsecScan) => void) {
     this.updateHandler = handler;
@@ -121,6 +125,21 @@ export class GsecScanner {
     this.approvedListFetchedAt = approved.fetchedAt;
     this.tradeDate = approved.tradeDate;
     this.settlementDate = approved.settlementDate;
+    const curveState = await getSeededGsecCurve();
+    this.assertRunning();
+    if (
+      !this.curveContext ||
+      this.curveContext.state.snapshot?.id !== curveState.snapshot?.id ||
+      this.curveContext.state.status !== curveState.status ||
+      this.snapshot?.settlementDate !== this.settlementDate
+    ) {
+      this.curveContext = { state: curveState, valuations: new Map(), quoteTimes: this.quoteTimes };
+      this.curvePoints =
+        curveState.status === 'ready' && curveState.snapshot ? sampleGsecCurve(curveState.snapshot) : [];
+    } else {
+      this.curveContext.state = curveState;
+      if (curveState.status !== 'ready') this.curvePoints = [];
+    }
     // Apply the daily seeded list before requesting quote snapshots.
     this.publish();
 
@@ -152,7 +171,13 @@ export class GsecScanner {
     this.publishTimer = null;
     const streamStatus = status ?? (marketDataService.isConnected() ? 'live' : 'disconnected');
     this.snapshot = {
-      rows: rankGsecs([...this.securities.values()], this.quotes, this.settlementDate).map((row) => ({
+      rows: rankGsecs(
+        [...this.securities.values()],
+        this.quotes,
+        this.settlementDate,
+        this.snapshot,
+        this.curveContext
+      ).map((row) => ({
         ...row,
         quoteUpdatedAt: this.quoteTimes.get(gsecKey(row)) ?? null,
       })),
@@ -163,6 +188,8 @@ export class GsecScanner {
       tradeDate: this.tradeDate,
       settlementDate: this.settlementDate,
       streamStatus,
+      curve: this.curveContext?.state,
+      curvePoints: this.curvePoints,
       message:
         message ??
         (streamStatus === 'disconnected'

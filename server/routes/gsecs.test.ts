@@ -61,12 +61,16 @@ describe('G-Sec target-price API', () => {
   it('prices only seeded securities without loading quotes or changing the live scanner', async () => {
     const response = await gsecsRoute.request('/target-prices?targetYtm=8');
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
+    const data = await response.json();
+    expect(data).toMatchObject({
       targetYtm: 8,
       settlementDate: '2026-10-08',
       approvedListFetchedAt: '2026-10-07T09:40:14.226Z',
       prices: { 'NSE:733GS2026-GS': 103.16, 'BSE:733GS2026-GS': 103.15, 'NSE:800GS2025-GS': null },
     });
+    expect(data.theoreticalPrices['NSE:733GS2026-GS']).toBeCloseTo(103.1692561862, 8);
+    expect(data.theoreticalPrices['BSE:733GS2026-GS']).toBe(data.theoreticalPrices['NSE:733GS2026-GS']);
+    expect(data.theoreticalPrices['NSE:800GS2025-GS']).toBeNull();
     expect(mocks.scan).not.toHaveBeenCalled();
     expect(mocks.depth).not.toHaveBeenCalled();
   });

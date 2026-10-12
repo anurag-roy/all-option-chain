@@ -29,6 +29,13 @@
       "when": 1791397873076,
       "tag": "0003_gsec-exchange-listings",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1791488786173,
+      "tag": "0004_gsec-zero-curve",
+      "breakpoints": true
     }
   ]
 }

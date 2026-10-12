@@ -1,9 +1,17 @@
-import { calculateGsecMaxBuyPrice, calculateGsecYtm } from '@server/lib/calculators/gsec-ytm';
+import { calculateGsecAnalytics } from '@server/lib/calculators/gsec-analytics';
+import {
+  calculateGsecCurveAnalytics,
+  valueGsecOnCurve,
+  type GsecCurveValuation,
+} from '@server/lib/calculators/gsec-curve-analytics';
+import { calculateGsecDirtyPrice, calculateGsecMaxBuyPrice } from '@server/lib/calculators/gsec-ytm';
 import { gsecKey } from '@shared/lib/gsec-key';
+import type { GsecCurveState } from '@shared/types/gsec-curve';
 import type {
   GsecCatalogSnapshot,
   GsecListing,
   GsecRow,
+  GsecScan,
   GsecSecurity,
   GsecSellerLevel,
   GsecTargetPrices,
@@ -21,6 +29,12 @@ export function priceGsecsAtTarget(
       securities.map((security) => [
         gsecKey(security),
         calculateGsecMaxBuyPrice({ ...security, settlementDate, targetYtm }),
+      ])
+    ),
+    theoreticalPrices: Object.fromEntries(
+      securities.map((security) => [
+        gsecKey(security),
+        calculateGsecDirtyPrice({ ...security, settlementDate, yieldPercent: targetYtm }),
       ])
     ),
   };
@@ -55,27 +69,70 @@ export function getGsecSellerDepth(levels: GsecSellerLevel[] = []): GsecSellerLe
 
 type GsecQuote = { depth?: { sell: GsecSellerLevel[] } };
 
+export type GsecCurveContext = {
+  state: GsecCurveState;
+  valuations: Map<string, GsecCurveValuation | null>;
+  quoteTimes: Map<string, string>;
+};
+
 export function rankGsecs(
   securities: GsecListing[],
   quotes: Record<string, GsecQuote>,
-  settlementDate: string
+  settlementDate: string,
+  previousScan?: Pick<GsecScan, 'rows' | 'settlementDate' | 'curve'> | null,
+  curveContext?: GsecCurveContext
 ): GsecRow[] {
+  // Keep only the last snapshot; quantity-only ticks do not change bond analytics.
+  const previousRows = new Map(
+    previousScan?.settlementDate === settlementDate ? previousScan.rows.map((row) => [gsecKey(row), row]) : []
+  );
   const rows: GsecRow[] = securities.map((security) => {
-    const quote = quotes[gsecKey(security)];
+    const key = gsecKey(security);
+    const quote = quotes[key];
     const sellerDepth = getGsecSellerDepth(quote?.depth?.sell);
     const sellRate = sellerDepth[0]?.price ?? null;
+    const previous = previousRows.get(key);
+    const unchanged =
+      previous?.sellRate === sellRate &&
+      previous.coupon === security.coupon &&
+      previous.maturityDate === security.maturityDate &&
+      previous.isin === security.isin;
+    const analytics =
+      sellRate === null
+        ? null
+        : unchanged
+          ? previous.analytics
+          : calculateGsecAnalytics({ ...security, settlementDate, dirtyPrice: sellRate });
+    const curve = curveContext?.state.status === 'ready' ? curveContext.state.snapshot : null;
+    const quoteTime = curveContext?.quoteTimes.get(key);
+    const availableForQuote =
+      !quoteTime || !curve || Date.parse(curve.publicationTimestamp ?? curve.firstObservedAt) <= Date.parse(quoteTime);
+    const terms = { ...security, settlementDate };
+    const valuationKey = JSON.stringify([curve?.id, security.coupon, security.maturityDate, settlementDate]);
+    if (curve && availableForQuote && !curveContext!.valuations.has(valuationKey))
+      curveContext!.valuations.set(valuationKey, valueGsecOnCurve(terms, curve));
+    const valuation = curve && availableForQuote ? curveContext!.valuations.get(valuationKey) : null;
+    const sameCurve =
+      previousScan?.curve?.snapshot?.id === curve?.id &&
+      previousScan?.curve?.rvThresholdBp === curveContext?.state.rvThresholdBp;
+    const curveAnalytics = valuation
+      ? unchanged && sameCurve && previous.curveAnalytics
+        ? previous.curveAnalytics
+        : calculateGsecCurveAnalytics(terms, valuation, analytics, sellRate, curveContext!.state.rvThresholdBp)
+      : null;
     return {
       ...security,
       sellRate,
-      rrr:
-        sellRate === null
-          ? null
-          : calculateGsecYtm({
-              dirtyPrice: sellRate,
-              coupon: security.coupon,
-              settlementDate,
-              maturityDate: security.maturityDate,
-            }),
+      rrr: analytics?.ytm ?? null,
+      analytics,
+      curveAnalytics,
+      curveUnavailableReason: curveAnalytics
+        ? null
+        : !curve
+          ? (curveContext?.state.message ?? 'CCIL curve unavailable.')
+          : !availableForQuote
+            ? 'The curve was first available after this seller quote.'
+            : 'Cash flows exceed curve coverage, or fair yield could not be solved.',
       // Remove binary floating-point noise so equal distances receive equal ranks.
       distanceFromFv: sellRate === null ? null : Number(Math.abs(sellRate - 100).toFixed(8)),
       bestRrrRank: null,

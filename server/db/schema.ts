@@ -72,3 +72,22 @@ export const gsecSeedStateTable = sqliteTable('gsec_seed_state', {
   tradeDate: text().notNull().default(''),
   settlementDate: text().notNull().default(''),
 });
+
+// Dated curve versions survive daily seeds; corrections receive a new content id.
+export const gsecCurveSnapshotsTable = sqliteTable(
+  'gsec_curve_snapshots',
+  {
+    id: text().primaryKey().notNull(),
+    referenceDate: text().notNull(),
+    availableFrom: text().notNull(),
+    payload: text().notNull(),
+  },
+  (table) => [index('gsec_curve_reference_idx').on(table.referenceDate)]
+);
+
+export const gsecCurveSeedStateTable = sqliteTable('gsec_curve_seed_state', {
+  id: integer().primaryKey().notNull(),
+  seededDate: text().notNull(),
+  attemptedAt: text().notNull(),
+  error: text(),
+});

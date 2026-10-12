@@ -41,6 +41,8 @@ describe('G-Sec rankings', () => {
       { exchange: 'NSE', sellRate: 100, bestRrrRank: 2 },
     ]);
     expect(rows[0]?.sellerDepth).toEqual([{ price: 99, quantity: 3, orders: 2 }]);
+    expect(rows[0]!.analytics!.ytm).toBe(rows[0]!.rrr);
+    expect(rows[0]!.analytics!.risk!.modifiedDuration).not.toBe(rows[1]!.analytics!.risk!.modifiedDuration);
     const tied = rankGsecs([nse, bse], { ...quotes, 'BSE:750GS2028-GS': quotes['NSE:750GS2028-GS'] }, settlementDate);
     expect(tied.map((row) => row.bestRrrRank)).toEqual([1, 1]);
     const missing = rankGsecs([nse, bse], { 'NSE:750GS2028-GS': quotes['NSE:750GS2028-GS'] }, settlementDate);
@@ -48,6 +50,7 @@ describe('G-Sec rankings', () => {
       sellRate: null,
       quoteStatus: 'unavailable',
       bestRrrRank: null,
+      analytics: null,
     });
   });
   it('ranks quoted YTM using only the lowest seller’s dirty price, ignoring buyers and LTP', () => {
@@ -90,7 +93,12 @@ describe('G-Sec rankings', () => {
     );
     expect(
       rows.every(
-        (row) => row.rrr === null && row.sellRate === null && row.bestRrrRank === null && row.nearFvRank === null
+        (row) =>
+          row.analytics === null &&
+          row.rrr === null &&
+          row.sellRate === null &&
+          row.bestRrrRank === null &&
+          row.nearFvRank === null
       )
     ).toBe(true);
     expect(rows.find((row) => row.coupon === 720)?.quoteStatus).toBe('unavailable');

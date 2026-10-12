@@ -13,7 +13,7 @@ Real-time NSE F&O option chain dashboard for ~200 stocks, powered by [Zerodha Ki
 - **Real-time notifications** — order-trigger alerts (when return % crosses `orderPercent`) and top-bid changes; toast + sound + history sheet
 - **Option sell orders** — NFO MIS SELL LIMIT from the chain table with depth view and margin check
 - **AMO buy orders** — laddered CNC equity buys on `/amo` (regular or AMO per row)
-- **Pledgeable G-Secs** — Zerodha-approved government bonds on NSE and matched BSE listings, seller-based YTM rankings, target-YTM buy-price ceilings and top-five seller depth on `/gsecs`
+- **Pledgeable G-Secs** — Zerodha-approved government bonds on NSE and matched BSE listings, seller-based YTM rankings, target-YTM buy ceilings and Bond Cards with risk, carry, scenarios and seller depth on `/gsecs`
 - **Ban management** — auto-fetched NSE F&O ban list + persistent custom bans; banned symbols excluded from chain load
 - **Dark mode** — light / dark / system theme toggle
 - **Batch margin lookups** — Kite `orderMargins` with rate limiting
@@ -91,7 +91,7 @@ npm start       # Hono serves the SPA + API on PORT
 |-------|---------|
 | `/` | Option chain — filter form + live sortable table |
 | `/amo` | AMO laddered equity buy orders |
-| `/gsecs` | Pledgeable G-Secs sorted by ascending RRR Rank, with target-YTM buy-price ceilings |
+| `/gsecs` | Pledgeable G-Secs sorted by ascending RRR Rank, with target-YTM buy ceilings, risk metrics and Bond Cards |
 | `/settings` | NSE + custom stock ban management |
 
 ## Environment variables
@@ -178,7 +178,7 @@ Sigma bounds and Black-Scholes delta use **NSE trading minutes**, not working da
 | POST | `/api/bans/toggle` | Toggle custom ban `{ name }` |
 | GET | `/api/orders/quote` | Bid/ask depth for an instrument |
 | GET | `/api/gsecs` | Seeded pledgeable G-Secs, seller-only prices and both rankings; `refresh=true` refreshes quotes |
-| GET | `/api/gsecs/target-prices` | Dirty max buy prices for `targetYtm` (0–100), floored to each listing's tick; prices keyed by `EXCHANGE:tradingsymbol` |
+| GET | `/api/gsecs/target-prices` | Theoretical dirty prices and tick-floored buy ceilings for `targetYtm` (0–100), keyed by `EXCHANGE:tradingsymbol` |
 | GET | `/api/gsecs/depth` | Top-five seller levels for an approved G-Sec (`tradingsymbol` and `exchange=NSE|BSE`, default NSE) |
 | POST | `/api/orders/margin` | Margin for a single sell order |
 | POST | `/api/orders/sell` | Place NFO MIS SELL LIMIT order |
@@ -195,7 +195,11 @@ Run `npm run data:prepare` each morning, then start the app. It applies migratio
 - **Coupon** comes from the approved NSE bond, reused for BSE counterparts by ISIN. Shortened NSE coupons are normalized: `68GS2060-GS` uses `680`, `75GS2034-GS` uses `750`; `1018GS` uses `1018`. Approved `GR` issues and letter suffixes are supported as well.
 - **Sell Rate** is the lowest positive seller price with positive available quantity. Buyer prices and last traded prices are never used.
 - **RRR (YTM)** is quoted annual yield to maturity: the solver discounts semiannual coupons and ₹100 redemption to match the best seller's price, using T+1 settlement and 30E/360 fractional coupon periods. NSE quotes already include accrued interest; it is not added again. Coupon `750` means ₹7.50 annually per ₹100 face value, or ₹3.75 each half year. RRR Rank uses the full-precision yield, highest first; display retains four decimal places. The table places RRR Rank beside G-Sec and defaults to ascending rank order. Click the RRR Rank header to toggle ascending/descending; unranked bonds stay last in either direction. Equal yields share a rank (1, 1, 3). [Calculation and sources](docs/gsec-ytm.md).
-- **Target YTM** defaults to 8% and applies to all displayed bonds. **Max Buy Price** discounts the remaining payments at that target and floors the dirty-price ceiling to each listing's tick (₹0.01 on NSE; currently ₹0.01 or ₹0.05 on BSE). Seller prices at or below the ceiling are highlighted green; other rows remain visible. Ceilings are calculated server-side from SQLite when the target, settlement date or seed changes. Live quote comparisons use the existing ticker, without extra broker requests.
+- **Target YTM** defaults to 8% and applies to all displayed bonds. **Buy Rate** discounts the remaining payments at that target and floors the dirty-price ceiling to each listing's tick (₹0.01 on NSE; currently ₹0.01 or ₹0.05 on BSE). Seller prices at or below the ceiling are highlighted green; other rows remain visible. Ceilings are calculated server-side from SQLite when the target, settlement date or seed changes. Live quote comparisons use the existing ticker, without extra broker requests.
+- **Tier 1 analytics** use each listing's seller-based YTM and the same coupon schedule: Macaulay/modified duration, symmetric ±1 bp DV01 and convexity, exact ±10/25/50/100 bp prices, and 1M/3M/6M/1Y carry at unchanged YTM. Returns are gross holding-period returns with coupons held as cash. Horizons use calendar dates from settlement and stop at maturity, counting redemption once.
+- **Tier 2 curve analytics** use CCIL NSS parameters fetched only during `db:seed` / `data:prepare`, with dated versions retained in SQLite. The app uses explicitly approved ACT/365 continuous discounting, solves fair YTM from fair dirty price, and displays market-minus-fair spread and configurable CHEAP/FAIR/RICH tags. Each venue uses its own sellers against the shared benchmark.
+- **Bond Card** replaces Market Depth and shows pricing, theoretical and executable target prices, risk, unchanged-YTM carry, spread-preserved carry + roll, exact scenarios, local CCIL zero-curve and price-shock charts, and top-five seller levels. The curve reference date and conventions appear in the card. Green continues to mean Sell <= target Buy Rate; RV tags have separate colors.
+- Curve imports can fail without losing standalone analytics. A stored curve is usable for up to `GSEC_CURVE_MAX_AGE_DAYS` (default 7 calendar days); older curves disable curve-dependent metrics. Unknown publication times stay null, with first observation used to prevent lookahead. `GSEC_RV_THRESHOLD_BP` defaults to 5; `GSEC_CURVE_DAY_COUNT` and `GSEC_CURVE_COMPOUNDING` are explicit convention settings. Restart after reseeding; convention changes require reseeding. `data:prepare` applies the new curve-table migration automatically. Tier 3 forecast features remain deferred.
 - Missing quotes and empty seller books remain visible with no RRR or rank. Bonds matured by settlement, or without a solvable yield, have no RRR rank.
 - G-Secs share the existing server-side Kite ticker in `full` mode. Seller prices, rankings and top-five seller depth update from the same ticks, with client snapshots batched every 250 ms. There is no periodic price or depth polling.
 - REST quotes load initial prices and recover prices after a ticker reconnect through the existing rate-limited queue. The seeded catalog is reused for the day; a minute timer detects a new IST day and checks its DB seed without contacting the approved feed or downloading instruments.

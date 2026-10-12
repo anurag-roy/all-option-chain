@@ -159,6 +159,10 @@ Single `KiteTicker` connection. `setSubscriptions(owner, { full, ltp })` replace
 
 Lazily starts the pledgeable G-Sec scanner. Reads the daily SQLite snapshot through `gsec-catalog.ts`, cached for the whole IST day, and subscribes its stored tokens through the `gsecs` owner. Only `db:seed` fetches metadata: the approved feed, NSE debt master, BSE daily security-master ZIP, and separate CM trading/clearing holiday calendars. Active BSE counterparts match approved NSE bonds by ISIN, then BSE scrip codes to Kite exchange tokens. Both venues reuse their existing instrument downloads; BSE copies the resolved NSE terms and shared settlement date, with its own symbol, token and tick. Missing BSE counterparts are fine; unsupported matched clean-price listings or inconsistent BSE metadata abort the seed. Runtime identities use exchange plus symbol. Legacy terms omitted from NSE use the source-cited reference by ISIN; see `server/scripts/data/legacy-gsecs.ts` for the legacy reference. Missing/conflicting terms or unavailable calendar coverage abort the seed. Missing or stale seed data requires `npm run data:prepare`; a minute timer detects a new IST day using the cached catalog, without external metadata requests. REST quote snapshots load initial prices and reconnect recovery; live seller ticks update both ranks and the top-five seller depth. RRR is quoted annual YTM computed server-side by `gsec-ytm.ts`, using stored T+1 settlement, semiannual coupons, ₹100 redemption and 30E/360. NSE and supported BSE G-group/D seller prices are dirty prices: never add accrued interest again. Both venues rank together as separate rows; BSE has a theme-aware dot. Target ceilings floor to each stored tick. Near FV still compares the seller price directly with ₹100. Pushes `gsecs` snapshots only to browsers that send `{ type: 'subscribeGsecs', enabled: true }`. Failed refreshes clear G-Sec data and subscriptions; ticker disconnections preserve prices with a disconnected status. Reseeding the same day requires restarting the app to replace the catalog cache. See `docs/gsec-ytm.md` for conventions and sources.
 
+Tier 1 analytics are computed server-side in `gsec-analytics.ts` from each listing's seller YTM, sharing the schedule in `gsec-cash-flows.ts` with YTM and target pricing. Rows include Macaulay/modified duration, symmetric ±1 bp DV01 and convexity, exact ±10/25/50/100 bp scenarios, and unchanged-YTM 1M/3M/6M/1Y gross carry. Calendar horizons start at settlement and stop at maturity; coupons on a horizon are paid, and redemption is counted once. The Bond Card replaces Market Depth and retains the top-five seller levels. Target-price responses include unrounded `theoreticalPrices` alongside tick-floored `prices`; both maps use exchange plus symbol.
+
+Tier 2 imports CCIL NSS parameters from the public HTML table during `db:seed`, storing dated versions/corrections in `gsec_curve_snapshots` and the last attempt in `gsec_curve_seed_state`. Runtime uses `gsec-curve-catalog.ts` with one DB read per IST day; no runtime CCIL requests. The user handles permissions and explicitly approved ACT/365 with continuous discounting as the app's convention. Settings `GSEC_CURVE_DAY_COUNT`, `GSEC_CURVE_COMPOUNDING`, `GSEC_CURVE_MAX_AGE_DAYS` (default 7 calendar days) and `GSEC_RV_THRESHOLD_BP` (default 5) are recorded/documented. Unknown publication time stays null; availability uses first observation. Never apply a newly observed curve to an older seller quote. Out-of-range, missing or stale curves disable only curve metrics. `gsec-zero-curve.ts` prices each cash flow by multiplying its discount factor; `gsec-curve-analytics.ts` solves fair YTM with the existing bond solver, calculates market-minus-fair spread, and preserves that spread across four carry/roll horizons. Cache fair valuations by terms/settlement/snapshot and share them across venues. CHEAP uses blue, RICH amber, FAIR neutral; green remains exclusively target-price eligibility. Tier 3 forecasting/forward curves/z-scores remain deferred.
+
 ### `server/lib/services/margin-book.ts`
 
 Caches margins per tradingsymbol. Refreshes stale entries (>60s). Does not block chain loading.
@@ -239,7 +243,7 @@ Converts form leg prices + value/LTP into batched `{ tradingsymbol, price, quant
 | POST | `/api/orders/sell` | Place NFO MIS SELL LIMIT order (option sell from modal) |
 | POST | `/api/orders/amo` | Batch CNC BUY orders `{ orders: AmoOrderItem[] }` → `{ placed, failed, results }` |
 | GET | `/api/gsecs` | Seeded pledgeable G-Sec snapshot; `refresh=true` refreshes quote snapshots only |
-| GET | `/api/gsecs/target-prices` | `targetYtm` (0–100) → dirty max buy prices keyed by `EXCHANGE:tradingsymbol`, floored to each listing’s tick, calculated from the daily seeded catalog without quote requests |
+| GET | `/api/gsecs/target-prices` | `targetYtm` (0–100) → theoretical dirty prices and tick-floored buy ceilings keyed by `EXCHANGE:tradingsymbol`, calculated from the daily seeded catalog without quote requests |
 | GET | `/api/gsecs/depth` | Cached top-five seller depth for an approved G-Sec; `exchange=NSE|BSE` (default NSE) plus `tradingsymbol` |
 | WS | `/api/ws` | Live option chain + G-Secs + status + notifications |
 
@@ -295,6 +299,8 @@ Converts form leg prices + value/LTP into batched `{ tradingsymbol, price, quant
 - `stock_bans` — NSE daily bans (`type='nse'`, `ban_date` = IST today) + custom bans (`type='custom'`, persist until removed)
 - `gsecs` — pledgeable G-Secs, including coupon, exact maturity date/year, ISIN, exchange, instrument token and tick; unique by exchange plus symbol
 - `gsec_seed_state` — singleton seed date, approved-list fetch time, trade date and T+1 settlement date, including a successful empty G-Sec list
+- `gsec_curve_snapshots` — retained CCIL NSS versions, availability date/time and validated metadata/parameters
+- `gsec_curve_seed_state` — daily curve import attempt and error, independent of standalone pricing availability
 
 **Seed:** `server/scripts/seed.ts` — downloads Kite instruments (NSE/BSE/NFO), Zerodha's approved G-Secs, Nifty 500 + `NSE_STOCKS_TO_INCLUDE`, NSE volatility CSV, holidays. G-Sec rows and metadata are replaced in the same transaction as equity/option instruments; source or token validation failures abort before writing.
 
@@ -326,7 +332,7 @@ TanStack Router SPA with four pages:
 |-------|-----------|---------|
 | `/` | `routes/index.tsx` | Chain filter form + options table |
 | `/amo` | `routes/amo.tsx` | AMO laddered equity buy order form |
-| `/gsecs` | `routes/gsecs.tsx` | Pledgeable G-Sec rankings and live seller depth |
+| `/gsecs` | `routes/gsecs.tsx` | Pledgeable G-Sec rankings, risk and Bond Cards with live seller depth |
 | `/settings` | `routes/settings.tsx` | NSE + custom ban management |
 
 Root layout (`routes/__root.tsx`): `Header`, `StatusBanner`, `NotificationProvider`, `WebSocketProvider`, Sonner `Toaster`.

@@ -1,11 +1,13 @@
 import { calculateGsecYtm } from '@server/lib/calculators/gsec-ytm';
 import { GsecSeedError } from '@server/lib/services/approved-gsecs';
+import type { GsecCurveSnapshot } from '@shared/types/gsec-curve';
 import type { GsecListing } from '@shared/types/gsecs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GsecScanner } from './gsec-scanner';
 
 const mocks = vi.hoisted(() => ({
   approved: vi.fn(),
+  curve: vi.fn(),
   quotes: vi.fn(),
   connect: vi.fn(),
   subscriptions: vi.fn(),
@@ -14,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   connection: undefined as ((connected: boolean) => void) | undefined,
 }));
 vi.mock('@server/lib/services/gsec-catalog', () => ({ getSeededGsecs: mocks.approved }));
+vi.mock('@server/lib/services/gsec-curve-catalog', () => ({ getSeededGsecCurve: mocks.curve }));
 vi.mock('@server/lib/services/kite', () => ({ getFullQuotes: mocks.quotes }));
 vi.mock('@server/lib/logger', () => ({ logger: { error: vi.fn() } }));
 vi.mock('@server/lib/services/market-data', () => ({
@@ -87,6 +90,7 @@ beforeEach(() => {
   mocks.connect.mockReset().mockResolvedValue(undefined);
   mocks.subscriptions.mockReset();
   mocks.approved.mockReset();
+  mocks.curve.mockReset().mockResolvedValue({ status: 'unavailable', snapshot: null, ageDays: null, rvThresholdBp: 5 });
   approved([security]);
   mocks.quotes.mockReset().mockResolvedValue({
     'NSE:750GS2056-GS': { depth: { sell: [seller(100.5)] } },
@@ -100,6 +104,54 @@ afterEach(() => {
 });
 
 describe('live G-Sec scanner', () => {
+  it('updates curve spreads and roll on seller ticks, reuses quantity-only analytics, and tolerates curve outages', async () => {
+    const curve: GsecCurveSnapshot = {
+      id: 'live-test-curve',
+      provider: 'CCIL',
+      referenceDate: '2026-10-02',
+      publicationTimestamp: null,
+      firstObservedAt: '2026-10-05T04:00:00.000Z',
+      retrievedAt: '2026-10-05T04:00:00.000Z',
+      sourceUrl: 'https://www.ccilindia.com/zcyc-parameters',
+      sourceHash: 'test',
+      method: 'NSS',
+      parameters: { beta0: 8.27, beta1: -2.9928, beta2: -19.9674, beta3: 19.5976, tau1: 2.0618, tau2: 1.8925 },
+      compounding: 'continuous',
+      dayCount: 'ACT/365',
+      conventionSource: 'test',
+      minTenor: 0,
+      maxTenor: 50,
+    };
+    mocks.curve.mockResolvedValue({ status: 'ready', snapshot: curve, ageDays: 3, rvThresholdBp: 5 });
+    const initial = await scanner.refresh();
+    const first = initial.rows[0]!.curveAnalytics!;
+    expect(first.spreadBp).not.toBeNull();
+    expect(initial.curvePoints).toHaveLength(201);
+    mocks.tick?.({ mode: 'full', instrument_token: 1, depth: { sell: [{ price: 100.5, quantity: 100, orders: 3 }] } });
+    await vi.advanceTimersByTimeAsync(250);
+    expect(scanner.getCachedSnapshot()!.rows[0]!.curveAnalytics).toBe(first);
+    tick(1, [90]);
+    await vi.advanceTimersByTimeAsync(250);
+    const updated = scanner.getCachedSnapshot()!.rows[0]!;
+    expect(updated.curveAnalytics!.fairDirtyPrice).toBe(first.fairDirtyPrice);
+    expect(updated.curveAnalytics!.spreadBp).not.toBe(first.spreadBp);
+    expect(updated.curveAnalytics!.carryRoll[3]!.returnPercent).not.toBe(first.carryRoll[3]!.returnPercent);
+    expect(updated.bestRrrRank).toBe(1);
+    mocks.curve.mockResolvedValue({
+      status: 'stale',
+      snapshot: curve,
+      ageDays: 8,
+      rvThresholdBp: 5,
+      message: 'Curve is stale',
+    });
+    const stale = await scanner.refresh();
+    expect(stale.rows[0]!.curveAnalytics).toBeNull();
+    expect(stale.rows[0]!.analytics).toBe(updated.analytics);
+    expect(stale.rows[0]!.rrr).toBe(updated.rrr);
+    expect(stale.curvePoints).toEqual([]);
+    expect(mocks.quotes).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps BSE quotes and depth independent from NSE through ticks, reconnects and venue removal', async () => {
     const bse = { ...security, exchange: 'BSE' as const, tickSize: 0.05 };
     approved([security, bse]);
@@ -155,9 +207,12 @@ describe('live G-Sec scanner', () => {
     expect(mocks.quotes).toHaveBeenCalledTimes(1);
   });
 
-  it('batches ticks, uses sellers only and updates both rankings and top-five depth', async () => {
+  it('batches seller ticks and updates rankings, analytics and top-five depth together', async () => {
     approved([security, second]);
     await scanner.refresh();
+    const initialAnalytics = scanner
+      .getCachedSnapshot()!
+      .rows.find((row) => row.tradingsymbol === security.tradingsymbol)!.analytics!;
     const publish = vi.fn();
     scanner.onUpdate(publish);
     tick(1, [120, 119, 118, 117, 116, 115]);
@@ -184,8 +239,44 @@ describe('live G-Sec scanner', () => {
       10
     );
     expect(row.sellerDepth.map((level) => level.price)).toEqual([115, 116, 117, 118, 119]);
+    expect(row.analytics?.ytm).toBe(row.rrr);
+    expect(row.analytics?.risk?.modifiedDuration).not.toBe(initialAnalytics.risk?.modifiedDuration);
+    expect(row.analytics?.scenarios.find((item) => item.shockBp === 0)?.dirtyPrice).toBe(115);
+    expect(row.analytics?.carry.find((item) => item.months === 12)?.returnPercent).not.toBe(
+      initialAnalytics.carry.find((item) => item.months === 12)?.returnPercent
+    );
     expect(row.quoteUpdatedAt).toBe('2026-10-05T05:00:00.000Z');
     expect(mocks.quotes).toHaveBeenCalledTimes(1);
+  });
+
+  it('reuses analytics on quantity-only ticks but recalculates when settlement or bond terms change', async () => {
+    await scanner.refresh();
+    const initial = scanner.getCachedSnapshot()!.rows[0]!.analytics!;
+    mocks.tick?.({
+      mode: 'full',
+      instrument_token: 1,
+      depth: { sell: [{ price: 100.5, quantity: 200, orders: 5 }] },
+    });
+    await vi.advanceTimersByTimeAsync(250);
+    expect(scanner.getCachedSnapshot()!.rows[0]!.analytics).toBe(initial);
+    expect(scanner.getCachedSnapshot()!.rows[0]!.sellerDepth).toEqual([{ price: 100.5, quantity: 200, orders: 5 }]);
+
+    approved([security], '2026-10-07');
+    await scanner.refresh();
+    const newSettlement = scanner.getCachedSnapshot()!.rows[0]!.analytics!;
+    expect(newSettlement.ytm).not.toBe(initial.ytm);
+    approved([{ ...security, coupon: 700 }], '2026-10-07');
+    await scanner.refresh();
+    expect(scanner.getCachedSnapshot()!.rows[0]!.rrr).toBeCloseTo(
+      calculateGsecYtm({
+        dirtyPrice: 100.5,
+        coupon: 700,
+        maturityDate: security.maturityDate,
+        settlementDate: '2026-10-07',
+      })!,
+      10
+    );
+    expect(scanner.getCachedSnapshot()!.rows[0]!.analytics?.ytm).not.toBe(newSettlement.ytm);
   });
 
   it('removes securities that lose approval before fetching new quotes and ignores their later ticks', async () => {
@@ -228,6 +319,7 @@ describe('live G-Sec scanner', () => {
 
   it('preserves the last prices while disconnected and refreshes quotes on actual reconnect', async () => {
     await scanner.refresh();
+    const analytics = scanner.getCachedSnapshot()?.rows[0]?.analytics;
     mocks.connected = false;
     mocks.connection?.(false);
     expect(scanner.getCachedSnapshot()).toMatchObject({
@@ -238,6 +330,7 @@ describe('live G-Sec scanner', () => {
     await vi.advanceTimersByTimeAsync(120_000);
     expect(mocks.connect).toHaveBeenCalledTimes(1);
     expect(scanner.getCachedSnapshot()?.rows[0]?.sellRate).toBe(100.5);
+    expect(scanner.getCachedSnapshot()?.rows[0]?.analytics).toEqual(analytics);
     expect(mocks.quotes).toHaveBeenCalledTimes(1);
     mocks.connected = true;
     mocks.connection?.(true);

@@ -4,6 +4,7 @@ import { holidaysTable, instrumentsTable } from '@server/db/schema';
 import { logger } from '@server/lib/logger';
 import { kiteService } from '@server/lib/services/kite';
 import { getNifty500Stocks, getVolatilityData } from '@server/lib/utils/nse';
+import { fetchGsecCurveSeed, storeGsecCurveSeed } from '@server/scripts/lib/seed-gsec-curve';
 import { fetchGsecSeed, replaceGsecSeed } from '@server/scripts/lib/seed-gsecs';
 import { BSE_STOCKS_TO_INCLUDE, NSE_STOCKS_TO_INCLUDE } from '@server/shared/config';
 import { format, parse } from 'date-fns';
@@ -22,6 +23,7 @@ async function seedInstruments() {
   const bseInstruments = await kiteService.getInstruments(['BSE']);
   const nseInstruments = await kiteService.getInstruments(['NSE']);
   const gsecSeed = await fetchGsecSeed(nseInstruments, bseInstruments);
+  const curveSeed = await fetchGsecCurveSeed();
   const nfoInstruments = await kiteService.getInstruments(['NFO']);
 
   const nifty500 = await getNifty500Stocks();
@@ -81,10 +83,13 @@ async function seedInstruments() {
       await tx.insert(instrumentsTable).values(chunk);
     }
     await replaceGsecSeed(tx, gsecSeed);
+    await storeGsecCurveSeed(tx, curveSeed);
   });
 
   logger.info(`Seeded ${dataToInsert.length} instruments`);
   logger.info(`Seeded ${gsecSeed.securities.length} pledgeable G-Secs for ${gsecSeed.day}`);
+  if (curveSeed.snapshot) logger.info(`Seeded CCIL NSS curve dated ${curveSeed.snapshot.referenceDate}`);
+  else logger.warn(`CCIL curve unavailable: ${curveSeed.error}. Standalone G-Sec analytics remain available.`);
 }
 
 async function seedHolidays() {

@@ -1,5 +1,7 @@
+import { BondCardDialog } from '@client/components/gsecs/bond-card-dialog';
+import { formatBondDate, formatMoney, formatNumber } from '@client/components/gsecs/gsec-format';
 import { GsecName } from '@client/components/gsecs/gsec-name';
-import { SellerDepthDialog } from '@client/components/gsecs/seller-depth-dialog';
+import { RelativeValue } from '@client/components/gsecs/relative-value';
 import { Input } from '@client/components/ui/input';
 import { Label } from '@client/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@client/components/ui/table';
@@ -9,20 +11,63 @@ import { cn } from '@client/lib/utils';
 import { formatGsecRrr } from '@shared/lib/format-gsec-rrr';
 import { gsecKey } from '@shared/lib/gsec-key';
 import { DEFAULT_GSEC_TARGET_YTM, gsecTargetYtmSchema } from '@shared/schemas/gsecs';
-import { ArrowDownIcon, ArrowUpIcon, ExternalLinkIcon } from 'lucide-react';
+import type { GsecRow } from '@shared/types/gsecs';
+import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, ExternalLinkIcon } from 'lucide-react';
 import { useState } from 'react';
 
-const bondDateFormat = new Intl.DateTimeFormat('en-IN', {
-  day: '2-digit',
-  month: 'short',
-  year: 'numeric',
-  timeZone: 'UTC',
-});
+type SortColumn = 'rank' | 'modifiedDuration' | 'relativeValue';
+type GsecSort = { column: SortColumn; descending: boolean };
+const relativeValueOrder = { CHEAP: 0, FAIR: 1, RICH: 2 };
+
+function sortValue(row: GsecRow, column: SortColumn): number | null {
+  switch (column) {
+    case 'rank':
+      return row.bestRrrRank;
+    case 'modifiedDuration':
+      return row.analytics?.risk?.modifiedDuration ?? null;
+    case 'relativeValue': {
+      const value = row.curveAnalytics?.relativeValue;
+      return value ? relativeValueOrder[value] : null;
+    }
+  }
+}
+
+function SortableHead({
+  column,
+  label,
+  sort,
+  onSort,
+}: {
+  column: SortColumn;
+  label: string;
+  sort: GsecSort;
+  onSort: (column: SortColumn) => void;
+}) {
+  const active = sort.column === column;
+  const nextDescending = active && !sort.descending;
+  const Icon = active ? (sort.descending ? ArrowDownIcon : ArrowUpIcon) : ArrowUpDownIcon;
+
+  return (
+    <TableHead className='text-center' aria-sort={active ? (sort.descending ? 'descending' : 'ascending') : undefined}>
+      <button
+        type='button'
+        className='focus-visible:outline-ring inline-flex min-h-10 cursor-pointer items-center gap-1 rounded px-1 focus-visible:outline-2'
+        aria-label={`Sort ${label} ${nextDescending ? 'descending' : 'ascending'}`}
+        onClick={() => onSort(column)}
+      >
+        {label}
+        <Icon className={cn('size-3.5', !active && 'text-muted-foreground')} aria-hidden='true' />
+      </button>
+    </TableHead>
+  );
+}
 
 export function GsecScanner() {
   const { data, error, isPending, isLive } = useGsecs();
   const [search, setSearch] = useState('');
-  const [rankDescending, setRankDescending] = useState(false);
+  const [sort, setSort] = useState<GsecSort>({ column: 'rank', descending: false });
+  const toggleSort = (column: SortColumn) =>
+    setSort((current) => ({ column, descending: current.column === column ? !current.descending : false }));
   const [targetInput, setTargetInput] = useState(String(DEFAULT_GSEC_TARGET_YTM));
   const parsedTarget = gsecTargetYtmSchema.safeParse(targetInput.trim() ? Number(targetInput) : NaN);
   const targetYtm = parsedTarget.success ? parsedTarget.data : null;
@@ -35,14 +80,25 @@ export function GsecScanner() {
     )
     .sort((a, b) => {
       const symbolOrder = gsecKey(a).localeCompare(gsecKey(b));
-      // Unranked bonds stay last in either direction.
-      if (a.bestRrrRank === null) return b.bestRrrRank === null ? symbolOrder : 1;
-      if (b.bestRrrRank === null) return -1;
-      return (rankDescending ? -1 : 1) * (a.bestRrrRank - b.bestRrrRank) || symbolOrder;
+      const rankOrder =
+        a.bestRrrRank === null
+          ? b.bestRrrRank === null
+            ? 0
+            : 1
+          : b.bestRrrRank === null
+            ? -1
+            : a.bestRrrRank - b.bestRrrRank;
+      const tieBreak = rankOrder || symbolOrder;
+      const aValue = sortValue(a, sort.column);
+      const bValue = sortValue(b, sort.column);
+      // Missing values stay last in either direction.
+      if (aValue === null) return bValue === null ? tieBreak : 1;
+      if (bValue === null) return -1;
+      return (sort.descending ? -1 : 1) * (aValue - bValue) || tieBreak;
     });
 
   return (
-    <section className='border-border bg-card w-[80rem] max-w-[calc(100vw-2rem)] rounded-md border'>
+    <section className='border-border bg-card w-[100rem] max-w-[calc(100vw-2rem)] rounded-md border'>
       <div className='border-border flex flex-wrap items-center justify-between gap-4 border-b px-4 py-3'>
         <h2 className='text-2xl font-semibold text-balance'>Pledgeable G-Secs</h2>
         <a
@@ -103,50 +159,26 @@ export function GsecScanner() {
               <TableHeader>
                 <TableRow>
                   <TableHead className='pl-4'>G-Sec</TableHead>
-                  <TableHead className='text-center' aria-sort={rankDescending ? 'descending' : 'ascending'}>
-                    <button
-                      type='button'
-                      className='focus-visible:outline-ring inline-flex min-h-10 cursor-pointer items-center gap-1 rounded px-1 focus-visible:outline-2'
-                      aria-label={`Sort RRR Rank ${rankDescending ? 'ascending' : 'descending'}`}
-                      onClick={() => setRankDescending((descending) => !descending)}
-                    >
-                      RRR Rank
-                      {rankDescending ? (
-                        <ArrowDownIcon className='size-3.5' aria-hidden='true' />
-                      ) : (
-                        <ArrowUpIcon className='size-3.5' aria-hidden='true' />
-                      )}
-                    </button>
-                  </TableHead>
+                  <SortableHead column='rank' label='RRR Rank' sort={sort} onSort={toggleSort} />
                   <TableHead className='text-center'>Coupon</TableHead>
                   <TableHead className='text-center'>Maturity</TableHead>
-                  <TableHead
-                    className='text-center'
-                    title='Best seller price on this exchange, including accrued interest'
-                  >
-                    Sell Rate
-                  </TableHead>
-                  <TableHead
-                    className='text-center'
-                    title={`Quoted annual YTM. T+1 settlement: ${data?.settlementDate ?? '—'}`}
-                  >
-                    RRR (YTM)
-                  </TableHead>
-                  <TableHead
-                    className='text-center'
-                    title={`Maximum dirty buy price for ${targetYtm ?? '—'}% YTM, floored to this listing’s trading tick`}
-                  >
-                    Buy Rate
-                  </TableHead>
+                  <TableHead className='text-center'>Sell Rate</TableHead>
+                  <TableHead className='text-center'>RRR (YTM)</TableHead>
+                  <TableHead className='text-center'>Buy Rate</TableHead>
+                  <SortableHead column='modifiedDuration' label='Mod Dur' sort={sort} onSort={toggleSort} />
+                  <TableHead className='text-center'>DV01</TableHead>
+                  <TableHead className='text-center'>Convexity</TableHead>
+                  <TableHead className='text-center'>Curve Spr.</TableHead>
+                  <SortableHead column='relativeValue' label='RV' sort={sort} onSort={toggleSort} />
                   <TableHead className='pr-4'>
-                    <span className='sr-only'>Market depth</span>
+                    <span className='sr-only'>Bond Card</span>
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isPending || rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className='text-muted-foreground py-12 text-center'>
+                    <TableCell colSpan={13} className='text-muted-foreground py-12 text-center'>
                       {isPending
                         ? 'Loading approved G-Secs and seller quotes…'
                         : search
@@ -169,9 +201,7 @@ export function GsecScanner() {
                         <TableCell className='text-center'>{row.bestRrrRank ?? '—'}</TableCell>
                         <TableCell className='text-center'>{row.coupon}</TableCell>
                         <TableCell className='text-center whitespace-nowrap'>
-                          {row.maturityDate
-                            ? bondDateFormat.format(new Date(`${row.maturityDate}T00:00:00Z`))
-                            : row.maturityYear}
+                          {row.maturityDate ? formatBondDate(row.maturityDate) : row.maturityYear}
                         </TableCell>
                         <TableCell
                           className={cn(
@@ -201,8 +231,30 @@ export function GsecScanner() {
                         >
                           {maxBuyPrice === null ? '—' : maxBuyPrice.toFixed(2)}
                         </TableCell>
+                        <TableCell className='text-center'>
+                          {formatNumber(row.analytics?.risk?.modifiedDuration)}
+                        </TableCell>
+                        <TableCell className='text-center'>{formatMoney(row.analytics?.risk?.dv01, 4)}</TableCell>
+                        <TableCell className='text-center'>{formatNumber(row.analytics?.risk?.convexity, 1)}</TableCell>
+                        <TableCell className='text-center' title={row.curveUnavailableReason ?? undefined}>
+                          {row.curveAnalytics?.spreadBp == null
+                            ? '—'
+                            : `${row.curveAnalytics.spreadBp > 0 ? '+' : ''}${row.curveAnalytics.spreadBp.toFixed(1)} bp`}
+                        </TableCell>
+                        <TableCell className='text-center'>
+                          <RelativeValue value={row.curveAnalytics?.relativeValue} />
+                        </TableCell>
                         <TableCell className='pr-4 text-right'>
-                          <SellerDepthDialog row={row} isLive={isLive} />
+                          <BondCardDialog
+                            row={row}
+                            isLive={isLive}
+                            settlementDate={data!.settlementDate}
+                            targetYtm={targetYtm}
+                            maxBuyPrice={maxBuyPrice}
+                            theoreticalTargetPrice={targetPrices.data?.theoreticalPrices?.[gsecKey(row)] ?? null}
+                            curve={data?.curve}
+                            curvePoints={data?.curvePoints ?? []}
+                          />
                         </TableCell>
                       </TableRow>
                     );

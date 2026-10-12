@@ -19,6 +19,7 @@ export function useWebSocket({ subscribedSymbols }: UseWebSocketOptions = {}) {
   const [gsecData, setGsecData] = useState<GsecScan | null>(null);
   const gsecRevisionRef = useRef(0);
   const gsecsSubscribedRef = useRef(false);
+  const gsecScenarioBaseRef = useRef(0);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
   const reconnectAttemptsRef = useRef(0);
@@ -34,7 +35,8 @@ export function useWebSocket({ subscribedSymbols }: UseWebSocketOptions = {}) {
       ws.addEventListener('open', () => {
         setIsConnected(true);
         reconnectAttemptsRef.current = 0;
-        if (gsecsSubscribedRef.current) ws.send(JSON.stringify({ type: 'subscribeGsecs', enabled: true }));
+        if (gsecsSubscribedRef.current)
+          ws.send(JSON.stringify({ type: 'subscribeGsecs', enabled: true, scenarioBase: gsecScenarioBaseRef.current }));
 
         if (subscribedSymbolsRef.current.length > 0) {
           ws.send(JSON.stringify({ type: 'subscribe', symbols: subscribedSymbolsRef.current }));
@@ -54,7 +56,10 @@ export function useWebSocket({ subscribedSymbols }: UseWebSocketOptions = {}) {
           const message = JSON.parse(event.data) as WsServerMessage;
 
           if (message.type === 'gsecs') {
-            if (message.data.revision >= gsecRevisionRef.current) {
+            if (
+              message.data.scenarioBase === gsecScenarioBaseRef.current &&
+              message.data.revision >= gsecRevisionRef.current
+            ) {
               gsecRevisionRef.current = message.data.revision;
               setGsecData(message.data);
             }
@@ -187,16 +192,19 @@ export function useWebSocket({ subscribedSymbols }: UseWebSocketOptions = {}) {
   }, []);
 
   const applyGsecData = useCallback((data: GsecScan) => {
-    if (data.revision >= gsecRevisionRef.current) {
+    if (data.scenarioBase === gsecScenarioBaseRef.current && data.revision >= gsecRevisionRef.current) {
       gsecRevisionRef.current = data.revision;
       setGsecData(data);
     }
   }, []);
 
-  const setGsecSubscription = useCallback((enabled: boolean) => {
+  const setGsecSubscription = useCallback((enabled: boolean, scenarioBase?: number) => {
     gsecsSubscribedRef.current = enabled;
+    if (scenarioBase !== undefined) gsecScenarioBaseRef.current = scenarioBase;
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'subscribeGsecs', enabled }));
+      wsRef.current.send(
+        JSON.stringify({ type: 'subscribeGsecs', enabled, scenarioBase: gsecScenarioBaseRef.current })
+      );
     }
   }, []);
 

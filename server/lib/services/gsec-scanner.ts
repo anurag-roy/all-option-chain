@@ -171,6 +171,7 @@ export class GsecScanner {
     this.publishTimer = null;
     const streamStatus = status ?? (marketDataService.isConnected() ? 'live' : 'disconnected');
     this.snapshot = {
+      scenarioBase: 0,
       rows: rankGsecs(
         [...this.securities.values()],
         this.quotes,

@@ -19,16 +19,16 @@ describe('Tier 1 G-Sec risk and scenarios', () => {
   it('reproduces every exact shock price instead of a duration approximation or trading-tick floor', () => {
     const scenarios = calculateGsecAnalytics(workedBond)!.scenarios;
     const expected = [
-      107.3635766136, 101.0430364146, 98.1034103317, 96.4055114544, 95.3, 94.2150713296, 92.6252640385, 90.072118053,
-      85.3043697739,
+      104.7617346891, 99.8503375084, 97.5320791562, 96.4055114544, 95.8501535651, 95.3, 94.7549919477, 94.2150713296,
+      93.1502636705, 91.0792209306, 87.1594975383,
     ];
-    expect(scenarios.map((row) => row.shockBp)).toEqual([-100, -50, -25, -10, 0, 10, 25, 50, 100]);
+    expect(scenarios.map((row) => row.shockBp)).toEqual([-80, -40, -20, -10, -5, 0, 5, 10, 20, 40, 80]);
     scenarios.forEach((row, index) => {
       expect(row.dirtyPrice).toBeCloseTo(expected[index]!, 8);
       expect(row.priceChangePercent).toBeCloseTo((expected[index]! / 95.3 - 1) * 100, 8);
     });
-    expect(scenarios[5]!.yieldPercent).toBeCloseTo(7.7052326003, 8);
-    expect(scenarios[4]).toMatchObject({ dirtyPrice: 95.3, priceChangePercent: 0 });
+    expect(scenarios[7]!.yieldPercent).toBeCloseTo(7.7052326003, 8);
+    expect(scenarios[5]).toMatchObject({ dirtyPrice: 95.3, priceChangePercent: 0 });
   });
 
   it('supports negative and very high current yields without clamping shocks', () => {
@@ -40,7 +40,7 @@ describe('Tier 1 G-Sec risk and scenarios', () => {
     })!;
     expect(negative.ytm).toBeLessThan(0);
     expect(negative.risk!.modifiedDuration).toBeGreaterThan(0);
-    expect(negative.scenarios[0]!.yieldPercent).toBeCloseTo(negative.ytm - 1, 10);
+    expect(negative.scenarios[0]!.yieldPercent).toBeCloseTo(negative.ytm - 0.8, 10);
     const high = calculateGsecAnalytics({ ...workedBond, maturityDate: '2028-01-15', dirtyPrice: 1 })!;
     expect(high.ytm).toBeGreaterThan(30);
     expect(high.scenarios.every((row) => Number.isFinite(row.dirtyPrice))).toBe(true);

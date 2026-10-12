@@ -1,3 +1,4 @@
+import { withGsecScenarioBase } from '@server/lib/calculators/gsec-scenarios';
 import { logger } from '@server/lib/logger';
 import { gsecScanner } from '@server/lib/services/gsec-scanner';
 import type { WsClientMessage, WsServerMessage } from '@server/shared/schemas/websocket';
@@ -11,6 +12,7 @@ interface ClientSubscription {
   ws: WSContext;
   symbols: Set<string>;
   gsecs: boolean;
+  scenarioBase: number;
 }
 
 export class ClientBroadcaster {
@@ -56,14 +58,21 @@ export class ClientBroadcaster {
   }
 
   publishGsecs(data: GsecScan) {
+    const snapshots = new Map<number, GsecScan>();
     for (const [clientId, subscription] of this.clients) {
-      if (subscription.gsecs) this.sendToClient(clientId, subscription, { type: 'gsecs', data });
+      if (!subscription.gsecs) continue;
+      let snapshot = snapshots.get(subscription.scenarioBase);
+      if (!snapshot) {
+        snapshot = withGsecScenarioBase(data, subscription.scenarioBase);
+        snapshots.set(subscription.scenarioBase, snapshot);
+      }
+      this.sendToClient(clientId, subscription, { type: 'gsecs', data: snapshot });
     }
   }
 
   handleOpen(ws: WSContext) {
     const clientId = randomUUID();
-    this.clients.set(clientId, { ws, symbols: new Set(), gsecs: false });
+    this.clients.set(clientId, { ws, symbols: new Set(), gsecs: false, scenarioBase: 0 });
     logger.info(`Client ${clientId} connected. Total clients: ${this.clients.size}`);
     return clientId;
   }
@@ -91,8 +100,13 @@ export class ClientBroadcaster {
 
     if (message.type === 'subscribeGsecs') {
       subscription.gsecs = message.enabled;
+      subscription.scenarioBase = message.scenarioBase;
       const data = gsecScanner.getCachedSnapshot();
-      if (message.enabled && data) this.sendToClient(clientId, subscription, { type: 'gsecs', data });
+      if (message.enabled && data)
+        this.sendToClient(clientId, subscription, {
+          type: 'gsecs',
+          data: withGsecScenarioBase(data, subscription.scenarioBase),
+        });
       else if (message.enabled) {
         // A browser reconnecting after a server restart may have a cached HTTP query.
         // Start the scanner here as well; its updates go through publishGsecs().

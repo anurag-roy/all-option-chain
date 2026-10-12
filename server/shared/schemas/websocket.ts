@@ -1,3 +1,4 @@
+import { DEFAULT_GSEC_SCENARIO_BASE, gsecScenarioBaseSchema } from '@shared/schemas/gsecs';
 import type { GsecScan } from '@shared/types/gsecs';
 import { z } from 'zod';
 
@@ -27,7 +28,11 @@ export const wsUpdateSdMultiplierSchema = z.object({
 });
 
 export const wsClientMessageSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('subscribeGsecs'), enabled: z.boolean() }),
+  z.object({
+    type: z.literal('subscribeGsecs'),
+    enabled: z.boolean(),
+    scenarioBase: gsecScenarioBaseSchema.default(DEFAULT_GSEC_SCENARIO_BASE),
+  }),
   wsSubscribeSchema,
   wsUnsubscribeSchema,
   wsUpdateFilterSchema,

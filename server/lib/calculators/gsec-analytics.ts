@@ -6,9 +6,9 @@ import {
   type GsecCashFlow,
 } from '@server/lib/calculators/gsec-cash-flows';
 import { calculateGsecDirtyPrice, calculateGsecYtm } from '@server/lib/calculators/gsec-ytm';
+import { gsecScenarioShocks } from '@shared/lib/gsec-scenario-shocks';
 import type { GsecAnalytics, GsecCarry, GsecRisk, GsecScenario } from '@shared/types/gsecs';
 
-const SHOCKS_BP = [-100, -50, -25, -10, 0, 10, 25, 50, 100];
 const HORIZONS = [1, 3, 6, 12] as const;
 const finite = (value: number) => (Number.isFinite(value) ? value : null);
 
@@ -16,6 +16,29 @@ function scenarioPrice(cashFlows: GsecCashFlow[], yieldPercent: number): number 
   if (yieldPercent <= -200) return null;
   const price = priceGsecCashFlows(cashFlows, yieldPercent);
   return Number.isFinite(price) && price > 0 ? price : null;
+}
+
+export function calculateGsecScenarios({
+  cashFlows,
+  ytm,
+  dirtyPrice,
+  scenarioBase = 0,
+}: {
+  cashFlows: GsecCashFlow[];
+  ytm: number;
+  dirtyPrice: number;
+  scenarioBase?: number;
+}): GsecScenario[] {
+  return gsecScenarioShocks(scenarioBase).map((shockBp) => {
+    const yieldPercent = ytm + shockBp / 100;
+    const price = shockBp === 0 ? dirtyPrice : scenarioPrice(cashFlows, yieldPercent);
+    return {
+      shockBp,
+      yieldPercent,
+      dirtyPrice: price,
+      priceChangePercent: price === null ? null : finite(((price - dirtyPrice) / dirtyPrice) * 100),
+    };
+  });
 }
 
 function calculateRisk(cashFlows: GsecCashFlow[], ytm: number, dirtyPrice: number): GsecRisk | null {
@@ -75,22 +98,12 @@ export function calculateGsecAnalytics({
   const ytm = calculateGsecYtm({ ...terms, dirtyPrice });
   if (ytm === null) return null;
   const cashFlows = createGsecCashFlows(terms)!;
-  const scenarios: GsecScenario[] = SHOCKS_BP.map((shockBp) => {
-    const yieldPercent = ytm + shockBp / 100;
-    const price = shockBp === 0 ? dirtyPrice : scenarioPrice(cashFlows, yieldPercent);
-    return {
-      shockBp,
-      yieldPercent,
-      dirtyPrice: price,
-      priceChangePercent: price === null ? null : finite(((price - dirtyPrice) / dirtyPrice) * 100),
-    };
-  });
   return {
     ytm,
     nextCouponDate: cashFlows[0]!.date,
     remainingCoupons: cashFlows.length,
     risk: calculateRisk(cashFlows, ytm, dirtyPrice),
-    scenarios,
+    scenarios: calculateGsecScenarios({ cashFlows, ytm, dirtyPrice }),
     carry: calculateCarry(terms, cashFlows, ytm, dirtyPrice),
   };
 }

@@ -11,7 +11,7 @@ import type { GsecCurveAnalytics, GsecCurvePoint } from '@shared/types/gsec-curv
 import { CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from 'recharts';
 
 const chartConfig = {
-  zeroRate: { label: 'CCIL zero rate', color: 'var(--foreground)' },
+  zeroRate: { label: 'CCIL zero rate', color: 'var(--chart-curve)' },
   fairYtm: { label: 'Bond fair YTM', color: 'var(--muted-foreground)' },
   marketYtm: { label: 'Market YTM', color: 'var(--chart-2)' },
 } satisfies ChartConfig;

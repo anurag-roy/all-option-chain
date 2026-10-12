@@ -30,7 +30,7 @@ export type GsecSellerLevel = {
 
 export type GsecRisk = {
   macaulayDuration: number; // Years.
-  modifiedDuration: number;
+  modifiedDuration: number; // Years; displayed in months in the UI.
   dv01: number | null; // Positive symmetric +/-1 bp price sensitivity per Rs.100 FV.
   convexity: number | null; // Central +/-1 bp repricing; decimal annual yield units.
 };
@@ -78,6 +78,7 @@ export type GsecRow = GsecListing & {
 
 export type GsecScan = {
   rows: GsecRow[];
+  scenarioBase: number;
   sourceUrl: string;
   approvedListFetchedAt: string;
   quotesFetchedAt: string;

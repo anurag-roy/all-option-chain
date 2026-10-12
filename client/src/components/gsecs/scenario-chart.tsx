@@ -10,28 +10,29 @@ const chartConfig = {
 const formatShock = (bp: number) => `${bp > 0 ? '+' : ''}${bp} bp`;
 
 /** Plot server-calculated prices; no pricing or yield calculation in the browser. */
-export function ScenarioChart({ scenarios }: { scenarios: GsecScenario[] }) {
+export function ScenarioChart({ scenarios, scenarioBase }: { scenarios: GsecScenario[]; scenarioBase: number }) {
   const points = scenarios.filter((row) => row.dirtyPrice !== null);
   if (points.length < 2) return null;
   const prices = points.map((row) => row.dirtyPrice!);
   const min = Math.min(...prices);
   const max = Math.max(...prices);
   const padding = Math.max((max - min) * 0.1, 0.01);
+  const shocks = scenarios.map((row) => row.shockBp);
 
   return (
     <div className='bg-card min-w-0 rounded-lg border p-4'>
       <ChartContainer
         config={chartConfig}
         className='aspect-auto h-64 w-full tabular-nums'
-        aria-label='Bond dirty price at annual yield shocks from minus 100 to plus 100 basis points'
+        aria-label='Bond dirty price at the configured annual yield shocks'
       >
-        <LineChart accessibilityLayer data={points} margin={{ top: 12, right: 12, bottom: 8, left: 4 }}>
+        <LineChart accessibilityLayer data={scenarios} margin={{ top: 12, right: 12, bottom: 8, left: 4 }}>
           <CartesianGrid vertical={false} strokeDasharray='3 3' />
           <XAxis
             dataKey='shockBp'
             type='number'
-            domain={[-100, 100]}
-            ticks={[-100, -50, 0, 50, 100]}
+            domain={[Math.min(...shocks), Math.max(...shocks)]}
+            tickCount={5}
             tickFormatter={formatShock}
             tickLine={false}
             axisLine={false}
@@ -47,7 +48,7 @@ export function ScenarioChart({ scenarios }: { scenarios: GsecScenario[] }) {
             width={72}
             tickCount={5}
           />
-          <ReferenceLine x={0} stroke='var(--border)' strokeDasharray='4 4' />
+          <ReferenceLine x={scenarioBase} stroke='var(--border)' strokeDasharray='4 4' />
           <ChartTooltip
             isAnimationActive={false}
             content={

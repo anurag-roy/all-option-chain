@@ -1,5 +1,5 @@
 import { BondCardDialog } from '@client/components/gsecs/bond-card-dialog';
-import { formatBondDate, formatMoney, formatNumber } from '@client/components/gsecs/gsec-format';
+import { formatBondDate, formatDurationMonths, formatMoney, formatNumber } from '@client/components/gsecs/gsec-format';
 import { GsecName } from '@client/components/gsecs/gsec-name';
 import { RelativeValue } from '@client/components/gsecs/relative-value';
 import { Input } from '@client/components/ui/input';
@@ -10,45 +10,38 @@ import { useGsecs } from '@client/hooks/use-gsecs';
 import { cn } from '@client/lib/utils';
 import { formatGsecRrr } from '@shared/lib/format-gsec-rrr';
 import { gsecKey } from '@shared/lib/gsec-key';
-import { DEFAULT_GSEC_TARGET_YTM, gsecTargetYtmSchema } from '@shared/schemas/gsecs';
-import type { GsecRow } from '@shared/types/gsecs';
+import { sortGsecRows, type GsecSort, type GsecSortColumn } from '@shared/lib/sort-gsecs';
+import {
+  DEFAULT_GSEC_SCENARIO_BASE,
+  DEFAULT_GSEC_TARGET_YTM,
+  gsecScenarioBaseSchema,
+  gsecTargetYtmSchema,
+} from '@shared/schemas/gsecs';
 import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, ExternalLinkIcon } from 'lucide-react';
 import { useState } from 'react';
-
-type SortColumn = 'rank' | 'modifiedDuration' | 'relativeValue';
-type GsecSort = { column: SortColumn; descending: boolean };
-const relativeValueOrder = { CHEAP: 0, FAIR: 1, RICH: 2 };
-
-function sortValue(row: GsecRow, column: SortColumn): number | null {
-  switch (column) {
-    case 'rank':
-      return row.bestRrrRank;
-    case 'modifiedDuration':
-      return row.analytics?.risk?.modifiedDuration ?? null;
-    case 'relativeValue': {
-      const value = row.curveAnalytics?.relativeValue;
-      return value ? relativeValueOrder[value] : null;
-    }
-  }
-}
 
 function SortableHead({
   column,
   label,
   sort,
   onSort,
+  className,
 }: {
-  column: SortColumn;
+  column: GsecSortColumn;
   label: string;
   sort: GsecSort;
-  onSort: (column: SortColumn) => void;
+  onSort: (column: GsecSortColumn) => void;
+  className?: string;
 }) {
   const active = sort.column === column;
   const nextDescending = active && !sort.descending;
   const Icon = active ? (sort.descending ? ArrowDownIcon : ArrowUpIcon) : ArrowUpDownIcon;
 
   return (
-    <TableHead className='text-center' aria-sort={active ? (sort.descending ? 'descending' : 'ascending') : undefined}>
+    <TableHead
+      className={cn('text-center', className)}
+      aria-sort={active ? (sort.descending ? 'descending' : 'ascending') : undefined}
+    >
       <button
         type='button'
         className='focus-visible:outline-ring inline-flex min-h-10 cursor-pointer items-center gap-1 rounded px-1 focus-visible:outline-2'
@@ -63,39 +56,29 @@ function SortableHead({
 }
 
 export function GsecScanner() {
-  const { data, error, isPending, isLive } = useGsecs();
+  const [scenarioBaseInput, setScenarioBaseInput] = useState(String(DEFAULT_GSEC_SCENARIO_BASE));
+  const parsedScenarioBase = gsecScenarioBaseSchema.safeParse(
+    scenarioBaseInput.trim() ? Number(scenarioBaseInput) : NaN
+  );
+  const scenarioBase = parsedScenarioBase.success ? parsedScenarioBase.data : null;
+  const { data, error, isPending, isLive } = useGsecs(scenarioBase);
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<GsecSort>({ column: 'rank', descending: false });
-  const toggleSort = (column: SortColumn) =>
+  const toggleSort = (column: GsecSortColumn) =>
     setSort((current) => ({ column, descending: current.column === column ? !current.descending : false }));
   const [targetInput, setTargetInput] = useState(String(DEFAULT_GSEC_TARGET_YTM));
   const parsedTarget = gsecTargetYtmSchema.safeParse(targetInput.trim() ? Number(targetInput) : NaN);
   const targetYtm = parsedTarget.success ? parsedTarget.data : null;
   const targetPrices = useGsecTargetPrices(targetYtm, data?.settlementDate, data?.approvedListFetchedAt);
-  const rows = [...(data?.rows ?? [])]
-    .filter((row) =>
+  const rows = sortGsecRows(
+    (data?.rows ?? []).filter((row) =>
       `${row.exchange} ${row.tradingsymbol} ${row.isin} ${row.coupon} ${row.maturityYear} ${row.maturityDate}`
         .toLowerCase()
         .includes(search.trim().toLowerCase())
-    )
-    .sort((a, b) => {
-      const symbolOrder = gsecKey(a).localeCompare(gsecKey(b));
-      const rankOrder =
-        a.bestRrrRank === null
-          ? b.bestRrrRank === null
-            ? 0
-            : 1
-          : b.bestRrrRank === null
-            ? -1
-            : a.bestRrrRank - b.bestRrrRank;
-      const tieBreak = rankOrder || symbolOrder;
-      const aValue = sortValue(a, sort.column);
-      const bValue = sortValue(b, sort.column);
-      // Missing values stay last in either direction.
-      if (aValue === null) return bValue === null ? tieBreak : 1;
-      if (bValue === null) return -1;
-      return (sort.descending ? -1 : 1) * (aValue - bValue) || tieBreak;
-    });
+    ),
+    sort,
+    targetPrices.data?.prices
+  );
 
   return (
     <section className='border-border bg-card w-[100rem] max-w-[calc(100vw-2rem)] rounded-md border'>
@@ -137,8 +120,28 @@ export function GsecScanner() {
               className='h-10 w-24 tabular-nums'
             />
           </div>
+          <div className='flex items-center gap-2'>
+            <Label htmlFor='gsec-scenario-base' className='whitespace-nowrap'>
+              Scenario Base (bp)
+            </Label>
+            <Input
+              id='gsec-scenario-base'
+              type='number'
+              step='any'
+              value={scenarioBaseInput}
+              onChange={(event) => setScenarioBaseInput(event.target.value)}
+              aria-invalid={!parsedScenarioBase.success}
+              aria-describedby={!parsedScenarioBase.success ? 'gsec-scenario-error' : undefined}
+              className='h-10 w-24 tabular-nums'
+            />
+          </div>
         </div>
 
+        {!parsedScenarioBase.success ? (
+          <p id='gsec-scenario-error' role='alert' className='text-destructive text-sm'>
+            Enter a valid scenario base.
+          </p>
+        ) : null}
         {!parsedTarget.success ? (
           <p id='gsec-target-error' role='alert' className='text-destructive text-sm'>
             Enter a target YTM between 0% and 100%.
@@ -158,17 +161,23 @@ export function GsecScanner() {
             <Table className='tabular-nums'>
               <TableHeader>
                 <TableRow>
-                  <TableHead className='pl-4'>G-Sec</TableHead>
+                  <SortableHead
+                    column='name'
+                    label='G-Sec'
+                    sort={sort}
+                    onSort={toggleSort}
+                    className='pl-4 text-left'
+                  />
                   <SortableHead column='rank' label='RRR Rank' sort={sort} onSort={toggleSort} />
                   <TableHead className='text-center'>Coupon</TableHead>
-                  <TableHead className='text-center'>Maturity</TableHead>
-                  <TableHead className='text-center'>Sell Rate</TableHead>
-                  <TableHead className='text-center'>RRR (YTM)</TableHead>
-                  <TableHead className='text-center'>Buy Rate</TableHead>
-                  <SortableHead column='modifiedDuration' label='Mod Dur' sort={sort} onSort={toggleSort} />
-                  <TableHead className='text-center'>DV01</TableHead>
-                  <TableHead className='text-center'>Convexity</TableHead>
-                  <TableHead className='text-center'>Curve Spr.</TableHead>
+                  <SortableHead column='maturity' label='Maturity' sort={sort} onSort={toggleSort} />
+                  <SortableHead column='sellRate' label='Sell Rate' sort={sort} onSort={toggleSort} />
+                  <SortableHead column='ytm' label='RRR (YTM)' sort={sort} onSort={toggleSort} />
+                  <SortableHead column='buyRate' label='Buy Rate' sort={sort} onSort={toggleSort} />
+                  <SortableHead column='modifiedDuration' label='Mod Dur (mo)' sort={sort} onSort={toggleSort} />
+                  <SortableHead column='dv01' label='DV01' sort={sort} onSort={toggleSort} />
+                  <SortableHead column='convexity' label='Convexity' sort={sort} onSort={toggleSort} />
+                  <SortableHead column='curveSpread' label='Curve Spr.' sort={sort} onSort={toggleSort} />
                   <SortableHead column='relativeValue' label='RV' sort={sort} onSort={toggleSort} />
                   <TableHead className='pr-4'>
                     <span className='sr-only'>Bond Card</span>
@@ -232,7 +241,7 @@ export function GsecScanner() {
                           {maxBuyPrice === null ? '—' : maxBuyPrice.toFixed(2)}
                         </TableCell>
                         <TableCell className='text-center'>
-                          {formatNumber(row.analytics?.risk?.modifiedDuration)}
+                          {formatDurationMonths(row.analytics?.risk?.modifiedDuration)}
                         </TableCell>
                         <TableCell className='text-center'>{formatMoney(row.analytics?.risk?.dv01, 4)}</TableCell>
                         <TableCell className='text-center'>{formatNumber(row.analytics?.risk?.convexity, 1)}</TableCell>
@@ -254,6 +263,8 @@ export function GsecScanner() {
                             theoreticalTargetPrice={targetPrices.data?.theoreticalPrices?.[gsecKey(row)] ?? null}
                             curve={data?.curve}
                             curvePoints={data?.curvePoints ?? []}
+                            scenarioBase={scenarioBase}
+                            scenariosReady={scenarioBase !== null && data?.scenarioBase === scenarioBase}
                           />
                         </TableCell>
                       </TableRow>

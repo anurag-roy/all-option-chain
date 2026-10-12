@@ -1,6 +1,7 @@
 import { CurveChart } from '@client/components/gsecs/curve-chart';
 import {
   formatBondDate,
+  formatDurationMonths,
   formatMoney,
   formatNumber,
   formatPercent,
@@ -34,6 +35,8 @@ type BondCardProps = {
   theoreticalTargetPrice: number | null;
   curve?: GsecCurveState;
   curvePoints: GsecCurvePoint[];
+  scenarioBase: number | null;
+  scenariosReady: boolean;
 };
 
 function CardSection({ title, children }: { title: string; children: ReactNode }) {
@@ -63,13 +66,22 @@ function BondCard({
   theoreticalTargetPrice,
   curve,
   curvePoints,
+  scenarioBase,
+  scenariosReady,
 }: BondCardProps) {
   const analytics = row.analytics;
   const risk = analytics?.risk;
   const annualCarry = analytics?.carry.find((item) => item.months === 12);
   const curveAnalytics = row.curveAnalytics;
   const annualRoll = curveAnalytics?.carryRoll.find((item) => item.months === 12);
-  const scenarios = analytics?.scenarios ?? [];
+  const scenarios = scenariosReady ? (analytics?.scenarios ?? []) : [];
+  const summaryScenarios = scenarios.length > 1 ? [scenarios[0]!, scenarios.at(-1)!] : scenarios;
+  const scenarioMessage =
+    scenarioBase === null
+      ? 'Invalid scenario base.'
+      : analytics && !scenariosReady
+        ? 'Updating scenarios…'
+        : 'Scenarios unavailable.';
   const withinTarget = row.sellRate !== null && maxBuyPrice !== null && row.sellRate <= maxBuyPrice;
   const quoteMessage = row.quoteStatus === 'unavailable' ? 'Seller quote unavailable.' : 'No sellers available.';
   return (
@@ -121,7 +133,10 @@ function BondCard({
                 label='Macaulay duration'
                 value={risk ? `${formatNumber(risk.macaulayDuration, 4)} years` : '—'}
               />
-              <Metric label='Modified duration' value={formatNumber(risk?.modifiedDuration, 4)} />
+              <Metric
+                label='Modified duration'
+                value={risk ? `${formatDurationMonths(risk.modifiedDuration, 4)} months` : '—'}
+              />
               <Metric label='DV01' value={formatMoney(risk?.dv01, 6)} />
               <Metric label='Convexity' value={formatNumber(risk?.convexity, 4)} />
             </dl>
@@ -155,14 +170,15 @@ function BondCard({
           </CardSection>
           <CardSection title='Scenario'>
             <dl className='space-y-3'>
-              {[-50, 50].map((shock) => (
+              {summaryScenarios.map((item) => (
                 <Metric
-                  key={shock}
-                  label={`${shock > 0 ? '+' : ''}${shock} bp`}
-                  value={formatMoney(scenarios.find((item) => item.shockBp === shock)?.dirtyPrice)}
+                  key={item.shockBp}
+                  label={`${item.shockBp > 0 ? '+' : ''}${item.shockBp} bp`}
+                  value={formatMoney(item.dirtyPrice)}
                 />
               ))}
             </dl>
+            {!summaryScenarios.length ? <p className='text-muted-foreground text-xs'>{scenarioMessage}</p> : null}
           </CardSection>
         </div>
 
@@ -261,7 +277,10 @@ function BondCard({
                 <TableBody>
                   {scenarios.length ? (
                     scenarios.map((item) => (
-                      <TableRow key={item.shockBp} className={item.shockBp === 0 ? 'bg-muted/50' : undefined}>
+                      <TableRow
+                        key={item.shockBp}
+                        className={item.shockBp === scenarioBase ? 'bg-muted/50' : undefined}
+                      >
                         <TableCell>
                           {item.shockBp > 0 ? '+' : ''}
                           {item.shockBp} bp
@@ -283,14 +302,14 @@ function BondCard({
                   ) : (
                     <TableRow>
                       <TableCell colSpan={4} className='text-muted-foreground py-6 text-center'>
-                        Scenarios unavailable.
+                        {scenarioMessage}
                       </TableCell>
                     </TableRow>
                   )}
                 </TableBody>
               </Table>
             </div>
-            <ScenarioChart scenarios={scenarios} />
+            <ScenarioChart scenarios={scenarios} scenarioBase={scenarioBase ?? 0} />
           </div>
         </section>
 

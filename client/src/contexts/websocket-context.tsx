@@ -7,7 +7,7 @@ import { createContext, useContext, type ReactNode } from 'react';
 interface WebSocketContextType {
   gsecData: GsecScan | null;
   applyGsecData: (data: GsecScan) => void;
-  setGsecSubscription: (enabled: boolean) => void;
+  setGsecSubscription: (enabled: boolean, scenarioBase?: number) => void;
   optionChainData: OptionChainData;
   chainStatus: ChainEngineStatus['status'];
   statusMessage?: string;

@@ -44,7 +44,11 @@ DV01 = (P(y−h) − P(y+h)) / 2
 Convexity = (P(y−h) + P(y+h) − 2P(y)) / (P(y) × h²)
 ```
 
-Macaulay and modified duration are in years; DV01 is the positive rupee sensitivity per ₹100 face value; convexity is in years squared. DV01 and convexity use symmetric ±1 bp repricing without rounding intermediate prices. Scenarios reprice the complete remaining cash flows at annual yield shocks of ±10, ±25, ±50 and ±100 bp, plus the current-price baseline. These are theoretical dirty prices, without trading-tick flooring. Percentage changes compare each scenario directly with the current seller price.
+Macaulay and modified duration are calculated in years. The table and Bond Card display modified duration in months (`years × 12`); the API value stays in years. DV01 is the positive rupee sensitivity per ₹100 face value; convexity is in years squared. DV01 and convexity use symmetric ±1 bp repricing without rounding intermediate prices.
+
+The shared **Scenario Base (bp)** input defaults to 0. Scenarios include the base itself and the mirrored values `±(base + 5) × {1, 2, 4, 8, 16}`, sorted ascending with duplicate shocks removed. The default grid is −80, −40, −20, −10, −5, 0, +5, +10, +20, +40 and +80 bp. Base 10 uses −240, −120, −60, −30, −15, 10, +15, +30, +60, +120 and +240 bp. Each shock is applied to the current seller YTM; percentage changes always compare with the current seller price, including when the selected base is nonzero. Prices revalue every remaining cash flow without a duration approximation or trading-tick flooring. Out-of-domain yields or non-finite prices remain unavailable.
+
+The base travels with each browser's `subscribeGsecs` message and each returned snapshot. The server customizes cached analytics per subscribed base without changing another browser's settings or requesting broker quotes. Live ticks recalculate scenarios using that venue's seller price. Reconnects restore the selected base; the client excludes scenario data from a different base while a change is pending. The HTTP snapshot also accepts `scenarioBase`, defaulting to 0.
 
 ## Carry at unchanged YTM
 
@@ -56,7 +60,7 @@ Return (%) = 100 × (ending dirty price + coupons + redemption − purchase pric
 
 Coupons paid on the horizon date are included in received cash and excluded from the ending bond price. If maturity is on or before a selected horizon, the effective horizon is maturity, the ending price is zero after redemption, and ₹100 principal plus the final coupon are included exactly once. A bond maturing before a selected horizon is labeled accordingly; its return is through maturity, with no assumed income on the redeemed cash afterwards.
 
-The Bond Card replaces the Market Depth dialog and includes pricing, risk, carry, scenario tables and a price-versus-yield-shock chart, followed by the existing top-five seller depth. Green indicates only a seller price at or below the tick-floored target buy ceiling. Scenario losses use amber styling separately from target eligibility. The scanner retains sortable ascending RRR Rank and adds modified duration, DV01 and convexity.
+The Bond Card replaces the Market Depth dialog and includes pricing, risk, carry, scenario tables and a price-versus-yield-shock chart, followed by the existing top-five seller depth. Green indicates only a seller price at or below the tick-floored target buy ceiling. Scenario losses use amber styling separately from target eligibility. Every data column except Coupon is sortable; RRR Rank ascending remains the default. Sorting uses raw values, ISO maturity dates and exchange-specific target ceilings, with missing values last in either direction. RV orders CHEAP, FAIR, RICH. The CCIL zero-curve line uses a theme-aware yellow, with fair and market YTM markers retained.
 
 Tier 2 uses an independent, dated CCIL sovereign NSS curve. No local seller-derived interpolation or sample parameters are substituted for a benchmark feed. The scenario chart and benchmark zero-curve chart are separate displays.
 

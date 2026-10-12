@@ -1,3 +1,4 @@
+import { withGsecScenarioBase } from '@server/lib/calculators/gsec-scenarios';
 import { priceGsecsAtTarget } from '@server/lib/calculators/gsecs';
 import { logger } from '@server/lib/logger';
 import { accessToken } from '@server/lib/services/access-token';
@@ -5,7 +6,7 @@ import { GsecSeedError } from '@server/lib/services/approved-gsecs';
 import { getSeededGsecs } from '@server/lib/services/gsec-catalog';
 import { getGsecDepth, scanGsecs } from '@server/lib/services/gsec-scanner';
 import { routeValidator } from '@server/middlewares/validator';
-import { gsecTargetYtmSchema } from '@shared/schemas/gsecs';
+import { gsecScenarioBaseSchema, gsecTargetYtmSchema } from '@shared/schemas/gsecs';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
@@ -38,14 +39,25 @@ export const gsecsRoute = new Hono()
     if (error instanceof HTTPException) return c.json({ message: error.message }, error.status);
     throw error;
   })
-  .get('/', routeValidator('query', z.object({ refresh: z.literal('true').optional() })), async (c) => {
-    requireAccessToken();
-    try {
-      return c.json(await scanGsecs(c.req.valid('query').refresh === 'true'));
-    } catch (error) {
-      return upstreamError(error);
+  .get(
+    '/',
+    routeValidator(
+      'query',
+      z.object({
+        refresh: z.literal('true').optional(),
+        scenarioBase: z.string().trim().min(1).pipe(z.coerce.number()).pipe(gsecScenarioBaseSchema).optional(),
+      })
+    ),
+    async (c) => {
+      requireAccessToken();
+      try {
+        const { refresh, scenarioBase } = c.req.valid('query');
+        return c.json(withGsecScenarioBase(await scanGsecs(refresh === 'true'), scenarioBase ?? 0));
+      } catch (error) {
+        return upstreamError(error);
+      }
     }
-  })
+  )
   .get(
     '/target-prices',
     routeValidator(

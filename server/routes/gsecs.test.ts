@@ -1,3 +1,4 @@
+import { calculateGsecAnalytics } from '@server/lib/calculators/gsec-analytics';
 import { GsecSeedError } from '@server/lib/services/approved-gsecs';
 import { gsecsRoute } from '@server/routes/gsecs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -103,6 +104,33 @@ describe('G-Sec target-price API', () => {
 });
 
 describe('G-Sec API boundary', () => {
+  it('returns custom scenarios from the cached scan without changing the original base', async () => {
+    const terms = { coupon: 733, maturityDate: '2026-10-30', settlementDate: '2026-10-08', dirtyPrice: 104.13 };
+    const source = {
+      scenarioBase: 0,
+      settlementDate: terms.settlementDate,
+      rows: [{ ...terms, sellRate: terms.dirtyPrice, analytics: calculateGsecAnalytics(terms) }],
+    };
+    mocks.scan.mockResolvedValue(source);
+    const response = await gsecsRoute.request('/?scenarioBase=10');
+    expect(response.status).toBe(200);
+    const custom = await response.json();
+    expect(custom.scenarioBase).toBe(10);
+    expect(custom.rows[0].analytics.scenarios.map((item: { shockBp: number }) => item.shockBp)).toEqual([
+      -240, -120, -60, -30, -15, 10, 15, 30, 60, 120, 240,
+    ]);
+    expect(mocks.scan).toHaveBeenLastCalledWith(false);
+    expect(mocks.depth).not.toHaveBeenCalled();
+    expect(mocks.catalog).not.toHaveBeenCalled();
+    expect(source.scenarioBase).toBe(0);
+    expect((await (await gsecsRoute.request('/')).json()).scenarioBase).toBe(0);
+  });
+
+  it.each(['', 'abc', 'Infinity', '1e308'])('rejects invalid scenario base %s before requesting data', async (base) => {
+    expect((await gsecsRoute.request(`/?scenarioBase=${base}`)).status).toBe(400);
+    expect(mocks.scan).not.toHaveBeenCalled();
+  });
+
   it('requests cached live data by default and a full snapshot only for explicit refresh', async () => {
     expect((await gsecsRoute.request('/')).status).toBe(200);
     expect(mocks.scan).toHaveBeenLastCalledWith(false);

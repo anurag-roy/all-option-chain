@@ -48,7 +48,8 @@ export type GsecCurveAnalytics = {
   snapshotId: string;
   fairDirtyPrice: number;
   fairYtm: number;
-  spreadBp: number | null;
+  spreadBp: number | null; // Secondary market-minus-fair quoted YTM spread.
+  zSpreadBp: number | null; // Primary continuous spread over the settlement-adjusted curve.
   relativeValue: GsecRelativeValue | null;
   priceAdvantage: number | null; // Fair minus market dirty price per Rs.100 FV.
   maturityTenor: number;

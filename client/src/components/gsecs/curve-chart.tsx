@@ -1,19 +1,12 @@
 import { formatPercent } from '@client/components/gsecs/gsec-format';
-import {
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from '@client/components/ui/chart';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@client/components/ui/chart';
 import type { GsecCurveAnalytics, GsecCurvePoint } from '@shared/types/gsec-curve';
 import { CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from 'recharts';
 
 const chartConfig = {
   zeroRate: { label: 'CCIL zero rate', color: 'var(--chart-curve)' },
   fairYtm: { label: 'Bond fair YTM', color: 'var(--muted-foreground)' },
-  marketYtm: { label: 'Market YTM', color: 'var(--chart-2)' },
+  marketYtm: { label: 'Market YTM', color: 'var(--foreground)' },
 } satisfies ChartConfig;
 
 type CurveDatum = {
@@ -58,14 +51,14 @@ export function CurveChart({
   const padding = Math.max((max - min) * 0.1, 0.05);
 
   return (
-    <div className='min-w-0 space-y-2'>
+    <div className='min-w-0 space-y-1'>
       <ChartContainer
         config={chartConfig}
-        className='aspect-auto h-80 w-full tabular-nums'
+        className='aspect-auto h-56 w-full text-xs tabular-nums lg:h-48'
         aria-label='Local CCIL zero curve with selected bond market and fair YTM highlighted'
       >
         <LineChart accessibilityLayer data={data} margin={{ top: 12, right: 16, bottom: 8, left: 4 }}>
-          <CartesianGrid vertical={false} strokeDasharray='3 3' />
+          <CartesianGrid strokeDasharray='3 3' />
           <XAxis
             dataKey='tenor'
             type='number'
@@ -83,7 +76,7 @@ export function CurveChart({
             tickLine={false}
             axisLine={false}
             tickMargin={8}
-            width={68}
+            width={76}
             tickCount={5}
           />
           <ReferenceLine x={analytics.maturityTenor} stroke='var(--border)' strokeDasharray='4 4' />
@@ -91,7 +84,7 @@ export function CurveChart({
             isAnimationActive={false}
             content={
               <ChartTooltipContent
-                className='min-w-56 tabular-nums'
+                className='min-w-56 text-sm tabular-nums'
                 labelFormatter={(_label, payload) => `${payload[0].payload.tenor.toFixed(2)} years remaining`}
                 formatter={(value, name, item) => (
                   <>
@@ -105,7 +98,6 @@ export function CurveChart({
               />
             }
           />
-          <ChartLegend content={<ChartLegendContent className='text-muted-foreground flex-wrap gap-x-5 gap-y-2' />} />
           <Line
             dataKey='zeroRate'
             type='monotone'
@@ -138,7 +130,22 @@ export function CurveChart({
           ) : null}
         </LineChart>
       </ChartContainer>
-      <p className='text-muted-foreground text-center text-xs'>Remaining maturity (years)</p>
+      <div className='text-muted-foreground flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pb-1 text-xs'>
+        <span className='inline-flex items-center gap-1.5'>
+          <span aria-hidden='true' className='border-muted-foreground size-2.5 rounded-full border' />
+          Bond fair YTM
+        </span>
+        {marketYtm !== null ? (
+          <span className='inline-flex items-center gap-1.5'>
+            <span aria-hidden='true' className='bg-foreground size-2.5 rounded-full' />
+            Market YTM
+          </span>
+        ) : null}
+        <span className='inline-flex items-center gap-1.5'>
+          <span aria-hidden='true' className='bg-chart-curve size-2.5 rounded-full' />
+          CCIL zero rate
+        </span>
+      </div>
     </div>
   );
 }

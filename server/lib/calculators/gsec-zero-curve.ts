@@ -59,18 +59,88 @@ export function curveDiscountFactor(curve: GsecCurveSnapshot, tenor: number): nu
   return Number.isFinite(discount) && discount > 0 ? discount : null;
 }
 
-/** Freeze the curve shape and measure each cash flow from the valuation date. */
-export function priceGsecOnCurve(terms: GsecBondTerms, curve: GsecCurveSnapshot): number | null {
+export type GsecCurveCashFlow = { amount: number; years: number; discountFactor: number };
+
+/**
+ * Normalize the dated curve to settlement: D(C,T) / D(C,S).
+ * For carry/roll, keep today's settlement-adjusted shape and shorten each
+ * remaining tenor, rather than replacing it with an implied forward curve.
+ */
+export function createGsecCurveCashFlows(
+  terms: GsecBondTerms,
+  curve: GsecCurveSnapshot,
+  curveSettlementDate = terms.settlementDate
+): GsecCurveCashFlow[] | null {
   const flows = createGsecCashFlows(terms);
-  if (!flows) return null;
-  let price = 0;
+  const offset = curveYearFraction(curve.referenceDate, curveSettlementDate, curve.dayCount);
+  if (!flows || offset === null || curveSettlementDate > terms.settlementDate) return null;
+  const settlementDiscount = curveDiscountFactor(curve, offset);
+  if (settlementDiscount === null) return null;
+  const discounted: GsecCurveCashFlow[] = [];
   for (const flow of flows) {
-    const tenor = curveYearFraction(terms.settlementDate, flow.date, curve.dayCount);
-    const discount = tenor === null ? null : curveDiscountFactor(curve, tenor);
+    const years = curveYearFraction(terms.settlementDate, flow.date, curve.dayCount);
+    const discount = years === null ? null : curveDiscountFactor(curve, offset + years);
     if (discount === null) return null; // Never extrapolate beyond the stored range.
-    price += flow.amount * discount;
+    const discountFactor = discount / settlementDiscount;
+    if (!Number.isFinite(discountFactor) || discountFactor <= 0 || years === null || years <= 0) return null;
+    discounted.push({ amount: flow.amount, years, discountFactor });
   }
+  return discounted;
+}
+
+function curvePrice(cashFlows: GsecCurveCashFlow[], zSpreadBp: number): number {
+  return cashFlows.reduce(
+    (price, flow) =>
+      flow.amount === 0
+        ? price
+        : price + flow.amount * flow.discountFactor * Math.exp((-zSpreadBp / 10_000) * flow.years),
+    0
+  );
+}
+
+/** Continuous Z-spread, in basis points, applied to every normalized cash flow. */
+export function priceGsecCurveCashFlows(cashFlows: GsecCurveCashFlow[], zSpreadBp = 0): number | null {
+  if (!Number.isFinite(zSpreadBp)) return null;
+  const price = curvePrice(cashFlows, zSpreadBp);
   return Number.isFinite(price) && price > 0 ? price : null;
+}
+
+export function priceGsecOnCurve(terms: GsecBondTerms, curve: GsecCurveSnapshot): number | null {
+  const flows = createGsecCurveCashFlows(terms, curve);
+  return flows ? priceGsecCurveCashFlows(flows) : null;
+}
+
+/** Solve the monotone cash-flow price, allowing both negative and positive spreads. */
+export function solveGsecZSpread(cashFlows: GsecCurveCashFlow[], dirtyPrice: number): number | null {
+  if (
+    !Number.isFinite(dirtyPrice) ||
+    dirtyPrice <= 0 ||
+    !cashFlows.length ||
+    cashFlows.some(
+      (flow) =>
+        !Number.isFinite(flow.amount) ||
+        flow.amount < 0 ||
+        !Number.isFinite(flow.years) ||
+        flow.years <= 0 ||
+        !Number.isFinite(flow.discountFactor) ||
+        flow.discountFactor <= 0
+    ) ||
+    !cashFlows.some((flow) => flow.amount > 0)
+  )
+    return null;
+  let low = -100;
+  let high = 100;
+  for (let i = 0; curvePrice(cashFlows, low) < dirtyPrice && i < 40; i++) low *= 2;
+  for (let i = 0; curvePrice(cashFlows, high) > dirtyPrice && i < 40; i++) high *= 2;
+  if (!(curvePrice(cashFlows, low) >= dirtyPrice) || !(curvePrice(cashFlows, high) <= dirtyPrice)) return null;
+  for (let i = 0; i < 100; i++) {
+    const mid = (low + high) / 2;
+    if (curvePrice(cashFlows, mid) > dirtyPrice) low = mid;
+    else high = mid;
+  }
+  const spread = (low + high) / 2;
+  const price = priceGsecCurveCashFlows(cashFlows, spread);
+  return price !== null && Math.abs(price - dirtyPrice) <= Math.max(1e-8, dirtyPrice * 1e-10) ? spread : null;
 }
 
 export function sampleGsecCurve(curve: GsecCurveSnapshot): GsecCurvePoint[] {

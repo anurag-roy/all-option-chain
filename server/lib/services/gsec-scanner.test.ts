@@ -60,7 +60,12 @@ const second: GsecListing = {
 const seller = (price: number) => ({ price, quantity: 5, orders: 1 });
 let scanner: GsecScanner;
 function tick(token: number, prices: number[]) {
-  mocks.tick?.({ mode: 'full', instrument_token: token, depth: { sell: prices.map(seller), buy: [seller(999)] } });
+  mocks.tick?.({
+    mode: 'full',
+    instrument_token: token,
+    exchange_timestamp: new Date(),
+    depth: { sell: prices.map(seller), buy: [seller(999)] },
+  });
 }
 function approved(securities: GsecListing[], settlementDate = '2026-10-06') {
   mocks.approved.mockResolvedValue({
@@ -93,8 +98,8 @@ beforeEach(() => {
   mocks.curve.mockReset().mockResolvedValue({ status: 'unavailable', snapshot: null, ageDays: null, rvThresholdBp: 5 });
   approved([security]);
   mocks.quotes.mockReset().mockResolvedValue({
-    'NSE:750GS2056-GS': { depth: { sell: [seller(100.5)] } },
-    'NSE:68GS2060-GS': { depth: { sell: [seller(100)] } },
+    'NSE:750GS2056-GS': { timestamp: '2026-10-05 10:30:00', depth: { sell: [seller(100.5)] } },
+    'NSE:68GS2060-GS': { timestamp: '2026-10-05 10:30:00', depth: { sell: [seller(100)] } },
   });
   scanner = new GsecScanner();
 });
@@ -104,6 +109,31 @@ afterEach(() => {
 });
 
 describe('live G-Sec scanner', () => {
+  it('keeps exchange quote time independent of the cached depth receipt time', async () => {
+    vi.setSystemTime(new Date('2026-10-05T05:02:00Z'));
+    const row = (await scanner.refresh(true)).rows[0]!;
+    expect(row.quoteUpdatedAt).toBe('2026-10-05T05:00:00.000Z');
+    expect((await scanner.getDepth(security.tradingsymbol))?.fetchedAt).toBe('2026-10-05T05:02:00.000Z');
+  });
+
+  it('rejects older ticks while accepting depth updates with unknown exchange time', async () => {
+    await scanner.refresh();
+    mocks.tick?.({
+      mode: 'full',
+      instrument_token: 1,
+      exchange_timestamp: new Date('2026-10-05T04:59:59Z'),
+      depth: { sell: [seller(50)] },
+    });
+    await vi.advanceTimersByTimeAsync(250);
+    expect(scanner.getCachedSnapshot()!.rows[0]!.sellRate).toBe(100.5);
+    mocks.tick?.({ mode: 'full', instrument_token: 1, depth: { sell: [seller(99)] } });
+    await vi.advanceTimersByTimeAsync(250);
+    expect(scanner.getCachedSnapshot()!.rows[0]).toMatchObject({
+      quoteUpdatedAt: null,
+      sellRate: 99,
+    });
+  });
+
   it('updates curve spreads and roll on seller ticks, reuses quantity-only analytics, and tolerates curve outages', async () => {
     const curve: GsecCurveSnapshot = {
       id: 'live-test-curve',
@@ -127,7 +157,12 @@ describe('live G-Sec scanner', () => {
     const first = initial.rows[0]!.curveAnalytics!;
     expect(first.spreadBp).not.toBeNull();
     expect(initial.curvePoints).toHaveLength(201);
-    mocks.tick?.({ mode: 'full', instrument_token: 1, depth: { sell: [{ price: 100.5, quantity: 100, orders: 3 }] } });
+    mocks.tick?.({
+      mode: 'full',
+      instrument_token: 1,
+      exchange_timestamp: new Date(),
+      depth: { sell: [{ price: 100.5, quantity: 100, orders: 3 }] },
+    });
     await vi.advanceTimersByTimeAsync(250);
     expect(scanner.getCachedSnapshot()!.rows[0]!.curveAnalytics).toBe(first);
     tick(1, [90]);
@@ -198,7 +233,7 @@ describe('live G-Sec scanner', () => {
     expect(first).toBe(duplicate);
     expect(mocks.subscriptions).toHaveBeenCalledWith('gsecs', { full: [1] });
     expect(mocks.quotes).toHaveBeenCalledExactlyOnceWith(['NSE:750GS2056-GS']);
-    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
     await scanner.refresh();
     expect(mocks.approved.mock.calls.length).toBeGreaterThan(1);
     expect(mocks.quotes).toHaveBeenCalledTimes(1);
@@ -255,6 +290,7 @@ describe('live G-Sec scanner', () => {
     mocks.tick?.({
       mode: 'full',
       instrument_token: 1,
+      exchange_timestamp: new Date(),
       depth: { sell: [{ price: 100.5, quantity: 200, orders: 5 }] },
     });
     await vi.advanceTimersByTimeAsync(250);

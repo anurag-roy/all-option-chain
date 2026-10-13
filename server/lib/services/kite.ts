@@ -32,6 +32,7 @@ export const kiteService = new KiteConnect({
 
 export type KiteFullQuote = {
   instrument_token: number;
+  timestamp?: string | Date; // SDK turns IST quote strings into local-time Dates.
   last_price: number;
   oi?: number;
   depth?: {

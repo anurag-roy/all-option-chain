@@ -74,6 +74,7 @@ export type GsecRow = GsecListing & {
   quoteStatus: 'ready' | 'no-sellers' | 'unavailable';
   sellerDepth: GsecSellerLevel[];
   quoteUpdatedAt: string | null;
+  masterDataStatus: 'ready' | 'invalid';
 };
 
 export type GsecScan = {

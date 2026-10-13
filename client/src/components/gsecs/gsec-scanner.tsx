@@ -1,5 +1,11 @@
 import { BondCardDialog } from '@client/components/gsecs/bond-card-dialog';
-import { formatBondDate, formatDurationMonths, formatMoney, formatNumber } from '@client/components/gsecs/gsec-format';
+import {
+  formatBondDate,
+  formatDurationMonths,
+  formatMoney,
+  formatNumber,
+  formatSpread,
+} from '@client/components/gsecs/gsec-format';
 import { GsecName } from '@client/components/gsecs/gsec-name';
 import { RelativeValue } from '@client/components/gsecs/relative-value';
 import { Input } from '@client/components/ui/input';
@@ -61,7 +67,7 @@ export function GsecScanner() {
     scenarioBaseInput.trim() ? Number(scenarioBaseInput) : NaN
   );
   const scenarioBase = parsedScenarioBase.success ? parsedScenarioBase.data : null;
-  const { data, error, isPending, isLive } = useGsecs(scenarioBase);
+  const { data, error, isPending } = useGsecs(scenarioBase);
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<GsecSort>({ column: 'rank', descending: false });
   const toggleSort = (column: GsecSortColumn) =>
@@ -177,6 +183,7 @@ export function GsecScanner() {
                   <SortableHead column='modifiedDuration' label='Mod Dur (mo)' sort={sort} onSort={toggleSort} />
                   <SortableHead column='dv01' label='DV01' sort={sort} onSort={toggleSort} />
                   <SortableHead column='convexity' label='Convexity' sort={sort} onSort={toggleSort} />
+                  <SortableHead column='zSpread' label='Z-Spread' sort={sort} onSort={toggleSort} />
                   <SortableHead column='curveSpread' label='Curve Spr.' sort={sort} onSort={toggleSort} />
                   <SortableHead column='relativeValue' label='RV' sort={sort} onSort={toggleSort} />
                   <TableHead className='pr-4'>
@@ -187,7 +194,7 @@ export function GsecScanner() {
               <TableBody>
                 {isPending || rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={13} className='text-muted-foreground py-12 text-center'>
+                    <TableCell colSpan={14} className='text-muted-foreground py-12 text-center'>
                       {isPending
                         ? 'Loading approved G-Secs and seller quotes…'
                         : search
@@ -198,7 +205,11 @@ export function GsecScanner() {
                 ) : (
                   rows.map((row) => {
                     const maxBuyPrice = targetPrices.data?.prices[gsecKey(row)] ?? null;
-                    const withinTarget = row.sellRate !== null && maxBuyPrice !== null && row.sellRate <= maxBuyPrice;
+                    const withinTarget =
+                      row.analytics !== null &&
+                      row.sellRate !== null &&
+                      maxBuyPrice !== null &&
+                      row.sellRate <= maxBuyPrice;
                     return (
                       <TableRow
                         key={gsecKey(row)}
@@ -246,17 +257,15 @@ export function GsecScanner() {
                         <TableCell className='text-center'>{formatMoney(row.analytics?.risk?.dv01, 4)}</TableCell>
                         <TableCell className='text-center'>{formatNumber(row.analytics?.risk?.convexity, 1)}</TableCell>
                         <TableCell className='text-center' title={row.curveUnavailableReason ?? undefined}>
-                          {row.curveAnalytics?.spreadBp == null
-                            ? '—'
-                            : `${row.curveAnalytics.spreadBp > 0 ? '+' : ''}${row.curveAnalytics.spreadBp.toFixed(1)} bp`}
+                          {formatSpread(row.curveAnalytics?.zSpreadBp, 1)}
                         </TableCell>
+                        <TableCell className='text-center'>{formatSpread(row.curveAnalytics?.spreadBp, 1)}</TableCell>
                         <TableCell className='text-center'>
                           <RelativeValue value={row.curveAnalytics?.relativeValue} />
                         </TableCell>
                         <TableCell className='pr-4 text-right'>
                           <BondCardDialog
                             row={row}
-                            isLive={isLive}
                             settlementDate={data!.settlementDate}
                             targetYtm={targetYtm}
                             maxBuyPrice={maxBuyPrice}

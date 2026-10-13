@@ -14,5 +14,7 @@ export const formatMoney = (value: number | null | undefined, digits = 2) =>
   value == null ? '—' : `₹${value.toFixed(digits)}`;
 export const formatPercent = (value: number | null | undefined, digits = 4) =>
   value == null ? '—' : `${value.toFixed(digits)}%`;
+export const formatSpread = (value: number | null | undefined, digits = 2) =>
+  value == null ? '—' : `${value > 0 ? '+' : ''}${value.toFixed(digits)} bp`;
 export const formatSignedPercent = (value: number | null | undefined, digits = 2) =>
   value == null ? '—' : `${value > 0 ? '+' : ''}${value.toFixed(digits)}%`;

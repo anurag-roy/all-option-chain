@@ -24,7 +24,7 @@ The numerical solver verifies a bracket and accommodates negative or unusually h
 
 The scanner accepts a target quoted annual YTM from 0% to 100%, defaulting to 8%. One target applies to every pledgeable bond in that browser. The existing coupon schedule and 30E/360 fraction are used in the forward pricing equation above, with `y = target YTM / 100`. This gives the theoretical maximum **dirty** buy price. The displayed `Buy Rate` is floored to each listing's trading tick using integer paise. NSE uses ₹0.01; the matched BSE listings currently use ₹0.01 or ₹0.05. Thus an NSE ceiling of ₹103.16 becomes ₹103.15 on a BSE counterpart with a ₹0.05 tick. Accrued interest is not added.
 
-Only a valid seller price at or below that floored ceiling receives a green highlight. Other rows remain visible with their usual rankings. A ceiling can be calculated even without sellers; matured or invalid bonds have no ceiling. As with current YTM, the calculation excludes fees and taxes. The scanner's existing disconnected status still applies to retained quotes.
+A valid seller price at or below that floored ceiling receives the buy-zone highlight. BUY/WAIT is determined by that price comparison. A ceiling can be calculated even without sellers; matured or invalid bonds have no ceiling. As with current YTM, the calculation excludes fees and taxes. The Bond Card's signed Gap to buy is Buy Rate minus Sell Rate; the reference-style decision panel uses amber WAIT and green BUY ELIGIBLE.
 
 For `733GS2026-GS`, settlement 8 October 2026 and target 8%, the theoretical price is ₹103.1692561862, so the ceiling is **₹103.16**. A seller at ₹103.15 qualifies; a seller at ₹103.17 does not. For `709GS2054-GS`, the same settlement/target produces **₹91.13**. All 18 examples in the supplied target-YTM note are covered by numerical checks.
 
@@ -44,7 +44,7 @@ DV01 = (P(y−h) − P(y+h)) / 2
 Convexity = (P(y−h) + P(y+h) − 2P(y)) / (P(y) × h²)
 ```
 
-Macaulay and modified duration are calculated in years. The table and Bond Card display modified duration in months (`years × 12`); the API value stays in years. DV01 is the positive rupee sensitivity per ₹100 face value; convexity is in years squared. DV01 and convexity use symmetric ±1 bp repricing without rounding intermediate prices.
+Macaulay and modified duration are calculated in years. The Bond Card shows both in years, with modified duration also shown in months below the primary value; the existing scanner retains modified duration in months (`years × 12`). The API value stays in years. DV01 is the positive rupee sensitivity per ₹100 face value; convexity is in years squared. DV01 and convexity use symmetric ±1 bp repricing without rounding intermediate prices.
 
 The shared **Scenario Base (bp)** input defaults to 0. Scenarios include the base itself and the mirrored values `±(base + 5) × {1, 2, 4, 8, 16}`, sorted ascending with duplicate shocks removed. The default grid is −80, −40, −20, −10, −5, 0, +5, +10, +20, +40 and +80 bp. Base 10 uses −240, −120, −60, −30, −15, 10, +15, +30, +60, +120 and +240 bp. Each shock is applied to the current seller YTM; percentage changes always compare with the current seller price, including when the selected base is nonzero. Prices revalue every remaining cash flow without a duration approximation or trading-tick flooring. Out-of-domain yields or non-finite prices remain unavailable.
 
@@ -60,7 +60,7 @@ Return (%) = 100 × (ending dirty price + coupons + redemption − purchase pric
 
 Coupons paid on the horizon date are included in received cash and excluded from the ending bond price. If maturity is on or before a selected horizon, the effective horizon is maturity, the ending price is zero after redemption, and ₹100 principal plus the final coupon are included exactly once. A bond maturing before a selected horizon is labeled accordingly; its return is through maturity, with no assumed income on the redeemed cash afterwards.
 
-The Bond Card replaces the Market Depth dialog and includes pricing, risk, carry, scenario tables and a price-versus-yield-shock chart, followed by the existing top-five seller depth. Green indicates only a seller price at or below the tick-floored target buy ceiling. Scenario losses use amber styling separately from target eligibility. Every data column except Coupon is sortable; RRR Rank ascending remains the default. Sorting uses raw values, ISO maturity dates and exchange-specific target ceilings, with missing values last in either direction. RV orders CHEAP, FAIR, RICH. The CCIL zero-curve line uses a theme-aware yellow, with fair and market YTM markers retained.
+The Bond Card uses the dashboard reference layout: five summary panels (Market, Target, Decision, Risk and Relative Value), the exact scenario table beside its price chart, a full-width CCIL curve, then unchanged-YTM carry, constant-Z-spread Carry + Roll and seller-depth panels. Its header stays fixed while the body scrolls; summary and detail grids stack on smaller screens. The footer is omitted. The Market panel emphasizes seller price and YTM, and the Decision panel shows the signed buy gap. Panels use the existing shadcn surfaces, neutral borders and typography, with yellow WAIT/CCIL-curve accents, the primary blue yield-shock price line and green eligibility. Detail tables use 14px body text and 12px headers; chart labels and tooltips are enlarged. Carry tables gain separate rows before the three-column layout at wide desktop sizes. The top-five seller levels and chart tooltips are retained. Green target highlighting indicates a seller price at or below the tick-floored target buy ceiling. Scenario gains and losses use green and amber styling separately from target eligibility. Every data column except Coupon is sortable; RRR Rank ascending remains the default. Sorting uses raw values, ISO maturity dates and exchange-specific target ceilings, with missing values last in either direction. RV orders CHEAP, FAIR, RICH. The CCIL zero-curve line uses a theme-aware yellow, with neutral fair and market YTM markers retained.
 
 Tier 2 uses an independent, dated CCIL sovereign NSS curve. No local seller-derived interpolation or sample parameters are substituted for a benchmark feed. The scenario chart and benchmark zero-curve chart are separate displays.
 
@@ -68,33 +68,40 @@ Tier 2 uses an independent, dated CCIL sovereign NSS curve. No local seller-deri
 
 `db:seed` makes one unauthenticated GET to [CCIL's NSS parameter table](https://www.ccilindia.com/zcyc-parameters), validating its named table, headers, six finite parameters, positive tau values and real reference dates. The source has returned ISO timestamps to curl and `DD-MM-YYYY` to Node; both observed formats are parsed explicitly. Failed imports are recorded without aborting the instrument/G-Sec seed. Runtime never contacts CCIL.
 
-Snapshots and corrections are retained in `gsec_curve_snapshots`, with the source URL/hash, reference date, retrieval time, first-observation time, method, six parameters, conventions and supported tenor range. `gsec_curve_seed_state` records the last attempt. The public feed does not expose an actual publication timestamp: it stays null rather than being invented from the approximately 7 p.m. release schedule. First observation is the conservative availability time. A curve cannot be applied to a quote received before it was available; reference dates alone do not establish availability. Seller quote timestamps here are server receipt timestamps.
+Snapshots and corrections are retained in `gsec_curve_snapshots`, with the source URL/hash, reference date, retrieval time, first-observation time, method, six parameters, conventions and supported tenor range. `gsec_curve_seed_state` records the last attempt. The public feed does not expose an actual publication timestamp: it stays null; publication and first-observed timestamps remain in the API but are not displayed in the Bond Card. First observation is the conservative availability time. A curve cannot be applied to a seller quote dated before it was available; reference dates alone do not establish availability. Undated sellers cannot be compared to a dated curve.
 
-The user explicitly approved **ACT/365 with continuous discounting as the app's convention** on 9 October 2026. CCIL's working paper documents exponential discounting, but the public feed's exact day-count remains unconfirmed. The app convention is persisted and configurable; it is not silently presented as a provider-verified convention. Cash-flow tenors are measured from the seeded settlement date (or analytical horizon), keeping the selected dated curve shape unchanged. The adapter supports the public curve's displayed 0–50-year range and refuses cash flows outside it.
+`quoteUpdatedAt` is the exchange quote packet timestamp, not the last trade timestamp or local receipt time. REST exchange-local strings are interpreted as IST, including recovery of local clock fields when `kiteconnect-ts` has parsed them into a host-local Date. Full-mode websocket timestamps are epoch-based Dates and retain their instant. This exchange timestamp still governs curve-versus-quote chronology, and an older exchange timestamp cannot replace a newer quote.
+
+The scanner displays the latest subscribed seller prices, updating them whenever Kite sends full-mode depth ticks. A quiet book retains its displayed prices without quote-age labels, LIVE/AGING/STALE badges, age-based coloring or age timers. This follows the user's final instruction: elapsed time without a websocket update does not classify a seller quote as stale. REST snapshots initialize data, recover ticker reconnects and load new listings; regular price polling is not used. Quote and curve timestamps remain in the API for chronology checks; the Bond Card omits the timestamp/source footer. Daily benchmark-curve validity checks remain independent of seller-price activity.
+
+The user explicitly approved **ACT/365 with continuous discounting as the app's convention** on 9 October 2026. CCIL's working paper documents exponential discounting, but the public feed's exact day-count remains unconfirmed. The app convention is persisted and configurable; it is not silently presented as a provider-verified convention. Let C be the curve reference date, S the seeded settlement date, and T a future cash-flow date. Fair prices use forward-normalized discount factors D(C,T)/D(C,S). The curve cannot be referenced after settlement. The adapter supports the public curve's displayed 0–50-year range and checks both numerator and denominator against that range; it never extrapolates silently.
 
 ```text
 z(t) = beta0 + (beta1 + beta2) × A(t/tau1) − beta2 × exp(−t/tau1)
        + beta3 × A(t/tau2) − beta3 × exp(−t/tau2)
 A(x) = (1 − exp(−x)) / x; A(0) = 1
 DF(t) = exp[−(z(t)/100) × t]
-Fair dirty price = Σ(CF_i × DF(t_i))
+Settlement-adjusted DF(S,T) = DF(C,T) / DF(C,S)
+Fair dirty price = Σ(CF_i × DF(S,T_i))
 Fair YTM = existing semiannual 30E/360 bond solver at fair dirty price
-Spread (bp) = 100 × (market YTM percent − fair YTM percent)
+Market dirty price = Σ(CF_i × DF(S,T_i) × exp[−s × yearFraction(S,T_i)])
+Z-spread (bp) = 10000 × solved continuous spread s
+Secondary YTM spread (bp) = 100 × (market YTM percent − fair YTM percent)
 Fair − sell amount = fair dirty price − market dirty price
 ```
 
-The fair YTM is solved from the full discounted cash-flow price; the maturity zero rate is not used as a substitute. Fair valuations are cached by bond terms, settlement and curve version, shared across NSE/BSE. Each venue's own seller price drives its spread and roll estimates. Missing sellers leave fair valuation available, with spread/RV/market carry unavailable.
+The fair YTM is solved from the full discounted cash-flow price; the maturity zero rate is not used as a substitute. Z-spread is solved from all remaining cash flows using the curve's day-count and continuous spread discounting; it is not market YTM minus fair YTM or the vertical distance to a zero-rate point. Negative and positive spreads are supported. Fair valuations and discounted cash-flow schedules are cached by bond terms, settlement and curve version, shared across NSE/BSE. Each venue's own seller price drives its Z-spread and roll estimates. Missing sellers leave fair valuation available, with spreads/RV/market carry unavailable.
 
-For **Carry + Roll**, reprice remaining cash flows at each 1M/3M/6M/1Y horizon using today's curve at shorter remaining tenors, solve horizon fair YTM, then add the current market-minus-fair YTM spread. Reprice the bond at that spread-preserved horizon YTM, including the same coupons held as cash and maturity cap as unchanged-YTM carry. This is not a forward-curve or spread-convergence forecast. Tier 3 convergence forecasts, implied forwards, z-scores and in-house curve fitting remain deferred.
+For **Carry + Roll - Constant Z-spread**, freeze today's settlement-adjusted curve shape. Write a = yearFraction(C,S) and t = remaining tenor from the analytical horizon H to each future cash flow. The rolled discount factor is DF(a+t)/DF(a). Multiply each cash flow by this factor and exp(−s×t), preserving today's solved Z-spread. Solve the displayed horizon assumed YTM from the resulting dirty price, rather than adding a YTM spread. Include the same coupons held as cash and maturity cap as unchanged-YTM carry. This is a constant-shape roll scenario, not an implied forward-curve or spread-convergence forecast. Statistical z-scores, convergence forecasts and in-house curve fitting remain deferred.
 
-| Setting | Default | Behavior |
-| --- | --- | --- |
-| `GSEC_CURVE_DAY_COUNT` | `ACT/365` | Alternative explicit conventions: `ACT/360`, `30E/360` |
-| `GSEC_CURVE_COMPOUNDING` | `continuous` | Alternative explicit conventions: `annual`, `semiannual` |
-| `GSEC_CURVE_MAX_AGE_DAYS` | `7` | Maximum reference-date age in calendar days; previous-day and weekend curves are allowed |
-| `GSEC_RV_THRESHOLD_BP` | `5` | Nonnegative FAIR spread band, configurable in `.env` |
+| Setting                   | Default      | Behavior                                                                                 |
+| ------------------------- | ------------ | ---------------------------------------------------------------------------------------- |
+| `GSEC_CURVE_DAY_COUNT`    | `ACT/365`    | Alternative explicit conventions: `ACT/360`, `30E/360`                                   |
+| `GSEC_CURVE_COMPOUNDING`  | `continuous` | Alternative explicit conventions: `annual`, `semiannual`                                 |
+| `GSEC_CURVE_MAX_AGE_DAYS` | `7`          | Maximum reference-date age in calendar days; previous-day and weekend curves are allowed |
+| `GSEC_RV_THRESHOLD_BP`    | `5`          | Nonnegative FAIR spread band, configurable in `.env`                                     |
 
-CHEAP means spread > threshold; RICH means spread < −threshold; equality on either boundary is FAIR. CHEAP is blue, RICH amber and FAIR neutral. Green remains driven only by Sell <= tick-floored Buy Rate. The Bond Card identifies CCIL/reference date/conventions, shows both carry models and a local zero-rate chart with the selected market and fair bond YTMs labeled separately.
+The existing RV tags and colors are retained under the user's final scope clarification. They continue to describe the secondary YTM spread: CHEAP means spread > threshold; RICH means spread < −threshold; equality on either boundary is FAIR. They do not classify the primary raw Z-spread or drive eligibility. The scanner keeps its current labels, sorting, duration units and separate NSE/BSE rows, and adds a sortable Z-Spread column. The existing curve chart is retained. The Bond Card shows the primary Z-spread, secondary YTM spread, both carry models, settlement date, curve source/date and data-quality states.
 
 The runtime catalog reads SQLite once per IST day and chooses the latest curve known as of valuation. A failed import can reuse a previously stored curve within the age limit, with the fallback identified in the Bond Card. Missing, stale, inconsistent or unsupported curve data leaves standalone YTM, target pricing, risk and scenarios available. Restart after same-day reseeding. Changing conventions requires reseeding and restart; changing the RV threshold requires restart.
 
@@ -102,33 +109,34 @@ The runtime catalog reads SQLite once per IST day and chooses the latest curve k
 
 For the same 709GS2054 bond below, using the resolution note's CCIL parameters dated 8 October 2026:
 
-| Field | Expected value |
-| --- | ---: |
-| Fair dirty price | ₹93.7053059191 |
-| Fair quoted YTM | 7.7528734851% |
-| Market − fair spread / RV at 5 bp | −14.76408848 bp / RICH |
-| Fair − sell | −₹1.5946940809 |
-| 1Y fair curve price / fair YTM | ₹93.8539285804 / 7.7465056879% |
-| 1Y assumed YTM, spread preserved | 7.5988648031% |
-| 1Y horizon market price | ₹95.4348697599 |
-| 1Y Carry + Roll | 7.5811854774% |
+| Field                              |                 Expected value |
+| ---------------------------------- | -----------------------------: |
+| Fair dirty price                   |                 ₹93.7053059191 |
+| Fair quoted YTM                    |                  7.7528734851% |
+| Market − fair spread / RV at 5 bp  |         −14.76408848 bp / RICH |
+| Z-spread                           |              −14.6269545701 bp |
+| Fair − sell                        |                 −₹1.5946940809 |
+| 1Y fair curve price / fair YTM     | ₹93.8539285804 / 7.7465056879% |
+| 1Y assumed YTM, Z-spread preserved |                  7.5986676386% |
+| 1Y horizon market price            |                 ₹95.4370098052 |
+| 1Y Carry + Roll                    |                  7.5834310652% |
 
-These values are unit-test fixtures only. Production reads current seeded parameters; no fixed fixture is used as a live fallback.
+These values are unit-test fixtures only. Production reads current seeded parameters; no fixed fixture is used as a live fallback. The Z-spread and updated carry values were cross-checked with an independent 45-digit Decimal calculation. A separate closed-form zero-coupon fixture checks both spread signs and prior-date curve normalization; a non-flat fixture checks settlement normalization and rolled prices against independent values.
 
 ## Tier 1 worked fixture
 
 For `709GS2054-GS`, maturity **5 August 2054**, settlement **8 October 2026**, coupon **7.09%** and dirty seller price **₹95.30**:
 
-| Field | Expected value |
-| --- | ---: |
-| Current quoted YTM | 7.6052326003% |
-| Next coupon / remaining coupons | 5 February 2027 / 56 |
-| Theoretical price at 8% / NSE Buy Rate | ₹91.1324325967 / ₹91.13 |
-| Macaulay / modified duration | 11.9285014670 / 11.4915229424 |
-| DV01 / convexity | ₹0.1095142916 / 215.968726 |
-| −50 bp / +50 bp dirty price | ₹101.0430364146 / ₹90.0721180530 |
-| 1Y ending dirty price / coupons received | ₹95.3657947448 / ₹7.09 |
-| 1Y unchanged-YTM holding return | 7.5087038245% |
+| Field                                    |                   Expected value |
+| ---------------------------------------- | -------------------------------: |
+| Current quoted YTM                       |                    7.6052326003% |
+| Next coupon / remaining coupons          |             5 February 2027 / 56 |
+| Theoretical price at 8% / NSE Buy Rate   |          ₹91.1324325967 / ₹91.13 |
+| Macaulay / modified duration             |    11.9285014670 / 11.4915229424 |
+| DV01 / convexity                         |       ₹0.1095142916 / 215.968726 |
+| −50 bp / +50 bp dirty price              | ₹101.0430364146 / ₹90.0721180530 |
+| 1Y ending dirty price / coupons received |           ₹95.3657947448 / ₹7.09 |
+| 1Y unchanged-YTM holding return          |                    7.5087038245% |
 
 The approved reference notes' fixture and edge cases are covered by focused calculator tests, including negative yields, coupon-date horizons, calendar month ends and maturity before or exactly on a horizon.
 
@@ -153,7 +161,7 @@ The seed rejects unknown terms, disagreement between sources, incompatible coupo
 ## Sources
 
 - [CCIL NSS parameter page](https://www.ccilindia.com/zcyc-parameters), [public 0–50-year curve](https://www.ccilindia.com/curve), and [operational release description](https://www.ccilindia.com/operational-aspects).
-- [CCIL working paper WP/014](https://www.ccilindia.com/documents/d/ccil/WP014%20Modelling%20Issues%20in%20Efficient%20Term%20Structure%20Estimation-%20A%20Study%20of%20the%20Indian%20Government%20Securities%20Market%20(2)-pdf), equations 2–4: NSS, exponential discount factor and cash-flow valuation.
+- [CCIL working paper WP/014](<https://www.ccilindia.com/documents/d/ccil/WP014%20Modelling%20Issues%20in%20Efficient%20Term%20Structure%20Estimation-%20A%20Study%20of%20the%20Indian%20Government%20Securities%20Market%20(2)-pdf>), equations 2–4: NSS, exponential discount factor and cash-flow valuation.
 
 - [NSE capital-market Government Securities specifications](https://www.nseindia.com/static/products-services/traded-on-cm): ₹100 face value and dirty-price quotation.
 - [Zerodha explanation of G-Sec dirty prices](https://support.zerodha.com/category/trading-and-markets/general-kite/govt-securities/articles/g-sec-buy-average-dirty-price).

@@ -12,6 +12,7 @@ export type GsecSortColumn =
   | 'dv01'
   | 'convexity'
   | 'curveSpread'
+  | 'zSpread'
   | 'relativeValue';
 export type GsecSort = { column: GsecSortColumn; descending: boolean };
 type SortValue = string | number | null;
@@ -39,6 +40,8 @@ function sortValue(row: GsecRow, column: GsecSortColumn, buyPrices: Record<strin
       return row.analytics?.risk?.convexity ?? null;
     case 'curveSpread':
       return row.curveAnalytics?.spreadBp ?? null;
+    case 'zSpread':
+      return row.curveAnalytics?.zSpreadBp ?? null;
     case 'relativeValue': {
       const value = row.curveAnalytics?.relativeValue;
       return value ? relativeValueOrder[value] : null;

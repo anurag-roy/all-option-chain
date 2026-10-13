@@ -1,4 +1,5 @@
 import { calculateGsecAnalytics } from '@server/lib/calculators/gsec-analytics';
+import { createGsecCashFlows } from '@server/lib/calculators/gsec-cash-flows';
 import {
   calculateGsecCurveAnalytics,
   valueGsecOnCurve,
@@ -106,8 +107,13 @@ export function rankGsecs(
     const curve = curveContext?.state.status === 'ready' ? curveContext.state.snapshot : null;
     const quoteTime = curveContext?.quoteTimes.get(key);
     const availableForQuote =
-      !quoteTime || !curve || Date.parse(curve.publicationTimestamp ?? curve.firstObservedAt) <= Date.parse(quoteTime);
+      !curve ||
+      sellRate === null ||
+      (quoteTime !== undefined &&
+        Date.parse(quoteTime) <= Date.now() &&
+        Date.parse(curve.publicationTimestamp ?? curve.firstObservedAt) <= Date.parse(quoteTime));
     const terms = { ...security, settlementDate };
+    const validTerms = analytics !== null || createGsecCashFlows(terms) !== null;
     const valuationKey = JSON.stringify([curve?.id, security.coupon, security.maturityDate, settlementDate]);
     if (curve && availableForQuote && !curveContext!.valuations.has(valuationKey))
       curveContext!.valuations.set(valuationKey, valueGsecOnCurve(terms, curve));
@@ -128,11 +134,15 @@ export function rankGsecs(
       curveAnalytics,
       curveUnavailableReason: curveAnalytics
         ? null
-        : !curve
-          ? (curveContext?.state.message ?? 'CCIL curve unavailable.')
-          : !availableForQuote
-            ? 'The curve was first available after this seller quote.'
-            : 'Cash flows exceed curve coverage, or fair yield could not be solved.',
+        : !validTerms
+          ? 'Invalid bond master data.'
+          : !curve
+            ? (curveContext?.state.message ?? 'CCIL curve unavailable.')
+            : !availableForQuote
+              ? !quoteTime
+                ? 'Exchange quote time unavailable; curve comparison disabled.'
+                : 'The curve was first available after this seller quote, or quote time is invalid.'
+              : 'Cash flows exceed curve coverage, or fair yield could not be solved.',
       // Remove binary floating-point noise so equal distances receive equal ranks.
       distanceFromFv: sellRate === null ? null : Number(Math.abs(sellRate - 100).toFixed(8)),
       bestRrrRank: null,
@@ -140,6 +150,7 @@ export function rankGsecs(
       quoteStatus: sellRate !== null ? 'ready' : quote ? 'no-sellers' : 'unavailable',
       sellerDepth,
       quoteUpdatedAt: null,
+      masterDataStatus: validTerms ? 'ready' : 'invalid',
     };
   });
 

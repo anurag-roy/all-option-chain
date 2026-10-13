@@ -1,6 +1,12 @@
 import { addBondMonths, type GsecBondTerms } from '@server/lib/calculators/gsec-cash-flows';
-import { calculateGsecDirtyPrice, calculateGsecYtm } from '@server/lib/calculators/gsec-ytm';
-import { curveYearFraction, priceGsecOnCurve } from '@server/lib/calculators/gsec-zero-curve';
+import { calculateGsecYtm } from '@server/lib/calculators/gsec-ytm';
+import {
+  createGsecCurveCashFlows,
+  curveYearFraction,
+  priceGsecCurveCashFlows,
+  solveGsecZSpread,
+  type GsecCurveCashFlow,
+} from '@server/lib/calculators/gsec-zero-curve';
 import type { GsecCurveAnalytics, GsecCurveSnapshot, GsecRelativeValue } from '@shared/types/gsec-curve';
 import type { GsecAnalytics } from '@shared/types/gsecs';
 
@@ -9,28 +15,38 @@ export type GsecCurveValuation = {
   fairDirtyPrice: number;
   fairYtm: number;
   maturityTenor: number;
-  horizons: { months: 1 | 3 | 6 | 12; fairDirtyPrice: number | null; fairYtm: number | null }[];
+  cashFlows: GsecCurveCashFlow[];
+  horizons: {
+    months: 1 | 3 | 6 | 12;
+    fairDirtyPrice: number | null;
+    fairYtm: number | null;
+    cashFlows: GsecCurveCashFlow[] | null;
+  }[];
 };
 
 /** Independent of market prices: cache once per bond, settlement and snapshot. */
 export function valueGsecOnCurve(terms: GsecBondTerms, curve: GsecCurveSnapshot): GsecCurveValuation | null {
-  const fairDirtyPrice = priceGsecOnCurve(terms, curve);
+  const cashFlows = createGsecCurveCashFlows(terms, curve);
+  const fairDirtyPrice = cashFlows ? priceGsecCurveCashFlows(cashFlows) : null;
   const fairYtm = fairDirtyPrice === null ? null : calculateGsecYtm({ ...terms, dirtyPrice: fairDirtyPrice });
-  if (fairDirtyPrice === null || fairYtm === null) return null;
+  if (!cashFlows || fairDirtyPrice === null || fairYtm === null) return null;
   return {
     snapshotId: curve.id,
     fairDirtyPrice,
     fairYtm,
     maturityTenor: curveYearFraction(terms.settlementDate, terms.maturityDate, curve.dayCount)!,
+    cashFlows,
     horizons: ([1, 3, 6, 12] as const).map((months) => {
       const horizon = addBondMonths(terms.settlementDate, months)!;
-      if (horizon >= terms.maturityDate) return { months, fairDirtyPrice: 0, fairYtm: null };
+      if (horizon >= terms.maturityDate) return { months, fairDirtyPrice: 0, fairYtm: null, cashFlows: [] };
       const horizonTerms = { ...terms, settlementDate: horizon };
-      const price = priceGsecOnCurve(horizonTerms, curve);
+      const horizonFlows = createGsecCurveCashFlows(horizonTerms, curve, terms.settlementDate);
+      const price = horizonFlows ? priceGsecCurveCashFlows(horizonFlows) : null;
       return {
         months,
         fairDirtyPrice: price,
         fairYtm: price === null ? null : calculateGsecYtm({ ...horizonTerms, dirtyPrice: price }),
+        cashFlows: horizonFlows,
       };
     }),
   };
@@ -53,25 +69,31 @@ export function calculateGsecCurveAnalytics(
   thresholdBp: number
 ): GsecCurveAnalytics {
   const spreadBp = analytics === null ? null : (analytics.ytm - valuation.fairYtm) * 100;
+  const zSpreadBp =
+    analytics === null || dirtyPrice === null ? null : solveGsecZSpread(valuation.cashFlows, dirtyPrice);
   return {
     snapshotId: valuation.snapshotId,
     fairDirtyPrice: valuation.fairDirtyPrice,
     fairYtm: valuation.fairYtm,
     maturityTenor: valuation.maturityTenor,
     spreadBp,
+    zSpreadBp,
     relativeValue: spreadBp === null ? null : classifyGsecRelativeValue(spreadBp, thresholdBp),
     priceAdvantage: dirtyPrice === null ? null : valuation.fairDirtyPrice - dirtyPrice,
     carryRoll: (analytics?.carry ?? []).map((carry) => {
       const horizon = valuation.horizons.find((item) => item.months === carry.months)!;
-      const assumedYtm = horizon.fairYtm === null || spreadBp === null ? null : horizon.fairYtm + spreadBp / 100;
       const price = carry.redemptionReceived
         ? 0
-        : assumedYtm === null
+        : horizon.cashFlows === null || zSpreadBp === null
           ? null
-          : calculateGsecDirtyPrice({
+          : priceGsecCurveCashFlows(horizon.cashFlows, zSpreadBp);
+      const assumedYtm =
+        price === null || price === 0
+          ? null
+          : calculateGsecYtm({
               ...terms,
               settlementDate: carry.effectiveHorizonDate,
-              yieldPercent: assumedYtm,
+              dirtyPrice: price,
             });
       const result =
         price === null || dirtyPrice === null

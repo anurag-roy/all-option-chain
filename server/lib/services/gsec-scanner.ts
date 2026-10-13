@@ -4,6 +4,7 @@ import { logger } from '@server/lib/logger';
 import { APPROVED_SECURITIES_PAGE, GsecSeedError } from '@server/lib/services/approved-gsecs';
 import { getSeededGsecs } from '@server/lib/services/gsec-catalog';
 import { getSeededGsecCurve } from '@server/lib/services/gsec-curve-catalog';
+import { gsecExchangeQuoteTime, gsecRestExchangeQuoteTime } from '@server/lib/services/gsec-quote-time';
 import { getFullQuotes } from '@server/lib/services/kite';
 import { marketDataService } from '@server/lib/services/market-data';
 import { gsecKey } from '@shared/lib/gsec-key';
@@ -15,6 +16,7 @@ export class GsecScanner {
   private securities = new Map<number, GsecListing>();
   private quotes: Record<string, SellerQuote> = {};
   private quoteTimes = new Map<string, string>();
+  private quoteReceivedTimes = new Map<string, string>();
   private tickVersions = new Map<string, number>();
   private snapshot: GsecScan | null = null;
   private approvedListFetchedAt = '';
@@ -48,10 +50,13 @@ export class GsecScanner {
       const security = this.securities.get(tick.instrument_token);
       if (!security) return;
       const key = gsecKey(security);
+      const quoteTime = gsecExchangeQuoteTime(tick.exchange_timestamp);
+      const previousTime = this.quoteTimes.get(key);
+      if (quoteTime && previousTime && quoteTime < previousTime) return;
       this.quotes[key] = { depth: { sell: getGsecSellerDepth(tick.depth?.sell) } };
       this.tickVersions.set(key, (this.tickVersions.get(key) ?? 0) + 1);
       this.quotesFetchedAt = new Date().toISOString();
-      this.quoteTimes.set(key, this.quotesFetchedAt);
+      this.setQuoteTime(key, quoteTime, this.quotesFetchedAt);
       if (!this.publishTimer) {
         this.publishTimer = setTimeout(() => {
           this.publishTimer = null;
@@ -64,7 +69,7 @@ export class GsecScanner {
       if (connected) {
         void this.refresh(true).catch((error) => logger.error('G-Sec reconnect refresh failed:', error));
       } else {
-        this.publish('disconnected', 'Live updates disconnected. Showing the last received seller prices.');
+        this.publish('disconnected');
       }
     });
     // The catalog is cached for the IST day; this only detects a new day's DB seed.
@@ -118,6 +123,7 @@ export class GsecScanner {
       if (!allowedKeys.has(key) || addedKeys.includes(key)) {
         delete this.quotes[key];
         this.quoteTimes.delete(key);
+        this.quoteReceivedTimes.delete(key);
         this.tickVersions.delete(key);
       }
     }
@@ -154,11 +160,15 @@ export class GsecScanner {
         if ((this.tickVersions.get(key) ?? 0) !== versions.get(key)) continue;
         const quote = quotes[key];
         if (quote) {
+          const quoteTime = gsecRestExchangeQuoteTime(quote.timestamp);
+          const previousTime = this.quoteTimes.get(key);
+          if (quoteTime && previousTime && quoteTime < previousTime) continue;
           this.quotes[key] = { depth: { sell: getGsecSellerDepth(quote.depth?.sell) } };
-          this.quoteTimes.set(key, now);
+          this.setQuoteTime(key, quoteTime, now);
         } else {
           delete this.quotes[key];
           this.quoteTimes.delete(key);
+          this.quoteReceivedTimes.delete(key);
         }
       }
       this.quotesFetchedAt = now;
@@ -191,14 +201,16 @@ export class GsecScanner {
       streamStatus,
       curve: this.curveContext?.state,
       curvePoints: this.curvePoints,
-      message:
-        message ??
-        (streamStatus === 'disconnected'
-          ? 'Live updates disconnected. Showing the last received seller prices.'
-          : undefined),
+      message,
     };
     this.updateHandler?.(this.snapshot);
     return this.snapshot;
+  }
+
+  private setQuoteTime(key: string, exchangeTime: string | null, receivedAt: string) {
+    if (exchangeTime) this.quoteTimes.set(key, exchangeTime);
+    else this.quoteTimes.delete(key);
+    this.quoteReceivedTimes.set(key, receivedAt);
   }
 
   private fail(error: unknown) {
@@ -206,6 +218,7 @@ export class GsecScanner {
     this.securities.clear();
     this.quotes = {};
     this.quoteTimes.clear();
+    this.quoteReceivedTimes.clear();
     this.tickVersions.clear();
     const tokenRejected =
       typeof error === 'object' && error !== null && 'error_type' in error && error.error_type === 'TokenException';
@@ -229,7 +242,7 @@ export class GsecScanner {
       exchange,
       tradingsymbol,
       sell: row.sellerDepth,
-      fetchedAt: row.quoteUpdatedAt ?? snapshot.quotesFetchedAt,
+      fetchedAt: this.quoteReceivedTimes.get(gsecKey(row)) ?? snapshot.quotesFetchedAt,
     };
   }
 

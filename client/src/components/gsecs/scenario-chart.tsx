@@ -4,7 +4,7 @@ import type { GsecScenario } from '@shared/types/gsecs';
 import { CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from 'recharts';
 
 const chartConfig = {
-  dirtyPrice: { label: 'Dirty price', color: 'var(--chart-2)' },
+  dirtyPrice: { label: 'Dirty price', color: 'var(--primary)' },
 } satisfies ChartConfig;
 
 const formatShock = (bp: number) => `${bp > 0 ? '+' : ''}${bp} bp`;
@@ -20,14 +20,14 @@ export function ScenarioChart({ scenarios, scenarioBase }: { scenarios: GsecScen
   const shocks = scenarios.map((row) => row.shockBp);
 
   return (
-    <div className='bg-card min-w-0 rounded-lg border p-4'>
+    <div className='min-w-0'>
       <ChartContainer
         config={chartConfig}
-        className='aspect-auto h-64 w-full tabular-nums'
+        className='aspect-auto h-80 w-full text-xs tabular-nums lg:h-96'
         aria-label='Bond dirty price at the configured annual yield shocks'
       >
         <LineChart accessibilityLayer data={scenarios} margin={{ top: 12, right: 12, bottom: 8, left: 4 }}>
-          <CartesianGrid vertical={false} strokeDasharray='3 3' />
+          <CartesianGrid strokeDasharray='3 3' />
           <XAxis
             dataKey='shockBp'
             type='number'
@@ -45,7 +45,7 @@ export function ScenarioChart({ scenarios, scenarioBase }: { scenarios: GsecScen
             tickLine={false}
             axisLine={false}
             tickMargin={8}
-            width={72}
+            width={80}
             tickCount={5}
           />
           <ReferenceLine x={scenarioBase} stroke='var(--border)' strokeDasharray='4 4' />
@@ -53,7 +53,7 @@ export function ScenarioChart({ scenarios, scenarioBase }: { scenarios: GsecScen
             isAnimationActive={false}
             content={
               <ChartTooltipContent
-                className='min-w-48 tabular-nums'
+                className='min-w-48 text-sm tabular-nums'
                 labelFormatter={(_label, payload) => formatShock(payload[0].payload.shockBp)}
                 formatter={(_value, _name, item) => {
                   const scenario = item.payload as GsecScenario;
@@ -82,6 +82,7 @@ export function ScenarioChart({ scenarios, scenarioBase }: { scenarios: GsecScen
           />
         </LineChart>
       </ChartContainer>
+      <p className='text-muted-foreground pb-1 text-center text-xs'>Yield shock (bp)</p>
     </div>
   );
 }

@@ -6,10 +6,13 @@ import {
 } from '@server/lib/calculators/gsec-curve-analytics';
 import { calculateGsecDirtyPrice } from '@server/lib/calculators/gsec-ytm';
 import {
+  createGsecCurveCashFlows,
   curveDiscountFactor,
   curveYearFraction,
   nssZeroRate,
+  priceGsecCurveCashFlows,
   priceGsecOnCurve,
+  solveGsecZSpread,
 } from '@server/lib/calculators/gsec-zero-curve';
 import { rankGsecs, type GsecCurveContext } from '@server/lib/calculators/gsecs';
 import type { GsecCurveSnapshot } from '@shared/types/gsec-curve';
@@ -79,10 +82,59 @@ describe('CCIL NSS discounting', () => {
     expect(priceGsecOnCurve({ ...terms, maturityDate: '2026-10-30' }, { ...curve, minTenor: 0.25 })).toBeNull();
     expect(priceGsecOnCurve({ ...terms, maturityDate: terms.settlementDate }, curve)).toBeNull();
   });
+
+  it('forward-normalizes a prior-date flat curve to settlement, with a closed-form price and Z-spread', () => {
+    const flat = {
+      ...curve,
+      referenceDate: '2026-01-01',
+      parameters: {
+        beta0: 6,
+        beta1: 0,
+        beta2: 0,
+        beta3: 0,
+        tau1: 1,
+        tau2: 2,
+      },
+    };
+    const zero = { coupon: 0, settlementDate: '2026-07-01', maturityDate: '2027-07-01' };
+    const flows = createGsecCurveCashFlows(zero, flat)!;
+    expect(priceGsecOnCurve(zero, flat)).toBeCloseTo(100 * Math.exp(-0.06), 10);
+    for (const spread of [-1000, -150, 0, 150, 1000]) {
+      const price = 100 * Math.exp(-0.06 - spread / 10_000);
+      expect(solveGsecZSpread(flows, price)).toBeCloseTo(spread, 9);
+      expect(priceGsecCurveCashFlows(flows, spread)).toBeCloseTo(price, 10);
+    }
+    expect(solveGsecZSpread(flows, 0)).toBeNull();
+    expect(solveGsecZSpread(flows, NaN)).toBeNull();
+    expect(solveGsecZSpread([], 100)).toBeNull();
+    expect(solveGsecZSpread([{ amount: 100, years: 0, discountFactor: 1 }], 100)).toBeNull();
+    expect(solveGsecZSpread([{ amount: -100, years: 1, discountFactor: 1 }], 100)).toBeNull();
+    expect(priceGsecCurveCashFlows(flows, Infinity)).toBeNull();
+  });
+
+  it('rejects coverage violations measured from the curve date, and a curve referenced after settlement', () => {
+    const dated = { ...curve, referenceDate: '2026-01-01', maxTenor: 1 };
+    expect(priceGsecOnCurve({ coupon: 0, settlementDate: '2026-07-01', maturityDate: '2027-01-02' }, dated)).toBeNull();
+    expect(priceGsecOnCurve(terms, { ...curve, referenceDate: '2026-10-09' })).toBeNull();
+  });
+
+  it('reproduces independent high-precision prices when curve date precedes settlement', () => {
+    const dated = { ...curve, referenceDate: '2026-10-09' };
+    const short = { coupon: 826, settlementDate: '2026-10-14', maturityDate: '2027-08-02' };
+    const valuation = valueGsecOnCurve(short, dated)!;
+    const market = calculateGsecAnalytics({ ...short, dirtyPrice: 102.17 })!;
+    const result = calculateGsecCurveAnalytics(short, valuation, market, 102.17, 5);
+    expect(result.fairDirtyPrice).toBeCloseTo(103.35313483909674, 10);
+    expect(result.zSpreadBp).toBeCloseTo(147.52424312818235, 9);
+    expect(result.carryRoll[0]!.endingDirtyPrice).toBeCloseTo(102.85235438991185, 10);
+    expect(result.carryRoll[2]!.endingDirtyPrice).toBeCloseTo(101.93626494264976, 10);
+    expect(result.carryRoll[2]!.returnPercent).toBeCloseTo(3.813511737936533, 10);
+    expect(result.carryRoll[3]!.endingDirtyPrice).toBe(0);
+  });
 });
 
-describe('curve fair YTM, relative value and constant-spread roll', () => {
-  it('reproduces every golden Tier 2 value in the latest resolution PDF', () => {
+describe('curve fair YTM, relative value and constant-Z-spread roll', () => {
+  it('keeps the original fair/YTM fixture and reproduces independently calculated Z-spread carry', () => {
     const valuation = valueGsecOnCurve(terms, curve)!;
     const market = calculateGsecAnalytics({ ...terms, dirtyPrice })!;
     const result = calculateGsecCurveAnalytics(terms, valuation, market, dirtyPrice, 5);
@@ -90,14 +142,15 @@ describe('curve fair YTM, relative value and constant-spread roll', () => {
     expect(result.fairDirtyPrice).toBeCloseTo(93.7053059191, 8);
     expect(result.fairYtm).toBeCloseTo(7.7528734851, 8);
     expect(result.spreadBp).toBeCloseTo(-14.76408848, 7);
+    expect(result.zSpreadBp).toBeCloseTo(-14.626954570051867, 9);
     expect(result.relativeValue).toBe('RICH');
     expect(result.priceAdvantage).toBeCloseTo(-1.5946940809, 8);
     const annual = result.carryRoll[3]!;
     expect(annual.fairDirtyPrice).toBeCloseTo(93.8539285804, 8);
     expect(annual.fairYtm).toBeCloseTo(7.7465056879, 8);
-    expect(annual.assumedYtm).toBeCloseTo(7.5988648031, 8);
-    expect(annual.endingDirtyPrice).toBeCloseTo(95.4348697599, 8);
-    expect(annual.returnPercent).toBeCloseTo(7.5811854774, 8);
+    expect(annual.assumedYtm).toBeCloseTo(7.598667638552365, 9);
+    expect(annual.endingDirtyPrice).toBeCloseTo(95.43700980516941, 9);
+    expect(annual.returnPercent).toBeCloseTo(7.5834310652354775, 9);
     expect(market.carry[3]!.couponsReceived).toBe(7.09);
     expect(market.carry[3]!.returnPercent).toBeCloseTo(7.5087038245, 8);
     // Full convergence is a different (deferred) scenario; do not silently use it.
@@ -128,20 +181,23 @@ describe('curve fair YTM, relative value and constant-spread roll', () => {
     }
   });
 
-  it('preserves current spread at all four calendar horizons without reinvestment or annualization', () => {
+  it('preserves current Z-spread at all four calendar horizons without reinvestment or annualization', () => {
     const market = calculateGsecAnalytics({ ...terms, dirtyPrice })!;
     const valuation = valueGsecOnCurve(terms, curve)!;
     const result = calculateGsecCurveAnalytics(terms, valuation, market, dirtyPrice, 5);
     expect(result.carryRoll.map((item) => item.months)).toEqual([1, 3, 6, 12]);
     result.carryRoll.forEach((roll, index) => {
-      expect((roll.assumedYtm! - roll.fairYtm!) * 100).toBeCloseTo(result.spreadBp!, 10);
+      expect(solveGsecZSpread(valuation.horizons[index]!.cashFlows!, roll.endingDirtyPrice!)).toBeCloseTo(
+        result.zSpreadBp!,
+        9
+      );
       const carry = market.carry[index]!;
       const price = calculateGsecDirtyPrice({
         ...terms,
         settlementDate: carry.effectiveHorizonDate,
         yieldPercent: roll.assumedYtm!,
       });
-      expect(roll.endingDirtyPrice).toBe(price);
+      expect(roll.endingDirtyPrice).toBeCloseTo(price!, 9);
       expect(roll.returnPercent).toBeCloseTo(((price! + carry.couponsReceived - dirtyPrice) / dirtyPrice) * 100, 10);
     });
   });
@@ -161,7 +217,10 @@ describe('market rows against an independent benchmark', () => {
   const makeContext = (): GsecCurveContext => ({
     state: { status: 'ready', snapshot: curve, ageDays: 0, rvThresholdBp: 5 },
     valuations: new Map(),
-    quoteTimes: new Map(),
+    quoteTimes: new Map([
+      ['NSE:709GS2054-GS', '2026-10-08T14:00:00.000Z'],
+      ['BSE:BOND', '2026-10-08T14:00:00.000Z'],
+    ]),
   });
   const quotes = {
     'NSE:709GS2054-GS': { depth: { sell: [{ price: 95.3, quantity: 10, orders: 1 }] } },
@@ -205,6 +264,7 @@ describe('market rows against an independent benchmark', () => {
     expect(row.curveAnalytics?.fairDirtyPrice).toBeCloseTo(93.7053059191, 8);
     expect(row.curveAnalytics).toMatchObject({
       spreadBp: null,
+      zSpreadBp: null,
       relativeValue: null,
       priceAdvantage: null,
       carryRoll: [],
@@ -219,5 +279,14 @@ describe('market rows against an independent benchmark', () => {
     expect(row.rrr).toBeCloseTo(7.6052326003, 8);
     expect(row.curveAnalytics).toBeNull();
     expect(row.curveUnavailableReason).toContain('after this seller quote');
+  });
+
+  it('keeps undated sellers out of curve comparisons without substituting receipt time', () => {
+    const context = makeContext();
+    context.quoteTimes.clear();
+    const row = rankGsecs([security], quotes, terms.settlementDate, null, context)[0]!;
+    expect(row.rrr).toBeCloseTo(7.6052326003, 8);
+    expect(row.curveAnalytics).toBeNull();
+    expect(row.curveUnavailableReason).toContain('quote time unavailable');
   });
 });

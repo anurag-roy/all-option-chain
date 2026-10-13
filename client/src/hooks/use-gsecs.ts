@@ -36,6 +36,5 @@ export function useGsecs(scenarioBase: number | null = 0) {
     data,
     error,
     isPending: !data && query.isPending,
-    isLive: isConnected && data?.streamStatus === 'live',
   };
 }

@@ -27,6 +27,7 @@ function listing(exchange: 'NSE' | 'BSE', price: number): GsecRow {
     nearFvRank: 1,
     quoteStatus: 'ready',
     quoteUpdatedAt: '2026-10-08T05:00:00Z',
+    masterDataStatus: 'ready',
     sellerDepth: [{ price, quantity: 10, orders: 1 }],
   };
 }

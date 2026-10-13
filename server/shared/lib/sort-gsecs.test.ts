@@ -18,6 +18,7 @@ function row(symbol: string, value: number, maturityDate: string, relativeValue:
     nearFvRank: value,
     quoteStatus: 'ready',
     quoteUpdatedAt: null,
+    masterDataStatus: 'ready',
     sellerDepth: [],
     curveUnavailableReason: null,
     analytics: {
@@ -33,6 +34,7 @@ function row(symbol: string, value: number, maturityDate: string, relativeValue:
       fairDirtyPrice: 100,
       fairYtm: value,
       spreadBp: value,
+      zSpreadBp: value,
       relativeValue,
       priceAdvantage: 0,
       maturityTenor: value,
@@ -59,6 +61,7 @@ const numerical: GsecSortColumn[] = [
   'dv01',
   'convexity',
   'curveSpread',
+  'zSpread',
 ];
 
 describe('G-Sec table sorting', () => {

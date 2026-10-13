@@ -90,6 +90,7 @@ describe('G-Sec browser subscriptions', () => {
       nearFvRank: 1,
       quoteStatus: 'ready' as const,
       quoteUpdatedAt: snapshot.quotesFetchedAt,
+      masterDataStatus: 'ready' as const,
       sellerDepth: [{ price: 95.3, quantity: 10, orders: 1 }],
     };
     const source = { ...snapshot, rows: [row] };

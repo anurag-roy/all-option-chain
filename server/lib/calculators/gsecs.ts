@@ -87,6 +87,7 @@ export function rankGsecs(
   const previousRows = new Map(
     previousScan?.settlementDate === settlementDate ? previousScan.rows.map((row) => [gsecKey(row), row]) : []
   );
+  const now = Date.now();
   const rows: GsecRow[] = securities.map((security) => {
     const key = gsecKey(security);
     const quote = quotes[key];
@@ -106,18 +107,16 @@ export function rankGsecs(
           : calculateGsecAnalytics({ ...security, settlementDate, dirtyPrice: sellRate });
     const curve = curveContext?.state.status === 'ready' ? curveContext.state.snapshot : null;
     const quoteTime = curveContext?.quoteTimes.get(key);
-    const availableForQuote =
-      !curve ||
-      sellRate === null ||
-      (quoteTime !== undefined &&
-        Date.parse(quoteTime) <= Date.now() &&
-        Date.parse(curve.publicationTimestamp ?? curve.firstObservedAt) <= Date.parse(quoteTime));
+    const quoteTimestamp = Date.parse(quoteTime ?? '');
+    // The current book uses the latest available curve, even without a tick since its import.
+    const canCompareCurve =
+      sellRate === null || (Number.isFinite(quoteTimestamp) && quoteTimestamp > 0 && quoteTimestamp <= now);
     const terms = { ...security, settlementDate };
     const validTerms = analytics !== null || createGsecCashFlows(terms) !== null;
     const valuationKey = JSON.stringify([curve?.id, security.coupon, security.maturityDate, settlementDate]);
-    if (curve && availableForQuote && !curveContext!.valuations.has(valuationKey))
+    if (curve && canCompareCurve && !curveContext!.valuations.has(valuationKey))
       curveContext!.valuations.set(valuationKey, valueGsecOnCurve(terms, curve));
-    const valuation = curve && availableForQuote ? curveContext!.valuations.get(valuationKey) : null;
+    const valuation = curve && canCompareCurve ? curveContext!.valuations.get(valuationKey) : null;
     const sameCurve =
       previousScan?.curve?.snapshot?.id === curve?.id &&
       previousScan?.curve?.rvThresholdBp === curveContext?.state.rvThresholdBp;
@@ -138,10 +137,10 @@ export function rankGsecs(
           ? 'Invalid bond master data.'
           : !curve
             ? (curveContext?.state.message ?? 'CCIL curve unavailable.')
-            : !availableForQuote
+            : !canCompareCurve
               ? !quoteTime
                 ? 'Exchange quote time unavailable; curve comparison disabled.'
-                : 'The curve was first available after this seller quote, or quote time is invalid.'
+                : 'Exchange quote time is invalid or in the future; curve comparison disabled.'
               : 'Cash flows exceed curve coverage, or fair yield could not be solved.',
       // Remove binary floating-point noise so equal distances receive equal ranks.
       distanceFromFv: sellRate === null ? null : Number(Math.abs(sellRate - 100).toFixed(8)),

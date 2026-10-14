@@ -17,7 +17,7 @@ import {
 import { rankGsecs, type GsecCurveContext } from '@server/lib/calculators/gsecs';
 import type { GsecCurveSnapshot } from '@shared/types/gsec-curve';
 import type { GsecListing } from '@shared/types/gsecs';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 export const curve: GsecCurveSnapshot = {
   id: 'ccil-2026-10-08-fixture',
@@ -214,6 +214,11 @@ describe('curve fair YTM, relative value and constant-Z-spread roll', () => {
 });
 
 describe('market rows against an independent benchmark', () => {
+  beforeEach(() => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-09T15:00:00.000Z'));
+  });
+  afterEach(() => vi.restoreAllMocks());
+
   const makeContext = (): GsecCurveContext => ({
     state: { status: 'ready', snapshot: curve, ageDays: 0, rvThresholdBp: 5 },
     valuations: new Map(),
@@ -272,13 +277,52 @@ describe('market rows against an independent benchmark', () => {
     expect(row.bestRrrRank).toBeNull();
   });
 
-  it('never applies an evening curve to a seller quote received before that curve was available', () => {
+  it('values the displayed seller prices even when their last packets predate the current curve import', () => {
     const context = makeContext();
     context.quoteTimes.set('NSE:709GS2054-GS', '2026-10-08T09:00:00.000Z');
+    context.quoteTimes.set('BSE:BOND', '2026-10-07T09:00:00.000Z');
+    const rows = rankGsecs(
+      [security, { ...security, exchange: 'BSE', tradingsymbol: 'BOND' }],
+      quotes,
+      terms.settlementDate,
+      null,
+      context
+    );
+    const nse = rows.find((row) => row.exchange === 'NSE')!;
+    expect(nse.rrr).toBeCloseTo(7.6052326003, 8);
+    expect(nse.curveAnalytics?.zSpreadBp).toBeCloseTo(-14.626954570051867, 9);
+    expect(rows.every((row) => Number.isFinite(row.curveAnalytics?.zSpreadBp))).toBe(true);
+    expect(rows.every((row) => row.curveAnalytics?.carryRoll.length === 4)).toBe(true);
+    expect(rows.every((row) => row.curveUnavailableReason === null)).toBe(true);
+  });
+
+  it.each(['invalid', '1970-01-01T00:00:00.000Z', '2026-10-09T15:00:01.000Z'])(
+    'rejects an invalid or future seller packet time: %s',
+    (quoteTime) => {
+      const context = makeContext();
+      context.quoteTimes.set('NSE:709GS2054-GS', quoteTime);
+      const row = rankGsecs([security], quotes, terms.settlementDate, null, context)[0]!;
+      expect(row.rrr).toBeCloseTo(7.6052326003, 8);
+      expect(row.curveAnalytics).toBeNull();
+      expect(row.curveUnavailableReason).toContain('quote time is invalid or in the future');
+    }
+  );
+
+  it('recovers curve metrics from a previously blocked row without a seller price change', () => {
+    const context = makeContext();
     const row = rankGsecs([security], quotes, terms.settlementDate, null, context)[0]!;
-    expect(row.rrr).toBeCloseTo(7.6052326003, 8);
-    expect(row.curveAnalytics).toBeNull();
-    expect(row.curveUnavailableReason).toContain('after this seller quote');
+    const previous = { ...row, curveAnalytics: null, curveUnavailableReason: 'Previously blocked quote.' };
+    context.quoteTimes.set('NSE:709GS2054-GS', '2026-10-08T09:00:00.000Z');
+    const next = rankGsecs(
+      [security],
+      quotes,
+      terms.settlementDate,
+      { rows: [previous], settlementDate: terms.settlementDate, curve: context.state },
+      context
+    )[0]!;
+    expect(next.analytics).toBe(row.analytics);
+    expect(next.curveAnalytics?.zSpreadBp).toBeCloseTo(-14.626954570051867, 9);
+    expect(next.curveUnavailableReason).toBeNull();
   });
 
   it('keeps undated sellers out of curve comparisons without substituting receipt time', () => {

@@ -1,3 +1,4 @@
+import { calculateGsecBondAnalytics } from '@server/lib/calculators/gsec-bond-analytics';
 import { withGsecScenarioBase } from '@server/lib/calculators/gsec-scenarios';
 import { priceGsecsAtTarget } from '@server/lib/calculators/gsecs';
 import { logger } from '@server/lib/logger';
@@ -6,7 +7,7 @@ import { GsecSeedError } from '@server/lib/services/approved-gsecs';
 import { getSeededGsecs } from '@server/lib/services/gsec-catalog';
 import { getGsecDepth, scanGsecs } from '@server/lib/services/gsec-scanner';
 import { routeValidator } from '@server/middlewares/validator';
-import { gsecScenarioBaseSchema, gsecTargetYtmSchema } from '@shared/schemas/gsecs';
+import { gsecCarryMonthsSchema, gsecScenarioBaseSchema, gsecTargetYtmSchema } from '@shared/schemas/gsecs';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
@@ -53,6 +54,30 @@ export const gsecsRoute = new Hono()
       try {
         const { refresh, scenarioBase } = c.req.valid('query');
         return c.json(withGsecScenarioBase(await scanGsecs(refresh === 'true'), scenarioBase ?? 0));
+      } catch (error) {
+        return upstreamError(error);
+      }
+    }
+  )
+  .get(
+    '/bond-analytics',
+    routeValidator(
+      'query',
+      z.object({
+        exchange: z.enum(['NSE', 'BSE']).default('NSE'),
+        tradingsymbol: z.string().regex(/^[A-Z0-9][A-Z0-9-]{0,49}$/),
+        targetYtm: z.string().trim().min(1).pipe(z.coerce.number()).pipe(gsecTargetYtmSchema).optional(),
+        customMonths: z.string().trim().min(1).pipe(z.coerce.number()).pipe(gsecCarryMonthsSchema).optional(),
+      })
+    ),
+    async (c) => {
+      requireAccessToken();
+      try {
+        const { exchange, tradingsymbol, targetYtm, customMonths } = c.req.valid('query');
+        const snapshot = await scanGsecs(false);
+        const row = snapshot.rows.find((item) => item.exchange === exchange && item.tradingsymbol === tradingsymbol);
+        if (!row) throw new HTTPException(404, { message: 'This G-Sec is not currently approved for pledging.' });
+        return c.json(calculateGsecBondAnalytics(snapshot, row, targetYtm, customMonths));
       } catch (error) {
         return upstreamError(error);
       }

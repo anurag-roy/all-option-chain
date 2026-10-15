@@ -13,6 +13,25 @@ export const queryKeys = {
   },
   gsecs: {
     scan: ['gsecScan'] as const,
+    bondAnalytics: (
+      key: string,
+      sellRate: number | null,
+      settlementDate: string,
+      approvedListFetchedAt: string,
+      curveSnapshotId: string | null,
+      targetYtm: number | null,
+      customMonths: number | null
+    ) =>
+      [
+        'gsecBondAnalytics',
+        key,
+        sellRate,
+        settlementDate,
+        approvedListFetchedAt,
+        curveSnapshotId,
+        targetYtm,
+        customMonths,
+      ] as const,
     targetPrices: (targetYtm: number | null, settlementDate?: string, approvedListFetchedAt?: string) =>
       ['gsecTargetPrices', targetYtm, settlementDate, approvedListFetchedAt] as const,
   },

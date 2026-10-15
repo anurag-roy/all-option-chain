@@ -2,7 +2,6 @@ import { gsecKey } from '@shared/lib/gsec-key';
 import type { GsecRow } from '@shared/types/gsecs';
 
 export type GsecSortColumn =
-  | 'name'
   | 'rank'
   | 'maturity'
   | 'sellRate'
@@ -20,8 +19,6 @@ const relativeValueOrder = { CHEAP: 0, FAIR: 1, RICH: 2 };
 
 function sortValue(row: GsecRow, column: GsecSortColumn, buyPrices: Record<string, number | null>): SortValue {
   switch (column) {
-    case 'name':
-      return row.tradingsymbol;
     case 'rank':
       return row.bestRrrRank;
     case 'maturity':
@@ -40,8 +37,10 @@ function sortValue(row: GsecRow, column: GsecSortColumn, buyPrices: Record<strin
       return row.analytics?.risk?.convexity ?? null;
     case 'curveSpread':
       return row.curveAnalytics?.spreadBp ?? null;
-    case 'zSpread':
-      return row.curveAnalytics?.zSpreadBp ?? null;
+    case 'zSpread': {
+      const spread = row.curveAnalytics?.zSpreadBp;
+      return spread == null || !Number.isFinite(spread) ? null : Math.abs(spread);
+    }
     case 'relativeValue': {
       const value = row.curveAnalytics?.relativeValue;
       return value ? relativeValueOrder[value] : null;
@@ -59,7 +58,7 @@ function compareValues(a: SortValue, b: SortValue, descending = false): number {
   return (descending ? -1 : 1) * order;
 }
 
-/** Sort raw values and ISO dates, keep missing values last, and preserve the original rows. */
+/** Sort raw values (absolute Z-spread) and ISO dates, keeping missing values last and rows intact. */
 export function sortGsecRows(
   rows: readonly GsecRow[],
   sort: GsecSort,

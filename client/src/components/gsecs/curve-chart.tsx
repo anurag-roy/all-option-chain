@@ -5,8 +5,8 @@ import { CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from 'rec
 
 const chartConfig = {
   zeroRate: { label: 'CCIL zero rate', color: 'var(--chart-curve)' },
-  fairYtm: { label: 'Bond fair YTM', color: 'var(--muted-foreground)' },
-  marketYtm: { label: 'Market YTM', color: 'var(--foreground)' },
+  fairYtm: { label: 'Bond fair YTM', color: 'var(--bond-value)' },
+  marketYtm: { label: 'Market YTM', color: 'var(--bond-market)' },
 } satisfies ChartConfig;
 
 type CurveDatum = {
@@ -132,12 +132,12 @@ export function CurveChart({
       </ChartContainer>
       <div className='text-muted-foreground flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pb-1 text-xs'>
         <span className='inline-flex items-center gap-1.5'>
-          <span aria-hidden='true' className='border-muted-foreground size-2.5 rounded-full border' />
+          <span aria-hidden='true' className='border-bond-value size-2.5 rounded-full border' />
           Bond fair YTM
         </span>
         {marketYtm !== null ? (
           <span className='inline-flex items-center gap-1.5'>
-            <span aria-hidden='true' className='bg-foreground size-2.5 rounded-full' />
+            <span aria-hidden='true' className='bg-bond-market size-2.5 rounded-full' />
             Market YTM
           </span>
         ) : null}

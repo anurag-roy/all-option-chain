@@ -9,7 +9,7 @@ export function RelativeValue({ value }: { value: GsecRelativeValue | null | und
         'text-xs font-semibold',
         value === 'CHEAP' && 'text-blue-700 dark:text-blue-400',
         value === 'RICH' && 'text-amber-700 dark:text-amber-400',
-        value === 'FAIR' && 'text-muted-foreground'
+        value === 'FAIR' && 'text-chart-curve'
       )}
     >
       {value}

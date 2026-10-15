@@ -1,4 +1,5 @@
-import type { GsecCurveAnalytics, GsecCurvePoint, GsecCurveState } from './gsec-curve';
+import type { GsecCurveAnalytics, GsecCurveCarry, GsecCurvePoint, GsecCurveState } from './gsec-curve';
+import type { GsecOpportunityRating } from './gsec-rating';
 
 export type GsecSecurity = {
   tradingsymbol: string;
@@ -43,7 +44,7 @@ export type GsecScenario = {
 };
 
 export type GsecCarry = {
-  months: 1 | 3 | 6 | 12;
+  months: number;
   horizonDate: string;
   effectiveHorizonDate: string;
   maturesBeforeHorizon: boolean;
@@ -105,4 +106,18 @@ export type GsecTargetPrices = {
   approvedListFetchedAt: string;
   prices: Record<string, number | null>;
   theoreticalPrices: Record<string, number | null>;
+};
+
+export type GsecBondAnalytics = {
+  exchange: GsecExchange;
+  tradingsymbol: string;
+  settlementDate: string;
+  approvedListFetchedAt: string;
+  sellRate: number | null;
+  curveSnapshotId: string | null;
+  targetYtm: number | null;
+  customMonths: number | null;
+  rating: GsecOpportunityRating;
+  customCarry: GsecCarry | null;
+  customCarryRoll: GsecCurveCarry | null;
 };

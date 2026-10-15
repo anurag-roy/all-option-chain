@@ -1,5 +1,6 @@
 import { BondCardCarry } from '@client/components/gsecs/bond-card-carry';
 import { BondCardPanel, bondTableClassName } from '@client/components/gsecs/bond-card-panel';
+import { BondCardRating } from '@client/components/gsecs/bond-card-rating';
 import { BondCardSummary } from '@client/components/gsecs/bond-card-summary';
 import { CurveChart } from '@client/components/gsecs/curve-chart';
 import { formatBondDate, formatMoney, formatPercent, formatSignedPercent } from '@client/components/gsecs/gsec-format';
@@ -16,6 +17,7 @@ import {
   DialogTrigger,
 } from '@client/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@client/components/ui/table';
+import { useGsecBondAnalytics } from '@client/hooks/use-gsec-bond-analytics';
 import { cn } from '@client/lib/utils';
 import type { GsecCurvePoint, GsecCurveState } from '@shared/types/gsec-curve';
 import type { GsecRow } from '@shared/types/gsecs';
@@ -25,6 +27,7 @@ import { useState } from 'react';
 type BondCardProps = {
   row: GsecRow;
   settlementDate: string;
+  approvedListFetchedAt: string;
   targetYtm: number | null;
   maxBuyPrice: number | null;
   theoreticalTargetPrice: number | null;
@@ -36,6 +39,8 @@ type BondCardProps = {
 
 function BondCard(props: BondCardProps) {
   const { row, settlementDate, curve, curvePoints, scenarioBase, scenariosReady } = props;
+  const [customMonths, setCustomMonths] = useState<number | null>(null);
+  const details = useGsecBondAnalytics(row, settlementDate, props.approvedListFetchedAt, props.targetYtm, customMonths);
   const scenarios = scenariosReady ? (row.analytics?.scenarios ?? []) : [];
   const scenarioMessage =
     scenarioBase === null
@@ -74,9 +79,15 @@ function BondCard(props: BondCardProps) {
           theoreticalTargetPrice={props.theoreticalTargetPrice}
         />
 
-        <div className='grid items-stretch gap-3 lg:grid-cols-[0.95fr_1.05fr]'>
-          <BondCardPanel title='Yield Shock Scenarios' icon={SlidersHorizontalIcon} bodyClassName='p-0'>
-            <Table className={bondTableClassName}>
+        <div className='grid items-stretch gap-3 lg:grid-cols-2 2xl:grid-cols-[0.9fr_1.1fr_1.1fr_1.2fr]'>
+          <BondCardRating rating={details.data?.rating} symbol={row.tradingsymbol} error={details.error?.message} />
+          <BondCardPanel title='Yield Shock Scenarios' icon={SlidersHorizontalIcon} tone='value' bodyClassName='p-0'>
+            <Table
+              className={cn(
+                bondTableClassName,
+                'text-xs [&_td]:px-1.5 [&_td]:py-1.5 [&_th]:h-8 [&_th]:px-1.5 [&_th]:text-[11px]'
+              )}
+            >
               <TableHeader>
                 <TableRow>
                   <TableHead>Shock</TableHead>
@@ -119,7 +130,12 @@ function BondCard(props: BondCardProps) {
               </TableBody>
             </Table>
           </BondCardPanel>
-          <BondCardPanel title='Yield Shock Price Curve' icon={ChartNoAxesCombinedIcon} bodyClassName='p-2'>
+          <BondCardPanel
+            title='Yield Shock Price Curve'
+            icon={ChartNoAxesCombinedIcon}
+            tone='value'
+            bodyClassName='p-2'
+          >
             {scenarios.filter((item) => item.dirtyPrice !== null).length > 1 ? (
               <ScenarioChart scenarios={scenarios} scenarioBase={scenarioBase ?? 0} />
             ) : (
@@ -128,45 +144,53 @@ function BondCard(props: BondCardProps) {
               </p>
             )}
           </BondCardPanel>
+
+          <BondCardPanel
+            title='Curve'
+            tone='decision'
+            icon={LayersIcon}
+            bodyClassName='px-2 pt-2 pb-1'
+            headerDetails={
+              curve?.snapshot ? (
+                <span className='text-muted-foreground text-sm'>
+                  <a
+                    href={curve.snapshot.sourceUrl}
+                    target='_blank'
+                    rel='noreferrer'
+                    className='hover:text-foreground underline-offset-4 hover:underline'
+                  >
+                    CCIL NSS
+                  </a>
+                  {' · '}
+                  {formatBondDate(curve.snapshot.referenceDate)}
+                </span>
+              ) : undefined
+            }
+          >
+            {row.curveAnalytics && curve?.snapshot ? (
+              <>
+                <CurveChart points={curvePoints} analytics={row.curveAnalytics} marketYtm={row.rrr} />
+                {curve.message ? <p className='text-muted-foreground px-2 pb-1 text-xs'>{curve.message}</p> : null}
+              </>
+            ) : (
+              <p className='text-muted-foreground px-2 py-8 text-sm'>
+                {row.curveUnavailableReason ?? 'CCIL curve unavailable.'}
+              </p>
+            )}
+          </BondCardPanel>
         </div>
 
-        <BondCardPanel
-          title='Curve'
-          icon={LayersIcon}
-          bodyClassName='px-2 pt-2 pb-1'
-          headerDetails={
-            curve?.snapshot ? (
-              <span className='text-muted-foreground text-sm'>
-                <a
-                  href={curve.snapshot.sourceUrl}
-                  target='_blank'
-                  rel='noreferrer'
-                  className='hover:text-foreground underline-offset-4 hover:underline'
-                >
-                  CCIL NSS
-                </a>
-                {' · '}
-                {formatBondDate(curve.snapshot.referenceDate)}
-              </span>
-            ) : undefined
-          }
-        >
-          {row.curveAnalytics && curve?.snapshot ? (
-            <>
-              <CurveChart points={curvePoints} analytics={row.curveAnalytics} marketYtm={row.rrr} />
-              {curve.message ? <p className='text-muted-foreground px-2 pb-1 text-xs'>{curve.message}</p> : null}
-            </>
-          ) : (
-            <p className='text-muted-foreground px-2 py-8 text-sm'>
-              {row.curveUnavailableReason ?? 'CCIL curve unavailable.'}
-            </p>
-          )}
-        </BondCardPanel>
-
         <div className='grid items-stretch gap-3 xl:grid-cols-2 2xl:grid-cols-[1.7fr_1.7fr_1fr]'>
-          <BondCardCarry row={row} />
+          <BondCardCarry
+            row={row}
+            customMonths={customMonths}
+            onCustomMonths={setCustomMonths}
+            details={details.data}
+            error={details.error?.message}
+          />
           <BondCardPanel
             title='Seller Depth'
+            tone='market'
             icon={UsersIcon}
             className='xl:col-span-2 2xl:col-span-1'
             bodyClassName='p-0'
@@ -187,10 +211,10 @@ export function BondCardDialog(props: BondCardProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
-        render={<Button variant='outline' size='sm' className='min-h-10 transition-colors' />}
+        render={<Button variant='link' className='text-bond-market min-h-10 px-0 transition-colors' />}
         aria-label={`Open Bond Card for ${props.row.exchange} ${props.row.tradingsymbol}`}
       >
-        Bond Card
+        <GsecName listing={props.row} />
       </DialogTrigger>
       <DialogContent
         initialFocus={false}

@@ -1,5 +1,5 @@
 import {
-  addBondMonths,
+  addBondHorizonMonths,
   createGsecCashFlows,
   priceGsecCashFlows,
   type GsecBondTerms,
@@ -63,9 +63,16 @@ function calculateRisk(cashFlows: GsecCashFlow[], ytm: number, dirtyPrice: numbe
   };
 }
 
-function calculateCarry(terms: GsecBondTerms, cashFlows: GsecCashFlow[], ytm: number, dirtyPrice: number): GsecCarry[] {
-  return HORIZONS.map((months) => {
-    const horizonDate = addBondMonths(terms.settlementDate, months)!;
+export function calculateGsecCarry(
+  terms: GsecBondTerms,
+  cashFlows: GsecCashFlow[],
+  ytm: number,
+  dirtyPrice: number,
+  horizons: readonly number[] = HORIZONS
+): GsecCarry[] {
+  return horizons.flatMap((months) => {
+    const horizonDate = addBondHorizonMonths(terms.settlementDate, months);
+    if (!horizonDate) return [];
     const effectiveHorizonDate = horizonDate < terms.maturityDate ? horizonDate : terms.maturityDate;
     // Cash flows on the horizon are paid and excluded from the ending price.
     const paidCoupons = cashFlows.filter((flow) => flow.date <= effectiveHorizonDate).length;
@@ -74,19 +81,21 @@ function calculateCarry(terms: GsecBondTerms, cashFlows: GsecCashFlow[], ytm: nu
     const endingDirtyPrice = redemptionReceived
       ? 0
       : calculateGsecDirtyPrice({ ...terms, settlementDate: effectiveHorizonDate, yieldPercent: ytm });
-    return {
-      months,
-      horizonDate,
-      effectiveHorizonDate,
-      maturesBeforeHorizon: terms.maturityDate < horizonDate,
-      endingDirtyPrice,
-      couponsReceived,
-      redemptionReceived,
-      returnPercent:
-        endingDirtyPrice === null
-          ? null
-          : finite(((endingDirtyPrice + couponsReceived + redemptionReceived - dirtyPrice) / dirtyPrice) * 100),
-    };
+    return [
+      {
+        months,
+        horizonDate,
+        effectiveHorizonDate,
+        maturesBeforeHorizon: terms.maturityDate < horizonDate,
+        endingDirtyPrice,
+        couponsReceived,
+        redemptionReceived,
+        returnPercent:
+          endingDirtyPrice === null
+            ? null
+            : finite(((endingDirtyPrice + couponsReceived + redemptionReceived - dirtyPrice) / dirtyPrice) * 100),
+      },
+    ];
   });
 }
 
@@ -104,6 +113,6 @@ export function calculateGsecAnalytics({
     remainingCoupons: cashFlows.length,
     risk: calculateRisk(cashFlows, ytm, dirtyPrice),
     scenarios: calculateGsecScenarios({ cashFlows, ytm, dirtyPrice }),
-    carry: calculateCarry(terms, cashFlows, ytm, dirtyPrice),
+    carry: calculateGsecCarry(terms, cashFlows, ytm, dirtyPrice),
   };
 }

@@ -37,6 +37,18 @@ export function addBondMonths(value: string, months: number): string | null {
   return target.toISOString().slice(0, 10);
 }
 
+/** Whole calendar months, then fractional months times 30, rounded to whole days. */
+export function addBondHorizonMonths(value: string, months: number): string | null {
+  if (!Number.isFinite(months) || months <= 0 || months > 1200) return null;
+  const wholeMonths = Math.floor(months);
+  const anchor = addBondMonths(value, wholeMonths);
+  if (!anchor) return null;
+  const date = new Date(`${anchor}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + Math.round((months - wholeMonths) * 30));
+  const horizon = date.toISOString().slice(0, 10);
+  return horizon > value ? horizon : null;
+}
+
 /** Coupons strictly after settlement; redemption is included exactly once. */
 export function createGsecCashFlows({ coupon, settlementDate, maturityDate }: GsecBondTerms): GsecCashFlow[] | null {
   const settlement = parseBondDate(settlementDate);

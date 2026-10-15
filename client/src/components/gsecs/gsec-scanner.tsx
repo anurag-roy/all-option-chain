@@ -6,7 +6,6 @@ import {
   formatNumber,
   formatSpread,
 } from '@client/components/gsecs/gsec-format';
-import { GsecName } from '@client/components/gsecs/gsec-name';
 import { RelativeValue } from '@client/components/gsecs/relative-value';
 import { Input } from '@client/components/ui/input';
 import { Label } from '@client/components/ui/label';
@@ -69,7 +68,7 @@ export function GsecScanner() {
   const scenarioBase = parsedScenarioBase.success ? parsedScenarioBase.data : null;
   const { data, error, isPending } = useGsecs(scenarioBase);
   const [search, setSearch] = useState('');
-  const [sort, setSort] = useState<GsecSort>({ column: 'rank', descending: false });
+  const [sort, setSort] = useState<GsecSort>({ column: 'zSpread', descending: false });
   const toggleSort = (column: GsecSortColumn) =>
     setSort((current) => ({ column, descending: current.column === column ? !current.descending : false }));
   const [targetInput, setTargetInput] = useState(String(DEFAULT_GSEC_TARGET_YTM));
@@ -167,13 +166,7 @@ export function GsecScanner() {
             <Table className='tabular-nums'>
               <TableHeader>
                 <TableRow>
-                  <SortableHead
-                    column='name'
-                    label='G-Sec'
-                    sort={sort}
-                    onSort={toggleSort}
-                    className='pl-4 text-left'
-                  />
+                  <TableHead className='pl-4 text-left'>G-Sec</TableHead>
                   <SortableHead column='rank' label='RRR Rank' sort={sort} onSort={toggleSort} />
                   <TableHead className='text-center'>Coupon</TableHead>
                   <SortableHead column='maturity' label='Maturity' sort={sort} onSort={toggleSort} />
@@ -186,15 +179,12 @@ export function GsecScanner() {
                   <SortableHead column='zSpread' label='Z-Spread' sort={sort} onSort={toggleSort} />
                   <SortableHead column='curveSpread' label='Curve Spr.' sort={sort} onSort={toggleSort} />
                   <SortableHead column='relativeValue' label='RV' sort={sort} onSort={toggleSort} />
-                  <TableHead className='pr-4'>
-                    <span className='sr-only'>Bond Card</span>
-                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isPending || rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={14} className='text-muted-foreground py-12 text-center'>
+                    <TableCell colSpan={13} className='text-muted-foreground py-12 text-center'>
                       {isPending
                         ? 'Loading approved G-Secs and seller quotes…'
                         : search
@@ -216,7 +206,18 @@ export function GsecScanner() {
                         className={withinTarget ? 'bg-success/10 hover:bg-success/15' : undefined}
                       >
                         <TableCell className='pl-4 font-medium'>
-                          <GsecName listing={row} />
+                          <BondCardDialog
+                            row={row}
+                            settlementDate={data!.settlementDate}
+                            approvedListFetchedAt={data!.approvedListFetchedAt}
+                            targetYtm={targetYtm}
+                            maxBuyPrice={maxBuyPrice}
+                            theoreticalTargetPrice={targetPrices.data?.theoreticalPrices?.[gsecKey(row)] ?? null}
+                            curve={data?.curve}
+                            curvePoints={data?.curvePoints ?? []}
+                            scenarioBase={scenarioBase}
+                            scenariosReady={scenarioBase !== null && data?.scenarioBase === scenarioBase}
+                          />
                         </TableCell>
                         <TableCell className='text-center'>{row.bestRrrRank ?? '—'}</TableCell>
                         <TableCell className='text-center'>{row.coupon}</TableCell>
@@ -256,25 +257,19 @@ export function GsecScanner() {
                         </TableCell>
                         <TableCell className='text-center'>{formatMoney(row.analytics?.risk?.dv01, 4)}</TableCell>
                         <TableCell className='text-center'>{formatNumber(row.analytics?.risk?.convexity, 1)}</TableCell>
-                        <TableCell className='text-center' title={row.curveUnavailableReason ?? undefined}>
-                          {formatSpread(row.curveAnalytics?.zSpreadBp, 1)}
+                        <TableCell
+                          className={cn(
+                            'text-center',
+                            row.curveAnalytics?.zSpreadBp != null &&
+                              (row.curveAnalytics.zSpreadBp >= 0 ? 'text-success' : 'text-chart-curve')
+                          )}
+                          title={row.curveUnavailableReason ?? undefined}
+                        >
+                          {formatSpread(row.curveAnalytics?.zSpreadBp, 2)}
                         </TableCell>
                         <TableCell className='text-center'>{formatSpread(row.curveAnalytics?.spreadBp, 1)}</TableCell>
                         <TableCell className='text-center'>
                           <RelativeValue value={row.curveAnalytics?.relativeValue} />
-                        </TableCell>
-                        <TableCell className='pr-4 text-right'>
-                          <BondCardDialog
-                            row={row}
-                            settlementDate={data!.settlementDate}
-                            targetYtm={targetYtm}
-                            maxBuyPrice={maxBuyPrice}
-                            theoreticalTargetPrice={targetPrices.data?.theoreticalPrices?.[gsecKey(row)] ?? null}
-                            curve={data?.curve}
-                            curvePoints={data?.curvePoints ?? []}
-                            scenarioBase={scenarioBase}
-                            scenariosReady={scenarioBase !== null && data?.scenarioBase === scenarioBase}
-                          />
                         </TableCell>
                       </TableRow>
                     );

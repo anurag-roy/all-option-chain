@@ -22,6 +22,11 @@
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
   --color-chart-curve: var(--chart-curve);
+  --color-bond-risk: var(--destructive);
+  --color-bond-value: var(--bond-value);
+  --color-bond-market: var(--bond-market);
+  --color-bond-target: var(--success);
+  --color-rating-orange: var(--rating-orange);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -76,6 +81,9 @@
   --chart-4: oklch(0.488 0.243 264.376);
   --chart-5: oklch(0.424 0.199 265.638);
   --chart-curve: oklch(0.681 0.162 75.834);
+  --bond-value: oklch(0.541 0.281 293.009);
+  --bond-market: oklch(0.546 0.245 262.881);
+  --rating-orange: oklch(0.553 0.195 38.402);
   --radius: 0.625rem;
   --sidebar: oklch(0.987 0.002 197.1);
   --sidebar-foreground: oklch(0.148 0.004 228.8);
@@ -113,6 +121,9 @@
   --chart-4: oklch(0.488 0.243 264.376);
   --chart-5: oklch(0.424 0.199 265.638);
   --chart-curve: oklch(0.852 0.199 91.936);
+  --bond-value: oklch(0.811 0.111 293.571);
+  --bond-market: oklch(0.707 0.165 254.624);
+  --rating-orange: oklch(0.75 0.183 55.934);
   --sidebar: oklch(0.218 0.008 223.9);
   --sidebar-foreground: oklch(0.987 0.002 197.1);
   --sidebar-primary: oklch(0.623 0.214 259.815);

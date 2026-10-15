@@ -4,7 +4,7 @@ import type { GsecScenario } from '@shared/types/gsecs';
 import { CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from 'recharts';
 
 const chartConfig = {
-  dirtyPrice: { label: 'Dirty price', color: 'var(--primary)' },
+  dirtyPrice: { label: 'Dirty price', color: 'var(--bond-market)' },
 } satisfies ChartConfig;
 
 const formatShock = (bp: number) => `${bp > 0 ? '+' : ''}${bp} bp`;

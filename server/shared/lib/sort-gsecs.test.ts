@@ -65,6 +65,19 @@ const numerical: GsecSortColumn[] = [
 ];
 
 describe('G-Sec table sorting', () => {
+  it('sorts absolute Z-spreads both ways, preserving the signs and keeping missing values last', () => {
+    const rows = [-5.67, 3.12, -2.34, 0.41, 0, 7.84].map((spread, index) => ({
+      ...row(`GS${index}`, index + 1, '2054-01-15', 'FAIR'),
+      curveAnalytics: { ...low.curveAnalytics!, zSpreadBp: spread },
+    }));
+    const spreads = (descending: boolean) =>
+      sortGsecRows([...rows, missing], { column: 'zSpread', descending }).map(
+        (item) => item.curveAnalytics?.zSpreadBp ?? null
+      );
+    expect(spreads(false)).toEqual([0, 0.41, -2.34, 3.12, -5.67, 7.84, null]);
+    expect(spreads(true)).toEqual([7.84, -5.67, 3.12, -2.34, 0.41, 0, null]);
+    expect(rows.map((item) => item.curveAnalytics.zSpreadBp)).toEqual([-5.67, 3.12, -2.34, 0.41, 0, 7.84]);
+  });
   it.each([...numerical, 'relativeValue' as const])('sorts %s both ways with missing values last', (column) => {
     const rows = [missing, high, low];
     const prices = { 'NSE:GS2': 2.2, 'NSE:GS10': 12.2 };
@@ -73,11 +86,9 @@ describe('G-Sec table sorting', () => {
     expect(rows).toEqual([missing, high, low]);
   });
 
-  it('uses chronological maturity dates and natural symbol order', () => {
+  it('uses chronological maturity dates', () => {
     expect(sortGsecRows([low, high], { column: 'maturity', descending: false })).toEqual([high, low]);
     expect(sortGsecRows([low, high], { column: 'maturity', descending: true })).toEqual([low, high]);
-    expect(sortGsecRows([high, low], { column: 'name', descending: false })).toEqual([low, high]);
-    expect(sortGsecRows([high, low], { column: 'name', descending: true })).toEqual([high, low]);
   });
 
   it('orders RV as CHEAP, FAIR, RICH and breaks category ties by RRR rank', () => {

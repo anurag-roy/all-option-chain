@@ -36,7 +36,7 @@ export type GsecCurveState = {
 export type GsecRelativeValue = 'CHEAP' | 'FAIR' | 'RICH';
 
 export type GsecCurveCarry = {
-  months: 1 | 3 | 6 | 12;
+  months: number;
   fairDirtyPrice: number | null;
   fairYtm: number | null;
   assumedYtm: number | null;

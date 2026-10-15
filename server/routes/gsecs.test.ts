@@ -1,4 +1,5 @@
 import { calculateGsecAnalytics } from '@server/lib/calculators/gsec-analytics';
+import { rankGsecs } from '@server/lib/calculators/gsecs';
 import { GsecSeedError } from '@server/lib/services/approved-gsecs';
 import { gsecsRoute } from '@server/routes/gsecs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -104,6 +105,58 @@ describe('G-Sec target-price API', () => {
 });
 
 describe('G-Sec API boundary', () => {
+  it('returns server-calculated custom carry and a partial rating from cached exchange-qualified quotes', async () => {
+    const catalog = await mocks.catalog();
+    const rows = rankGsecs(
+      catalog.securities,
+      {
+        'NSE:733GS2026-GS': { depth: { sell: [{ price: 103, quantity: 10, orders: 1 }] } },
+        'BSE:733GS2026-GS': { depth: { sell: [{ price: 102, quantity: 20, orders: 1 }] } },
+      },
+      catalog.settlementDate
+    );
+    mocks.scan.mockResolvedValue({
+      rows,
+      settlementDate: catalog.settlementDate,
+      approvedListFetchedAt: catalog.fetchedAt,
+    });
+    const response = await gsecsRoute.request(
+      '/bond-analytics?exchange=BSE&tradingsymbol=733GS2026-GS&targetYtm=8&customMonths=3.4'
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      exchange: 'BSE',
+      tradingsymbol: '733GS2026-GS',
+      sellRate: 102,
+      targetYtm: 8,
+      customMonths: 3.4,
+      customCarry: { months: 3.4, effectiveHorizonDate: '2026-10-30', redemptionReceived: 100 },
+      customCarryRoll: null,
+      rating: { score: null },
+    });
+    expect(mocks.scan).toHaveBeenLastCalledWith(false);
+    expect(mocks.depth).not.toHaveBeenCalled();
+    // A fraction that rounds to one day must survive validation unchanged.
+    expect(
+      (await gsecsRoute.request('/bond-analytics?exchange=BSE&tradingsymbol=733GS2026-GS&customMonths=0.02')).status
+    ).toBe(200);
+    expect((await gsecsRoute.request('/bond-analytics?exchange=NSE&tradingsymbol=999GS2099-GS')).status).toBe(404);
+  });
+
+  it.each([
+    'customMonths=0',
+    'customMonths=-1',
+    'customMonths=1201',
+    'customMonths=Infinity',
+    'customMonths=',
+    'targetYtm=101',
+    'exchange=NFO',
+  ])('rejects invalid Bond Card inputs %s before loading a scan', async (query) => {
+    const response = await gsecsRoute.request(`/bond-analytics?tradingsymbol=733GS2026-GS&${query}`);
+    expect(response.status).toBe(400);
+    expect(mocks.scan).not.toHaveBeenCalled();
+  });
+
   it('returns custom scenarios from the cached scan without changing the original base', async () => {
     const terms = { coupon: 733, maturityDate: '2026-10-30', settlementDate: '2026-10-08', dirtyPrice: 104.13 };
     const source = {

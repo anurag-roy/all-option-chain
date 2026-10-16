@@ -8,6 +8,7 @@ import {
   getEquityByName,
   getFuturesForName,
   getOptionsForNameAndExpiry,
+  type DbInstrument,
 } from '@server/lib/services/instrument-catalog';
 import { getFullQuotes } from '@server/lib/services/kite';
 import { marginBook } from '@server/lib/services/margin-book';
@@ -37,10 +38,24 @@ type EquitySnapshot = {
   gainLossPercent: number;
 };
 
+type SymbolInstruments = {
+  options: DbInstrument[];
+  futures: DbInstrument[];
+};
+
+const OI_RECHECK_MS = 60_000;
+
 export class OptionChainCoordinator {
   private rows = new Map<number, InternalRow>();
   private equityLtps = new Map<string, number>();
   private equityByToken = new Map<number, EquitySnapshot>();
+  private symbolInstruments = new Map<string, SymbolInstruments>();
+  private candidates = new Map<number, PlannedInstrument>();
+  // Once a candidate has OI, retain its subscription through zero-OI ticks.
+  private watchedOptions = new Set<number>();
+  private oiCheckedAt = 0;
+  private filterVersion = 0;
+  private selectionRefreshing = false;
   private filter: ChainFilter | null = null;
   private status: ChainEngineStatus['status'] = 'idle';
   private statusMessage?: string;
@@ -59,9 +74,10 @@ export class OptionChainCoordinator {
       const equitySnapshot = this.equityByToken.get(fullTick.instrument_token);
       if (equitySnapshot) {
         const ltp = fullTick.last_price ?? equitySnapshot.ltp;
-        if (ltp > 0 && equitySnapshot.prevClose > 0) {
+        if (ltp > 0) {
           equitySnapshot.ltp = ltp;
-          equitySnapshot.gainLossPercent = ((ltp - equitySnapshot.prevClose) * 100) / equitySnapshot.prevClose;
+          equitySnapshot.gainLossPercent =
+            equitySnapshot.prevClose > 0 ? ((ltp - equitySnapshot.prevClose) * 100) / equitySnapshot.prevClose : 0;
           this.equityLtps.set(equitySnapshot.symbol, ltp);
         }
         return;
@@ -71,20 +87,31 @@ export class OptionChainCoordinator {
         return;
       }
 
-      const row = this.rows.get(fullTick.instrument_token);
-      if (!row) {
+      const instrument = this.candidates.get(fullTick.instrument_token);
+      if (!instrument) {
         return;
       }
 
-      const bid = fullTick.depth?.buy?.[0]?.price ?? row.bid;
+      const previous = this.rows.get(fullTick.instrument_token);
+      const oi = fullTick.oi ?? previous?.oi ?? 0;
+      if (oi <= 0) {
+        this.rows.delete(fullTick.instrument_token);
+        return;
+      }
+
+      // An empty book clears the bid; retaining it would keep a row above entry value.
+      const bid = fullTick.depth ? (fullTick.depth.buy[0]?.price ?? 0) : (previous?.bid ?? 0);
+      const row = previous ?? this.createRow(instrument, bid, oi);
       row.bid = bid;
-      row.oi = fullTick.oi ?? row.oi;
+      row.oi = oi;
       row.sellValue = calculateSellValue(bid, row.lotSize);
+      this.rows.set(row.instrumentToken, row);
     });
 
     this.computeTimer = setInterval(() => {
       this.recomputeRows();
       this.publish();
+      void this.refreshSelection().catch((error) => logger.error('Failed to refresh option selection:', error));
     }, 500);
 
     this.marginTimer = setInterval(() => {
@@ -115,6 +142,7 @@ export class OptionChainCoordinator {
   }
 
   async applyFilter(filter: ChainFilter) {
+    const version = ++this.filterVersion;
     this.filter = filter;
     this.setStatus('warming', 'Applying filter');
 
@@ -128,7 +156,8 @@ export class OptionChainCoordinator {
       }
       return true;
     });
-    const planned: PlannedInstrument[] = [];
+    if (version !== this.filterVersion) return;
+    const symbolInstruments = new Map<string, SymbolInstruments>();
 
     this.setStatus('fetching_quotes', 'Fetching underlying quotes');
 
@@ -144,7 +173,9 @@ export class OptionChainCoordinator {
     }
 
     const equityQuotes = await getFullQuotes(equityKeys);
-    this.equityByToken.clear();
+    if (version !== this.filterVersion) return;
+    const equityByToken = new Map<number, EquitySnapshot>();
+    const equityLtps = new Map<string, number>();
 
     for (const { symbol, token, key } of equityRecords) {
       const quote = equityQuotes[key];
@@ -155,8 +186,8 @@ export class OptionChainCoordinator {
       }
 
       const gainLossPercent = prevClose > 0 ? ((ltp - prevClose) * 100) / prevClose : 0;
-      this.equityLtps.set(symbol, ltp);
-      this.equityByToken.set(token, {
+      equityLtps.set(symbol, ltp);
+      equityByToken.set(token, {
         symbol,
         token,
         prevClose,
@@ -166,12 +197,7 @@ export class OptionChainCoordinator {
     }
 
     for (const symbol of symbols) {
-      const equity = await getEquityByName(symbol);
-      if (!equity) {
-        continue;
-      }
-
-      const ltp = this.equityLtps.get(symbol) ?? 0;
+      const ltp = equityLtps.get(symbol) ?? 0;
       if (ltp <= 0) {
         continue;
       }
@@ -181,21 +207,16 @@ export class OptionChainCoordinator {
         getFuturesForName(symbol),
       ]);
 
-      const symbolPlanned = await planInstrumentsForSymbol(
-        symbol,
-        filter.expiry,
-        filter.sdMultiplier,
-        options,
-        futures,
-        ltp
-      );
-      planned.push(...symbolPlanned);
+      symbolInstruments.set(symbol, { options, futures });
     }
 
+    if (version !== this.filterVersion) return;
+    const planned = this.planSelection(filter, symbolInstruments, equityLtps);
     this.setStatus('fetching_quotes', 'Fetching option quotes and filtering OI');
 
     const quoteKeys = planned.map((instrument) => instrumentQuoteKey(instrument));
     const fullQuotes = await getFullQuotes(quoteKeys);
+    if (version !== this.filterVersion) return;
 
     const withOi = planned.filter((instrument) => {
       const quote = fullQuotes[instrumentQuoteKey(instrument)];
@@ -203,7 +224,7 @@ export class OptionChainCoordinator {
     });
 
     const optionTokens = new Set(withOi.map((instrument) => instrument.instrumentToken));
-    const equityTokens = new Set([...this.equityByToken.keys()]);
+    const equityTokens = new Set(equityByToken.keys());
     this.setStatus('subscribing', `Subscribing to ${optionTokens.size} options and ${equityTokens.size} equities`);
     try {
       marketDataService.setSubscriptions('option-chain', { full: [...optionTokens], ltp: [...equityTokens] });
@@ -212,6 +233,12 @@ export class OptionChainCoordinator {
       throw error;
     }
 
+    this.symbolInstruments = symbolInstruments;
+    this.equityByToken = equityByToken;
+    this.equityLtps = equityLtps;
+    this.candidates = new Map(planned.map((instrument) => [instrument.instrumentToken, instrument]));
+    this.watchedOptions = optionTokens;
+    this.oiCheckedAt = Date.now();
     this.rows.clear();
     for (const instrument of withOi) {
       const quote = fullQuotes[instrumentQuoteKey(instrument)]!;
@@ -222,9 +249,87 @@ export class OptionChainCoordinator {
 
     marginBook.markPending(withOi.map((instrument) => instrument.tradingsymbol));
     await this.refreshMargins();
+    if (version !== this.filterVersion) return;
     this.recomputeRows();
 
     this.setStatus('ready');
+  }
+
+  private planSelection(
+    filter: ChainFilter,
+    catalog = this.symbolInstruments,
+    ltps = this.equityLtps
+  ): PlannedInstrument[] {
+    return [...catalog].flatMap(([symbol, { options, futures }]) => {
+      const ltp = ltps.get(symbol) ?? 0;
+      return ltp > 0 ? planInstrumentsForSymbol(symbol, filter.expiry, filter.sdMultiplier, options, futures, ltp) : [];
+    });
+  }
+
+  private async refreshSelection() {
+    if (this.status !== 'ready' || !this.filter || this.selectionRefreshing) return;
+    this.selectionRefreshing = true;
+    const version = this.filterVersion;
+    try {
+      const planned = this.planSelection(this.filter);
+      // Poll initially zero-OI candidates sparingly, without spending ticker slots on them.
+      const recheckOi = Date.now() - this.oiCheckedAt >= OI_RECHECK_MS;
+      const additions = planned.filter(
+        (instrument) =>
+          !this.candidates.has(instrument.instrumentToken) ||
+          (recheckOi && !this.watchedOptions.has(instrument.instrumentToken))
+      );
+      const quotes = additions.length ? await getFullQuotes(additions.map(instrumentQuoteKey)) : {};
+      if (version !== this.filterVersion || this.status !== 'ready') return;
+      if (recheckOi) this.oiCheckedAt = Date.now();
+
+      // Prices (or the filter) may have moved while the REST request was in flight.
+      const latest = this.planSelection(this.filter);
+      const candidates = new Map(
+        latest
+          .filter(
+            (instrument) => this.candidates.has(instrument.instrumentToken) || quotes[instrumentQuoteKey(instrument)]
+          )
+          .map((instrument) => [instrument.instrumentToken, instrument])
+      );
+      const watchedOptions = new Set(
+        [...candidates.values()]
+          .filter(
+            (instrument) =>
+              this.watchedOptions.has(instrument.instrumentToken) ||
+              (quotes[instrumentQuoteKey(instrument)]?.oi ?? 0) > 0
+          )
+          .map((instrument) => instrument.instrumentToken)
+      );
+      const changed =
+        candidates.size !== this.candidates.size ||
+        [...candidates.keys()].some((token) => !this.candidates.has(token)) ||
+        watchedOptions.size !== this.watchedOptions.size ||
+        [...watchedOptions].some((token) => !this.watchedOptions.has(token));
+      if (!changed) return;
+
+      marketDataService.setSubscriptions('option-chain', {
+        full: [...watchedOptions],
+        ltp: [...this.equityByToken.keys()],
+      });
+      for (const token of this.rows.keys()) {
+        if (!candidates.has(token)) this.rows.delete(token);
+      }
+      for (const [token, instrument] of candidates) {
+        if (this.watchedOptions.has(token)) continue;
+        const quote = quotes[instrumentQuoteKey(instrument)];
+        if (quote && (quote.oi ?? 0) > 0) {
+          this.rows.set(token, this.createRow(instrument, quote.depth?.buy[0]?.price ?? 0, quote.oi!));
+        }
+      }
+      this.candidates = candidates;
+      this.watchedOptions = watchedOptions;
+      marginBook.markPending([...this.rows.values()].map((row) => row.tradingsymbol));
+      this.recomputeRows();
+      this.publish();
+    } finally {
+      this.selectionRefreshing = false;
+    }
   }
 
   async updateSdMultiplier(value: number) {
@@ -351,6 +456,8 @@ export class OptionChainCoordinator {
   }
 
   async shutdown() {
+    ++this.filterVersion;
+    this.status = 'idle';
     if (this.computeTimer) {
       clearInterval(this.computeTimer);
     }

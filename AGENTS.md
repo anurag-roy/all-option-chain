@@ -117,6 +117,7 @@ Important methods:
 - `applyFilter(filter)` — full pipeline: plan → quote → OI filter → subscribe → rows. **Auto-excludes** NSE + custom banned symbols server-side.
 - `getSnapshot()` — returns **all** loaded rows (no entry-value filter)
 - `getVisibleRowCount()` — rows where `sellValue >= entryValue` (for status UI)
+- Every 500ms, reselects strikes from the cached option/future catalog using live underlying LTP and cached expiry minutes. Only new candidates require REST quotes; subscription changes retain other owners. Positive-OI rows enter the snapshot, zero-OI ticks remove them, and their subscriptions remain to detect OI recovery. Initially zero-OI candidates are rechecked via REST every 60s without consuming ticker slots. In-flight selections are discarded after a new filter or shutdown.
 - `updateSdMultiplier(value)` — re-runs `applyFilter` with new multiplier
 - `onNotification(handler)` — wired in `app.ts` to `clientBroadcaster.publishNotification`
 - `detectAlerts()` — order-trigger and top-bid-change notifications (see below)

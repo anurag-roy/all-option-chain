@@ -14,14 +14,14 @@ export type PlannedInstrument = DbInstrument & {
   futExpiry: string;
 };
 
-export async function planInstrumentsForSymbol(
+export function planInstrumentsForSymbol(
   _symbol: string,
   expiry: string,
   sdMultiplier: number,
   options: DbInstrument[],
   futures: DbInstrument[],
   underlyingLtp: number
-): Promise<PlannedInstrument[]> {
+): PlannedInstrument[] {
   const [futExpiry] = futures
     .map((future) => future.expiry!)
     .filter((futureExpiry) => futureExpiry >= expiry)

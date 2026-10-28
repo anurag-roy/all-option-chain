@@ -170,9 +170,9 @@ export function GsecScanner() {
                   <SortableHead column='rank' label='RRR Rank' sort={sort} onSort={toggleSort} />
                   <TableHead className='text-center'>Coupon</TableHead>
                   <SortableHead column='maturity' label='Maturity' sort={sort} onSort={toggleSort} />
-                  <SortableHead column='sellRate' label='Sell Rate' sort={sort} onSort={toggleSort} />
-                  <SortableHead column='ytm' label='RRR (YTM)' sort={sort} onSort={toggleSort} />
                   <SortableHead column='buyRate' label='Buy Rate' sort={sort} onSort={toggleSort} />
+                  <SortableHead column='ytm' label='RRR (YTM)' sort={sort} onSort={toggleSort} />
+                  <SortableHead column='sellRate' label='Sell Rate' sort={sort} onSort={toggleSort} />
                   <SortableHead column='modifiedDuration' label='Mod Dur (mo)' sort={sort} onSort={toggleSort} />
                   <SortableHead column='dv01' label='DV01' sort={sort} onSort={toggleSort} />
                   <SortableHead column='convexity' label='Convexity' sort={sort} onSort={toggleSort} />
@@ -226,8 +226,19 @@ export function GsecScanner() {
                         </TableCell>
                         <TableCell
                           className={cn(
-                            'bg-red-50/60 text-center dark:bg-red-900/10',
+                            'bg-blue-50/60 text-center dark:bg-blue-900/10',
                             withinTarget && 'text-success font-semibold'
+                          )}
+                        >
+                          {maxBuyPrice === null ? '—' : maxBuyPrice.toFixed(2)}
+                        </TableCell>
+                        <TableCell className='text-center font-semibold'>
+                          {row.rrr === null ? '—' : formatGsecRrr(row.rrr)}
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            'bg-red-50/60 text-center font-bold dark:bg-red-900/10',
+                            withinTarget && 'text-success'
                           )}
                         >
                           {row.sellRate === null ? (
@@ -240,17 +251,6 @@ export function GsecScanner() {
                               {withinTarget ? <span className='sr-only'>, within target YTM price ceiling</span> : null}
                             </>
                           )}
-                        </TableCell>
-                        <TableCell className='text-center font-semibold'>
-                          {row.rrr === null ? '—' : formatGsecRrr(row.rrr)}
-                        </TableCell>
-                        <TableCell
-                          className={cn(
-                            'bg-blue-50/60 text-center dark:bg-blue-900/10',
-                            withinTarget && 'text-success font-semibold'
-                          )}
-                        >
-                          {maxBuyPrice === null ? '—' : maxBuyPrice.toFixed(2)}
                         </TableCell>
                         <TableCell className='text-center'>
                           {formatDurationMonths(row.analytics?.risk?.modifiedDuration)}

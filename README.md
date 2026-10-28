@@ -163,6 +163,15 @@ Sigma bounds and Black-Scholes delta use **NSE trading minutes**, not working da
 - **`N`** — market minutes from now until expiry (60s cache TTL; decays during the session)
 - **Delta** uses year fraction `N / T`; sigma formulas use `sqrt(T / N)` as before
 
+From **15:35:01 through 15:40:00 IST each day**, the option chain freezes each stock's underlying LTP at its latest
+available value before the cutoff. Both CE and PE strikes within **97.5%–102.5%** of that frozen value (including
+the boundaries) are excluded, even if they pass the other filters. Option bids and OI continue updating. The freeze
+survives filter changes and ends after 15:40:00; each day gets a new snapshot. A stock first loaded during the window
+uses its first available underlying quote, since the app has no historical cutoff price for it.
+
+[NSE CAS timings](https://www.nseindia.com/static/products-services/closing-auction-session) confirm that CAS ends
+at 15:35 and equity derivatives trade until 15:40. The 2.5% exclusion is this app's additional filter.
+
 ### API endpoints
 
 | Method | Path | Purpose |

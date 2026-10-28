@@ -4,6 +4,7 @@ import { calculateSd, calculateSigmaN, calculateSigmaX, calculateSigmaXi } from 
 import { logger } from '@server/lib/logger';
 import { accessToken } from '@server/lib/services/access-token';
 import { ensureTodayNseBans, getBannedNames } from '@server/lib/services/bans-service';
+import { ClosingSession, isWithinClosingBand } from '@server/lib/services/closing-session';
 import {
   getEquityByName,
   getFuturesForName,
@@ -35,7 +36,6 @@ type EquitySnapshot = {
   token: number;
   prevClose: number;
   ltp: number;
-  gainLossPercent: number;
 };
 
 type SymbolInstruments = {
@@ -48,6 +48,7 @@ const OI_RECHECK_MS = 60_000;
 export class OptionChainCoordinator {
   private rows = new Map<number, InternalRow>();
   private equityLtps = new Map<string, number>();
+  private closingSession = new ClosingSession();
   private equityByToken = new Map<number, EquitySnapshot>();
   private symbolInstruments = new Map<string, SymbolInstruments>();
   private candidates = new Map<number, PlannedInstrument>();
@@ -73,11 +74,11 @@ export class OptionChainCoordinator {
 
       const equitySnapshot = this.equityByToken.get(fullTick.instrument_token);
       if (equitySnapshot) {
+        // Capture all last-known LTPs before the first post-cutoff tick can overwrite one.
+        this.closingSession.getPrices(this.equityLtps);
         const ltp = fullTick.last_price ?? equitySnapshot.ltp;
         if (ltp > 0) {
           equitySnapshot.ltp = ltp;
-          equitySnapshot.gainLossPercent =
-            equitySnapshot.prevClose > 0 ? ((ltp - equitySnapshot.prevClose) * 100) / equitySnapshot.prevClose : 0;
           this.equityLtps.set(equitySnapshot.symbol, ltp);
         }
         return;
@@ -135,7 +136,7 @@ export class OptionChainCoordinator {
           }
         : null,
       subscribedTokenCount: marketDataService.getSubscribedTokens('option-chain').size,
-      rowCount: this.rows.size,
+      rowCount: this.getEligibleRows().length,
       visibleRowCount: this.getVisibleRowCount(),
       hasAccessToken: Boolean(accessToken),
     };
@@ -185,14 +186,12 @@ export class OptionChainCoordinator {
         continue;
       }
 
-      const gainLossPercent = prevClose > 0 ? ((ltp - prevClose) * 100) / prevClose : 0;
       equityLtps.set(symbol, ltp);
       equityByToken.set(token, {
         symbol,
         token,
         prevClose,
         ltp,
-        gainLossPercent,
       });
     }
 
@@ -260,9 +259,15 @@ export class OptionChainCoordinator {
     catalog = this.symbolInstruments,
     ltps = this.equityLtps
   ): PlannedInstrument[] {
+    // Preserve the current chain's cutoff prices even when new REST quotes replace its map.
+    this.closingSession.getPrices(this.equityLtps);
+    const { ltps: selectionLtps, frozen } = this.closingSession.getPrices(ltps);
     return [...catalog].flatMap(([symbol, { options, futures }]) => {
-      const ltp = ltps.get(symbol) ?? 0;
-      return ltp > 0 ? planInstrumentsForSymbol(symbol, filter.expiry, filter.sdMultiplier, options, futures, ltp) : [];
+      const ltp = selectionLtps.get(symbol) ?? 0;
+      if (ltp <= 0) return [];
+      return planInstrumentsForSymbol(symbol, filter.expiry, filter.sdMultiplier, options, futures, ltp).filter(
+        (instrument) => !frozen || !isWithinClosingBand(instrument.strike!, ltp)
+      );
     });
   }
 
@@ -344,7 +349,7 @@ export class OptionChainCoordinator {
   getSnapshot(): OptionChainData {
     const snapshot: OptionChainData = {};
 
-    for (const row of this.rows.values()) {
+    for (const row of this.getEligibleRows()) {
       const { futExpiry: _futExpiry, ...publicRow } = row;
       snapshot[row.instrumentToken] = publicRow;
     }
@@ -354,7 +359,14 @@ export class OptionChainCoordinator {
 
   getVisibleRowCount(): number {
     const entryValue = this.filter?.entryValue ?? 0;
-    return [...this.rows.values()].filter((row) => row.sellValue >= entryValue).length;
+    return this.getEligibleRows().filter((row) => row.sellValue >= entryValue).length;
+  }
+
+  private getEligibleRows(): InternalRow[] {
+    const { ltps, frozen } = this.closingSession.getPrices(this.equityLtps);
+    return [...this.rows.values()].filter(
+      (row) => !frozen || !isWithinClosingBand(row.strike, ltps.get(row.name) ?? row.underlyingLtp)
+    );
   }
 
   private createRow(instrument: PlannedInstrument, bid: number, oi: number): InternalRow {
@@ -392,12 +404,17 @@ export class OptionChainCoordinator {
     }
 
     const marketMinutesInLastYear = marketMinutesCache.getMarketMinutesInLastYear();
+    const { ltps } = this.closingSession.getPrices(this.equityLtps);
 
     for (const row of this.rows.values()) {
-      const equityLtp = this.equityLtps.get(row.name) ?? row.underlyingLtp;
+      const equityLtp = ltps.get(row.name) ?? row.underlyingLtp;
       const equitySnapshot = [...this.equityByToken.values()].find((snapshot) => snapshot.symbol === row.name);
       row.underlyingLtp = equityLtp;
-      row.gainLossPercent = equitySnapshot?.gainLossPercent;
+      row.gainLossPercent = equitySnapshot
+        ? equitySnapshot.prevClose > 0
+          ? ((equityLtp - equitySnapshot.prevClose) * 100) / equitySnapshot.prevClose
+          : 0
+        : undefined;
 
       const prevStrikePosition = row.strikePosition;
       row.strikePosition = calculateStrikePosition(row.strike, equityLtp);

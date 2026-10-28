@@ -115,9 +115,10 @@ Important methods:
 
 - `init()` — warm market-minutes cache, connect Kite ticker, start intervals
 - `applyFilter(filter)` — full pipeline: plan → quote → OI filter → subscribe → rows. **Auto-excludes** NSE + custom banned symbols server-side.
-- `getSnapshot()` — returns **all** loaded rows (no entry-value filter)
+- `getSnapshot()` — returns all eligible loaded rows (no entry-value filter); applies the closing-session strike exclusion even while a selection refresh is pending
 - `getVisibleRowCount()` — rows where `sellValue >= entryValue` (for status UI)
 - Every 500ms, reselects strikes from the cached option/future catalog using live underlying LTP and cached expiry minutes. Only new candidates require REST quotes; subscription changes retain other owners. Positive-OI rows enter the snapshot, zero-OI ticks remove them, and their subscriptions remain to detect OI recovery. Initially zero-OI candidates are rechecked via REST every 60s without consuming ticker slots. In-flight selections are discarded after a new filter or shutdown.
+- From 15:35:01 through 15:40:00 IST daily, `closing-session.ts` freezes underlying LTPs and excludes CE/PE strikes inside the inclusive 97.5%–102.5% band before selection and publication. Row counts use the same exclusion. Bids and OI keep updating. Frozen prices survive filter changes; a symbol first loaded during the window uses its first available quote. After the window, current LTPs resume and the exclusion ends; snapshots reset each day.
 - `updateSdMultiplier(value)` — re-runs `applyFilter` with new multiplier
 - `onNotification(handler)` — wired in `app.ts` to `clientBroadcaster.publishNotification`
 - `detectAlerts()` — order-trigger and top-bid-change notifications (see below)

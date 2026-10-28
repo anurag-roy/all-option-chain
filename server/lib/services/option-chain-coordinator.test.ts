@@ -110,6 +110,7 @@ function deferred<T>() {
 
 beforeEach(async () => {
   vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-10-27T10:00:00+05:30'));
   vi.clearAllMocks();
   mocks.minutes = 100;
   mocks.subscriptions.mockReset();
@@ -139,6 +140,119 @@ beforeEach(async () => {
     );
   coordinator = new OptionChainCoordinator();
   await coordinator.init();
+});
+
+describe('closing-session option-chain protection', () => {
+  const closingFilter = { ...filter, sdMultiplier: 0 };
+  const setTime = (time: string, day = '2026-10-27') => vi.setSystemTime(new Date(`${day}T${time}+05:30`));
+
+  it('freezes the last pre-cutoff LTP, removes both sides of the band and keeps option bids live', async () => {
+    setTime('15:35:00.500');
+    await coordinator.applyFilter(closingFilter);
+    expect(tokens()).toEqual([10, 11, 12, 13, 14, 15, 16, 17]);
+
+    await vi.advanceTimersByTimeAsync(500);
+    expect(tokens()).toEqual([10, 11, 14, 15]);
+    equityTick(104);
+    optionTick(14, 10, 1.5);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(tokens()).toEqual([10, 11, 14, 15]);
+    expect(coordinator.getSnapshot()[14]).toMatchObject({ underlyingLtp: 100, gainLossPercent: 0, bid: 1.5 });
+    expect(coordinator.getStatus()).toMatchObject({ rowCount: 4, visibleRowCount: 4 });
+  });
+
+  it('captures the latest tick before 15:35:01 even between recompute passes', async () => {
+    setTime('15:35:00.500');
+    await coordinator.applyFilter(closingFilter);
+    setTime('15:35:00.999');
+    equityTick(101);
+    setTime('15:35:01.000');
+    equityTick(110);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(tokens()).toEqual([10, 11, 14, 15, 17]);
+    expect(coordinator.getSnapshot()[14]).toMatchObject({ underlyingLtp: 101, gainLossPercent: 1 });
+  });
+
+  it('preserves the frozen price when filters are reapplied with different REST LTPs', async () => {
+    setTime('15:35:00.500');
+    await coordinator.applyFilter(closingFilter);
+    setTime('15:35:01.000');
+    equityTick(110);
+    quotes['NSE:TESTEQ0']!.last_price = 110;
+    await coordinator.applyFilter({ ...closingFilter, entryValue: 0 });
+    expect(tokens()).toEqual([10, 11, 14, 15]);
+    expect(coordinator.getSnapshot()[14]?.underlyingLtp).toBe(100);
+  });
+
+  it('uses the first available underlying quote when the chain starts inside the window', async () => {
+    setTime('15:36:00');
+    await coordinator.applyFilter(closingFilter);
+    expect(tokens()).toEqual([10, 11, 14, 15]);
+    equityTick(110);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(coordinator.getSnapshot()[14]?.underlyingLtp).toBe(100);
+  });
+
+  it('hides in-band rows while an earlier option quote request is still pending', async () => {
+    setTime('15:34:59');
+    await coordinator.applyFilter(filter);
+    mocks.minutes = 25;
+    const pending = deferred<Record<string, KiteFullQuote>>();
+    mocks.quotes.mockReturnValueOnce(pending.promise);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(mocks.quotes).toHaveBeenLastCalledWith(['NFO:TESTCE102', 'NFO:TESTPE98']);
+    setTime('15:35:01');
+    pending.resolve(quotes);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(tokens()).toEqual([10, 11, 14, 15]);
+  });
+
+  it('excludes exact band boundaries from snapshots and counts even during pending reselection', async () => {
+    const boundaryOptions = [
+      instrument(20, 'PE', 97.5),
+      instrument(21, 'CE', 102.5),
+      instrument(22, 'PE', 97.45),
+      instrument(23, 'CE', 102.55),
+    ];
+    mocks.options.mockResolvedValue(boundaryOptions);
+    for (const option of boundaryOptions) {
+      quotes[`NFO:${option.tradingsymbol}`] = { ...quotes['NFO:TESTCE105']!, instrument_token: option.instrumentToken };
+    }
+    setTime('15:35:00.500');
+    await coordinator.applyFilter(closingFilter);
+    expect(tokens()).toEqual([20, 21, 22, 23]);
+    setTime('15:35:01');
+    expect(tokens()).toEqual([22, 23]);
+    expect(coordinator.getStatus()).toMatchObject({ rowCount: 2, visibleRowCount: 2 });
+  });
+
+  it('removes the exclusion after 15:40:00 and resumes using prices received during the freeze', async () => {
+    setTime('15:35:00.500');
+    await coordinator.applyFilter(closingFilter);
+    setTime('15:35:01');
+    equityTick(104);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(tokens()).toEqual([10, 11, 14, 15]);
+    setTime('15:40:00');
+    expect(tokens()).toEqual([10, 11, 14, 15]);
+    setTime('15:40:00.001');
+    await vi.advanceTimersByTimeAsync(500);
+    expect(tokens()).toEqual([10, 11, 12, 14, 15, 17]);
+    expect(coordinator.getSnapshot()[14]?.underlyingLtp).toBe(104);
+  });
+
+  it('resets the freeze for the following day', async () => {
+    setTime('15:35:01');
+    await coordinator.applyFilter(closingFilter);
+    setTime('10:00:00', '2026-10-28');
+    equityTick(110);
+    await vi.advanceTimersByTimeAsync(500);
+    setTime('15:35:01', '2026-10-28');
+    equityTick(100);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(coordinator.getSnapshot()[10]?.underlyingLtp).toBe(110);
+    expect(tokens()).toEqual([10, 11, 12, 17]);
+  });
 });
 afterEach(async () => {
   await coordinator.shutdown();
